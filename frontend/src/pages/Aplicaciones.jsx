@@ -82,12 +82,8 @@ export default function Aplicaciones() {
           <p className="page-subtitle">Control de aplicaciones de insumos agrícolas y recetas reutilizables</p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          {tab === "aplicaciones" && (
-            <button className="btn btn-primary" onClick={() => setShowForm(true)} data-testid="aplicacion-new-btn"><Plus size={16} /> Nueva Aplicación</button>
-          )}
-          {tab === "recetas" && (
-            <button className="btn btn-primary" onClick={() => setShowRecetaForm(true)} data-testid="receta-new-btn"><Plus size={16} /> Nueva Receta</button>
-          )}
+          <button className="btn" onClick={() => setShowRecetaForm(true)} data-testid="receta-new-btn"><BookOpen size={16} /> Crear Receta</button>
+          <button className="btn btn-primary" onClick={() => setShowForm(true)} data-testid="aplicacion-new-btn"><Plus size={16} /> Nueva Aplicación</button>
         </div>
       </div>
 
