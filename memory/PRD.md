@@ -44,6 +44,13 @@ Aplicaciones usa recetas (plantillas de insumos)
 ## Estado de testing
 Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades, cosechas, asignaciones (conversión cestas↔kg), compras (es_equipo crea equipo), aplicaciones, inventario aggregation, actividades (horas_hombre), ventas, frío, trabajadores, analíticas.
 
+## Implementado (Fase 2 — 30/05/2026)
+- **Aplicaciones** reorganizado con pestañas **Aplicaciones** | **Recetas**
+- **Nueva Receta** como modal completo accesible desde la pestaña Recetas: nombre, agua total (L), lista dinámica de productos (con `+` para agregar y `X` para remover), observaciones
+- Unidades soportadas en recetas y aplicaciones: **Gramos, CC, ml, Kg, Lt** (antes solo Gramos/CC)
+- Listado de recetas en formato tarjeta con detalle expandible (modal "Ver receta") y eliminar
+- Validado end-to-end con backend `/api/recetas` (CRUD)
+
 ## Backlog / Próximas sesiones
 - **P0** Validación visual con el usuario contra screenshots del original
 - **P1** Subida de imágenes a plantaciones, equipos

@@ -2,19 +2,29 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
-import { Droplets, Plus, Trash2, BookOpen, X, CheckCircle, Clock } from "lucide-react";
+import { Droplets, Plus, Trash2, BookOpen, X, CheckCircle, Clock, Eye } from "lucide-react";
 
 const TIPOS = ["fertilizacion", "fungicida", "plaguicida", "herbicida", "tratamiento"];
+const UNIDADES = ["Gramos", "CC", "ml", "Kg", "Lt"];
+const UNIDAD_LABEL = {
+  Gramos: "Gr (gramos)",
+  CC: "CC (centímetros cúbicos)",
+  ml: "ml (mililitros)",
+  Kg: "Kg (kilogramos)",
+  Lt: "Lt (litros)",
+};
 
 export default function Aplicaciones() {
   const toast = useToast();
   const { canEdit, canDelete } = useAuth();
+  const [tab, setTab] = useState("aplicaciones");
   const [items, setItems] = useState([]);
   const [recetas, setRecetas] = useState([]);
   const [inventario, setInventario] = useState([]);
   const [plantaciones, setPlantaciones] = useState([]);
   const [showForm, setShowForm] = useState(false);
-  const [showRecetas, setShowRecetas] = useState(false);
+  const [showRecetaForm, setShowRecetaForm] = useState(false);
+  const [viewReceta, setViewReceta] = useState(null);
   const [filtroTipo, setFiltroTipo] = useState("");
 
   const load = async () => {
@@ -36,8 +46,14 @@ export default function Aplicaciones() {
     load();
   };
 
+  const removeReceta = async (r) => {
+    if (!window.confirm(`¿Eliminar receta "${r.nombre}"?`)) return;
+    await api.delete(`/recetas/${r._id}`);
+    toast.show("Receta eliminada");
+    load();
+  };
+
   const confirmar = async (a) => {
-    // pasa a actividades automáticamente
     await api.put(`/aplicaciones/${a._id}`, { ...a, estado: "confirmada" });
     await api.post(`/actividades`, {
       tipo: "aplicacion",
@@ -63,55 +79,134 @@ export default function Aplicaciones() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
         <div>
           <h1 className="page-title">Gestión de Aplicaciones</h1>
-          <p className="page-subtitle">Control de aplicaciones de insumos agrícolas</p>
+          <p className="page-subtitle">Control de aplicaciones de insumos agrícolas y recetas reutilizables</p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn" onClick={() => setShowRecetas(true)} data-testid="recetas-btn"><BookOpen size={16} /> Crear Receta</button>
-          <button className="btn btn-primary" onClick={() => setShowForm(true)} data-testid="aplicacion-new-btn"><Plus size={16} /> Nueva Aplicación</button>
+          {tab === "aplicaciones" && (
+            <button className="btn btn-primary" onClick={() => setShowForm(true)} data-testid="aplicacion-new-btn"><Plus size={16} /> Nueva Aplicación</button>
+          )}
+          {tab === "recetas" && (
+            <button className="btn btn-primary" onClick={() => setShowRecetaForm(true)} data-testid="receta-new-btn"><Plus size={16} /> Nueva Receta</button>
+          )}
         </div>
       </div>
 
-      <div className="kpi-grid" style={{ marginBottom: 18 }}>
-        <div className="card kpi-card"><div className="kpi-label">Total Aplicaciones</div><div className="kpi-value">{items.length}</div></div>
-        <div className="card kpi-card"><div className="kpi-label">Confirmadas</div><div className="kpi-value" style={{ color: "#16a34a" }}>{confirmadas}</div></div>
-        <div className="card kpi-card"><div className="kpi-label">Pendientes</div><div className="kpi-value" style={{ color: "#f59e0b" }}>{pendientes}</div></div>
-        <div className="card kpi-card"><div className="kpi-label">Recetas Guardadas</div><div className="kpi-value" style={{ color: "#8b5cf6" }}>{recetas.length}</div></div>
+      {/* Tabs */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 18, borderBottom: "1px solid #e2e8f0" }}>
+        {[
+          { key: "aplicaciones", label: "Aplicaciones", icon: Droplets, color: "#0ea5e9", count: items.length },
+          { key: "recetas", label: "Recetas", icon: BookOpen, color: "#8b5cf6", count: recetas.length },
+        ].map((t) => {
+          const Icon = t.icon;
+          const active = tab === t.key;
+          return (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              style={{
+                background: "transparent", border: "none", padding: "10px 16px", cursor: "pointer",
+                color: active ? t.color : "#64748b", fontWeight: active ? 700 : 500,
+                borderBottom: active ? `3px solid ${t.color}` : "3px solid transparent",
+                display: "inline-flex", alignItems: "center", gap: 8, fontSize: 14, marginBottom: -1,
+              }}
+              data-testid={`aplic-tab-${t.key}`}
+            >
+              <Icon size={16} /> {t.label}
+              <span className="badge" style={{ background: t.color + "22", color: t.color, fontSize: 11 }}>{t.count}</span>
+            </button>
+          );
+        })}
       </div>
 
-      <div className="card" style={{ marginBottom: 18 }}>
-        <div className="pill-group">
-          <button className={`pill ${!filtroTipo ? "active" : ""}`} onClick={() => setFiltroTipo("")}>Todos</button>
-          {TIPOS.map((t) => <button key={t} className={`pill ${filtroTipo === t ? "active" : ""}`} onClick={() => setFiltroTipo(t)}>{t}</button>)}
+      {tab === "aplicaciones" && (
+        <>
+          <div className="kpi-grid" style={{ marginBottom: 18 }}>
+            <div className="card kpi-card"><div className="kpi-label">Total Aplicaciones</div><div className="kpi-value">{items.length}</div></div>
+            <div className="card kpi-card"><div className="kpi-label">Confirmadas</div><div className="kpi-value" style={{ color: "#16a34a" }}>{confirmadas}</div></div>
+            <div className="card kpi-card"><div className="kpi-label">Pendientes</div><div className="kpi-value" style={{ color: "#f59e0b" }}>{pendientes}</div></div>
+            <div className="card kpi-card"><div className="kpi-label">Recetas Guardadas</div><div className="kpi-value" style={{ color: "#8b5cf6" }}>{recetas.length}</div></div>
+          </div>
+
+          <div className="card" style={{ marginBottom: 18 }}>
+            <div className="pill-group">
+              <button className={`pill ${!filtroTipo ? "active" : ""}`} onClick={() => setFiltroTipo("")}>Todos</button>
+              {TIPOS.map((t) => <button key={t} className={`pill ${filtroTipo === t ? "active" : ""}`} onClick={() => setFiltroTipo(t)}>{t}</button>)}
+            </div>
+          </div>
+
+          <div className="card">
+            <h3 style={{ marginTop: 0 }}>Aplicaciones Registradas</h3>
+            <table className="table">
+              <thead>
+                <tr><th>Fecha</th><th>Tipo</th><th>Lote</th><th>Insumos</th><th>Estado</th><th>Acciones</th></tr>
+              </thead>
+              <tbody>
+                {filtered.map((a) => (
+                  <tr key={a._id}>
+                    <td>{new Date(a.fecha).toLocaleDateString()}</td>
+                    <td><span className="badge badge-info">{a.tipo}</span></td>
+                    <td><span className="badge badge-primary">{a.lote}</span></td>
+                    <td style={{ fontSize: 13, color: "#64748b" }}>{a.insumos?.map((i) => `${i.nombre_producto} ${i.cantidad}${i.unidad}`).join(", ") || "—"}</td>
+                    <td>{a.estado === "confirmada" ? <span className="badge badge-primary"><CheckCircle size={12} style={{ verticalAlign: "middle" }} /> Confirmada</span> : <span className="badge badge-warn"><Clock size={12} style={{ verticalAlign: "middle" }} /> Pendiente</span>}</td>
+                    <td>
+                      {canEdit("aplicaciones") && a.estado !== "confirmada" && <button className="btn btn-sm btn-primary" onClick={() => confirmar(a)}>Confirmar</button>}
+                      {canDelete("aplicaciones") && <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(a)}><Trash2 size={16} /></button>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {filtered.length === 0 && <div className="empty-state">No se encontraron aplicaciones</div>}
+          </div>
+        </>
+      )}
+
+      {tab === "recetas" && (
+        <div className="card">
+          <h3 style={{ marginTop: 0 }}>Recetas guardadas</h3>
+          <p style={{ color: "#64748b", marginTop: -8, fontSize: 13 }}>Recetas reutilizables que podés seleccionar al crear una aplicación "por receta".</p>
+          {recetas.length === 0 ? (
+            <div className="empty-state" data-testid="recetas-empty">No hay recetas guardadas todavía. Crea tu primera receta con el botón "Nueva Receta".</div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
+              {recetas.map((r) => (
+                <div key={r._id} className="card" style={{ padding: 14, border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", gap: 8 }} data-testid={`receta-card-${r._id}`}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 15, color: "#0f172a" }}>{r.nombre}</div>
+                      <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                        <Droplets size={11} style={{ verticalAlign: "middle", color: "#0ea5e9" }} /> {r.cantidad_agua || 0} L de agua · {r.insumos?.length || 0} producto(s)
+                      </div>
+                    </div>
+                    <span className="badge" style={{ background: "#f3e8ff", color: "#7c3aed", fontSize: 11 }}>Receta</span>
+                  </div>
+                  {r.insumos?.length > 0 && (
+                    <div style={{ fontSize: 12, color: "#475569", background: "#f8fafc", padding: 8, borderRadius: 6 }}>
+                      {r.insumos.slice(0, 3).map((i, idx) => (
+                        <div key={idx}>• {i.nombre_producto} — {i.cantidad} {i.unidad}</div>
+                      ))}
+                      {r.insumos.length > 3 && <div style={{ color: "#94a3b8" }}>+ {r.insumos.length - 3} más</div>}
+                    </div>
+                  )}
+                  {r.observaciones && (
+                    <div style={{ fontSize: 12, color: "#64748b", fontStyle: "italic" }}>"{r.observaciones}"</div>
+                  )}
+                  <div style={{ display: "flex", gap: 6, marginTop: "auto", paddingTop: 6 }}>
+                    <button className="btn btn-sm" onClick={() => setViewReceta(r)} data-testid={`receta-view-${r._id}`}><Eye size={14} /> Ver</button>
+                    {canDelete("aplicaciones") && (
+                      <button className="btn-icon" style={{ color: "#dc2626", marginLeft: "auto" }} onClick={() => removeReceta(r)} data-testid={`receta-delete-${r._id}`}><Trash2 size={16} /></button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      </div>
-
-      <div className="card">
-        <h3 style={{ marginTop: 0 }}>Aplicaciones Registradas</h3>
-        <table className="table">
-          <thead>
-            <tr><th>Fecha</th><th>Tipo</th><th>Lote</th><th>Insumos</th><th>Estado</th><th>Acciones</th></tr>
-          </thead>
-          <tbody>
-            {filtered.map((a) => (
-              <tr key={a._id}>
-                <td>{new Date(a.fecha).toLocaleDateString()}</td>
-                <td><span className="badge badge-info">{a.tipo}</span></td>
-                <td><span className="badge badge-primary">{a.lote}</span></td>
-                <td style={{ fontSize: 13, color: "#64748b" }}>{a.insumos?.map((i) => `${i.nombre_producto} ${i.cantidad}${i.unidad}`).join(", ") || "—"}</td>
-                <td>{a.estado === "confirmada" ? <span className="badge badge-primary"><CheckCircle size={12} style={{ verticalAlign: "middle" }} /> Confirmada</span> : <span className="badge badge-warn"><Clock size={12} style={{ verticalAlign: "middle" }} /> Pendiente</span>}</td>
-                <td>
-                  {canEdit("aplicaciones") && a.estado !== "confirmada" && <button className="btn btn-sm btn-primary" onClick={() => confirmar(a)}>Confirmar</button>}
-                  {canDelete("aplicaciones") && <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(a)}><Trash2 size={16} /></button>}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {filtered.length === 0 && <div className="empty-state">No se encontraron aplicaciones</div>}
-      </div>
+      )}
 
       {showForm && <AplicacionForm inventario={inventario} plantaciones={plantaciones} recetas={recetas} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load(); }} />}
-      {showRecetas && <RecetasModal recetas={recetas} inventario={inventario} onClose={() => setShowRecetas(false)} onChange={load} />}
+      {showRecetaForm && <RecetaForm inventario={inventario} onClose={() => setShowRecetaForm(false)} onSaved={() => { setShowRecetaForm(false); load(); toast.show("Receta creada"); }} />}
+      {viewReceta && <RecetaDetail receta={viewReceta} onClose={() => setViewReceta(null)} />}
     </div>
   );
 }
@@ -172,7 +267,6 @@ function AplicacionForm({ inventario, plantaciones, recetas, onClose, onSaved })
 
     setBusy(true);
     try {
-      // Insumos a guardar
       let insumos = [];
       if (isReceta) {
         const r = recetas.find((x) => x._id === form.receta_id);
@@ -245,8 +339,7 @@ function AplicacionForm({ inventario, plantaciones, recetas, onClose, onSaved })
                 </select>
                 <input type="number" className="input" placeholder="Cantidad" value={row.cantidad || ""} onChange={(e) => updateRow(i, "cantidad", e.target.value)} />
                 <select className="select" value={row.unidad} onChange={(e) => updateRow(i, "unidad", e.target.value)}>
-                  <option value="Gramos">Gramos</option>
-                  <option value="CC">CC</option>
+                  {UNIDADES.map((u) => <option key={u} value={u}>{u}</option>)}
                 </select>
                 {i === productoRows.length - 1 && productoRows.length < 3 ? (
                   <button type="button" className="btn btn-primary" onClick={addRow} style={{ padding: "8px 14px" }}><Plus size={16} /></button>
@@ -265,6 +358,11 @@ function AplicacionForm({ inventario, plantaciones, recetas, onClose, onSaved })
               <option value="">Selecciona una receta</option>
               {recetas.map((r) => <option key={r._id} value={r._id}>{r.nombre} ({r.insumos?.length || 0} insumos)</option>)}
             </select>
+            {recetas.length === 0 && (
+              <div style={{ color: "#f59e0b", fontSize: 12, marginTop: 4 }}>
+                No tenés recetas guardadas. Crealas desde la pestaña "Recetas".
+              </div>
+            )}
           </div>
         )}
 
@@ -345,84 +443,137 @@ function AplicacionForm({ inventario, plantaciones, recetas, onClose, onSaved })
   );
 }
 
-function RecetasModal({ recetas, inventario, onClose, onChange }) {
+function RecetaForm({ inventario, onClose, onSaved }) {
   const toast = useToast();
-  const [form, setForm] = useState({ nombre: "", descripcion: "", insumos: [] });
+  const [form, setForm] = useState({ nombre: "", cantidad_agua: "", observaciones: "" });
+  const [productoRows, setProductoRows] = useState([{ nombre_producto: "", cantidad: "", unidad: "Gramos" }]);
   const [busy, setBusy] = useState(false);
 
-  const addInsumo = (inv) => {
-    if (form.insumos.some((i) => i.nombre_producto === inv.nombre_producto)) return;
-    setForm((f) => ({ ...f, insumos: [...f.insumos, { nombre_producto: inv.nombre_producto, cantidad: 0, unidad: inv.unidad, categoria: inv.categoria }] }));
+  const updateRow = (i, key, val) => {
+    const rows = [...productoRows];
+    rows[i] = { ...rows[i], [key]: val };
+    setProductoRows(rows);
   };
+  const addRow = () => setProductoRows([...productoRows, { nombre_producto: "", cantidad: "", unidad: "Gramos" }]);
+  const removeRow = (i) => setProductoRows(productoRows.filter((_, idx) => idx !== i));
 
   const guardar = async (e) => {
     e.preventDefault();
+    if (!form.nombre.trim()) { toast.show("Nombre requerido", "error"); return; }
+    if (!form.cantidad_agua || Number(form.cantidad_agua) <= 0) { toast.show("Cantidad de agua requerida", "error"); return; }
+    const insumos = productoRows
+      .filter((r) => r.nombre_producto && Number(r.cantidad) > 0)
+      .map((r) => ({ nombre_producto: r.nombre_producto, cantidad: Number(r.cantidad), unidad: r.unidad, categoria: "" }));
+    if (insumos.length === 0) { toast.show("Agrega al menos un producto", "error"); return; }
     setBusy(true);
     try {
-      await api.post("/recetas", form);
-      toast.show("Receta creada");
-      setForm({ nombre: "", descripcion: "", insumos: [] });
-      onChange();
-    } catch { toast.show("Error", "error"); }
+      await api.post("/recetas", {
+        nombre: form.nombre.trim(),
+        cantidad_agua: Number(form.cantidad_agua),
+        observaciones: form.observaciones,
+        insumos,
+      });
+      onSaved();
+    } catch { toast.show("Error al crear receta", "error"); }
     finally { setBusy(false); }
-  };
-
-  const remove = async (r) => {
-    if (!window.confirm("¿Eliminar receta?")) return;
-    await api.delete(`/recetas/${r._id}`);
-    onChange();
   };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" style={{ maxWidth: 700 }} onClick={(e) => e.stopPropagation()} data-testid="recetas-modal">
-        <h2 className="modal-title">Recetas</h2>
-        <div style={{ marginBottom: 16 }}>
-          {recetas.map((r) => (
-            <div key={r._id} className="card" style={{ marginBottom: 8, padding: 12, display: "flex", justifyContent: "space-between" }}>
-              <div>
-                <div style={{ fontWeight: 600 }}>{r.nombre}</div>
-                <div style={{ fontSize: 13, color: "#64748b" }}>{r.insumos?.length || 0} insumos</div>
-              </div>
-              <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(r)}><Trash2 size={16} /></button>
+      <form className="modal" style={{ maxWidth: 760 }} onClick={(e) => e.stopPropagation()} onSubmit={guardar} data-testid="receta-modal">
+        <h2 className="modal-title">Nueva Receta</h2>
+        <div className="modal-sub">Crea una receta reutilizable que podrás aplicar a cualquier lote</div>
+
+        <div className="form-grid">
+          <div className="field">
+            <label>Nombre de la receta *</label>
+            <input className="input" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} required data-testid="receta-form-nombre" placeholder="Ej: Fertilización primaveral" />
+          </div>
+          <div className="field">
+            <label>Cantidad de agua total (Litros) *</label>
+            <input type="number" step="0.01" className="input"
+              value={form.cantidad_agua}
+              onChange={(e) => setForm({ ...form, cantidad_agua: e.target.value })}
+              placeholder="0" required data-testid="receta-form-agua" />
+          </div>
+        </div>
+
+        <div style={{ marginTop: 18 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>Productos de la receta *</label>
+          <div style={{ color: "#64748b", fontSize: 12, marginBottom: 8 }}>Agrega los productos con su cantidad y unidad (CC, Gr, ml, Kg, Lt)</div>
+          {productoRows.map((row, i) => (
+            <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1.2fr auto", gap: 8, marginBottom: 8, alignItems: "center" }}>
+              <select className="select" value={row.nombre_producto} onChange={(e) => updateRow(i, "nombre_producto", e.target.value)} data-testid={`receta-row-${i}-producto`}>
+                <option value="">Producto</option>
+                {inventario.filter((x) => x.existencia).map((p, idx) => <option key={idx} value={p.nombre_producto}>{p.nombre_producto} ({p.total_disponible} {p.unidad})</option>)}
+              </select>
+              <input type="number" step="0.01" className="input" placeholder="Cantidad" value={row.cantidad} onChange={(e) => updateRow(i, "cantidad", e.target.value)} data-testid={`receta-row-${i}-cantidad`} />
+              <select className="select" value={row.unidad} onChange={(e) => updateRow(i, "unidad", e.target.value)} data-testid={`receta-row-${i}-unidad`}>
+                {UNIDADES.map((u) => <option key={u} value={u}>{UNIDAD_LABEL[u]}</option>)}
+              </select>
+              {i === productoRows.length - 1 ? (
+                <button type="button" className="btn btn-primary" onClick={addRow} style={{ padding: "8px 14px" }} data-testid="receta-add-row"><Plus size={16} /></button>
+              ) : (
+                <button type="button" className="btn-icon" onClick={() => removeRow(i)} style={{ color: "#dc2626" }}><X size={16} /></button>
+              )}
             </div>
           ))}
         </div>
-        <form onSubmit={guardar}>
-          <h4 style={{ margin: "0 0 8px" }}>Nueva receta</h4>
-          <div className="form-grid">
-            <div className="field">
-              <label>Nombre</label>
-              <input className="input" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} required />
-            </div>
+
+        <div className="field" style={{ marginTop: 18 }}>
+          <label>Observaciones</label>
+          <textarea className="textarea" value={form.observaciones} onChange={(e) => setForm({ ...form, observaciones: e.target.value })} placeholder="Notas sobre cuándo y cómo usar esta receta..." data-testid="receta-form-observaciones" />
+        </div>
+
+        <div className="modal-footer">
+          <button type="button" className="btn" onClick={onClose}>Cancelar</button>
+          <button type="submit" className="btn btn-primary" disabled={busy} data-testid="receta-form-submit">{busy ? "Guardando..." : "Guardar receta"}</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function RecetaDetail({ receta, onClose }) {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 560 }} onClick={(e) => e.stopPropagation()} data-testid="receta-detail">
+        <h2 className="modal-title">{receta.nombre}</h2>
+        <div className="modal-sub">Detalle de la receta</div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
+          <div className="card" style={{ padding: 12 }}>
+            <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 600 }}>Agua total</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "#0ea5e9" }}><Droplets size={16} style={{ verticalAlign: "middle" }} /> {receta.cantidad_agua || 0} L</div>
           </div>
-          <div className="field" style={{ marginTop: 10 }}>
-            <label>Descripción</label>
-            <input className="input" value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} />
+          <div className="card" style={{ padding: 12 }}>
+            <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 600 }}>Productos</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "#8b5cf6" }}>{receta.insumos?.length || 0}</div>
           </div>
-          <div style={{ marginTop: 14 }}>
-            <label style={{ fontSize: 13, fontWeight: 500 }}>Añadir insumos</label>
-            <div className="pill-group" style={{ marginTop: 6 }}>
-              {inventario.filter((i) => i.existencia).map((i, idx) => (
-                <button key={idx} type="button" className="pill" onClick={() => addInsumo(i)}>+ {i.nombre_producto}</button>
+        </div>
+
+        <div style={{ marginTop: 18 }}>
+          <h4 style={{ margin: "0 0 8px" }}>Productos</h4>
+          <table className="table">
+            <thead><tr><th>Producto</th><th>Cantidad</th><th>Unidad</th></tr></thead>
+            <tbody>
+              {receta.insumos?.map((i, idx) => (
+                <tr key={idx}><td>{i.nombre_producto}</td><td>{i.cantidad}</td><td>{i.unidad}</td></tr>
               ))}
-            </div>
-            {form.insumos.map((ins, idx) => (
-              <div key={idx} style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
-                <div style={{ flex: 1, fontSize: 14 }}>{ins.nombre_producto}</div>
-                <input type="number" className="input" style={{ width: 100 }} value={ins.cantidad} onChange={(e) => {
-                  const v = Number(e.target.value);
-                  setForm((f) => { const ins2 = [...f.insumos]; ins2[idx].cantidad = v; return { ...f, insumos: ins2 }; });
-                }} />
-                <div style={{ width: 80, fontSize: 13, color: "#64748b" }}>{ins.unidad}</div>
-              </div>
-            ))}
+            </tbody>
+          </table>
+        </div>
+
+        {receta.observaciones && (
+          <div style={{ marginTop: 18 }}>
+            <h4 style={{ margin: "0 0 8px" }}>Observaciones</h4>
+            <div style={{ color: "#475569", fontSize: 13, background: "#f8fafc", padding: 10, borderRadius: 6 }}>{receta.observaciones}</div>
           </div>
-          <div className="modal-footer">
-            <button type="button" className="btn" onClick={onClose}>Cerrar</button>
-            <button type="submit" className="btn btn-primary" disabled={busy}>Guardar receta</button>
-          </div>
-        </form>
+        )}
+
+        <div className="modal-footer">
+          <button type="button" className="btn" onClick={onClose}>Cerrar</button>
+        </div>
       </div>
     </div>
   );

@@ -749,6 +749,8 @@ async def delete_aplicacion(aid: str, _: dict = Depends(get_current_user)):
 class RecetaIn(BaseModel):
     nombre: str
     descripcion: str = ""
+    cantidad_agua: float = 0
+    observaciones: str = ""
     insumos: List[InsumoItem] = []
 
 
