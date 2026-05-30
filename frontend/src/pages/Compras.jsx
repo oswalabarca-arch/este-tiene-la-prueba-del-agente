@@ -6,7 +6,6 @@ import { ShoppingCart, Plus, Pencil, Trash2, Car, Fuel, Wrench, Users as UsersIc
 
 const CATEGORIAS = ["fertilizantes", "plaguicidas", "fungicidas", "herbicidas", "tratamiento", "semillas", "otros"];
 const UNIDADES = ["CC", "Gr"];
-const EQUIPO_CATS = ["motor", "herramienta"];
 
 const CATS_GASTO_VEH = [
   { key: "gasolina", label: "Gasolina", icon: Fuel, color: "#dc2626", bg: "#fee2e2" },
@@ -55,7 +54,7 @@ export default function Compras() {
         <h3 style={{ marginTop: 0 }}>Registros de Compra</h3>
         <table className="table">
           <thead>
-            <tr><th>Fecha</th><th>Categoría</th><th>Producto</th><th>Cantidad</th><th>Precio</th><th>Tipo</th><th>Acciones</th></tr>
+            <tr><th>Fecha</th><th>Categoría</th><th>Producto</th><th>Cantidad</th><th>Precio</th><th>Acciones</th></tr>
           </thead>
           <tbody>
             {items.map((c) => (
@@ -65,7 +64,6 @@ export default function Compras() {
                 <td>{c.nombre_producto}</td>
                 <td>{c.cantidad} {c.unidad}</td>
                 <td>${c.precio}</td>
-                <td>{c.es_equipo ? <span className="badge badge-purple">Equipo</span> : <span className="badge badge-primary">Insumo</span>}</td>
                 <td>
                   {canEdit("compras") && <button className="btn-icon" onClick={() => setEditing(c)}><Pencil size={16} /></button>}
                   {canDelete("compras") && <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(c)}><Trash2 size={16} /></button>}
@@ -182,9 +180,6 @@ function CompraModal({ initial, onClose, onSaved }) {
     descripcion: "",
     fecha_compra: today,
     es_equipo: false,
-    equipo_categoria: "herramienta",
-    equipo_marca: "",
-    equipo_modelo: "",
     ...initial,
     fecha_compra: (initial.fecha_compra || today).slice(0, 10),
   });
@@ -194,7 +189,7 @@ function CompraModal({ initial, onClose, onSaved }) {
     e.preventDefault();
     setBusy(true);
     try {
-      const payload = { ...form, precio: Number(form.precio), cantidad: Number(form.cantidad), fecha_compra: form.fecha_compra + "T00:00:00.000Z" };
+      const payload = { ...form, es_equipo: false, precio: Number(form.precio), cantidad: Number(form.cantidad), fecha_compra: form.fecha_compra + "T00:00:00.000Z" };
       if (isNew) await api.post("/compras", payload);
       else await api.put(`/compras/${initial._id}`, payload);
       toast.show(isNew ? "Compra registrada" : "Actualizada");
@@ -207,30 +202,18 @@ function CompraModal({ initial, onClose, onSaved }) {
     <div className="modal-overlay" onClick={onClose}>
       <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={submit} data-testid="compra-modal">
         <h2 className="modal-title">{isNew ? "Nueva compra" : "Editar compra"}</h2>
-        <div style={{ display: "flex", gap: 12, marginBottom: 14 }}>
-          <button type="button" className={`pill ${!form.es_equipo ? "active" : ""}`} onClick={() => setForm({ ...form, es_equipo: false })}>📦 Insumo</button>
-          <button type="button" className={`pill ${form.es_equipo ? "active" : ""}`} onClick={() => setForm({ ...form, es_equipo: true })}>🚜 Equipo</button>
-        </div>
+        <div className="modal-sub">Registro de compras de insumos (fertilizantes, plaguicidas, etc.). Los equipos se registran en sus módulos respectivos.</div>
         <div className="form-grid">
           <div className="field">
             <label>Fecha de compra</label>
             <input type="date" className="input" value={form.fecha_compra} onChange={(e) => setForm({ ...form, fecha_compra: e.target.value })} required data-testid="compra-form-fecha" />
           </div>
-          {!form.es_equipo ? (
-            <div className="field">
-              <label>Categoría</label>
-              <select className="select" value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })}>
-                {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-          ) : (
-            <div className="field">
-              <label>Tipo de equipo</label>
-              <select className="select" value={form.equipo_categoria} onChange={(e) => setForm({ ...form, equipo_categoria: e.target.value })}>
-                {EQUIPO_CATS.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-          )}
+          <div className="field">
+            <label>Categoría</label>
+            <select className="select" value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })}>
+              {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
           <div className="field">
             <label>Nombre del producto</label>
             <input className="input" value={form.nombre_producto} onChange={(e) => setForm({ ...form, nombre_producto: e.target.value })} required data-testid="compra-form-nombre" />
@@ -249,14 +232,12 @@ function CompraModal({ initial, onClose, onSaved }) {
               data-testid="compra-form-cantidad"
             />
           </div>
-          {!form.es_equipo && (
-            <div className="field">
-              <label>Unidad</label>
-              <select className="select" value={form.unidad} onChange={(e) => setForm({ ...form, unidad: e.target.value })}>
-                {UNIDADES.map((u) => <option key={u} value={u}>{u}</option>)}
-              </select>
-            </div>
-          )}
+          <div className="field">
+            <label>Unidad</label>
+            <select className="select" value={form.unidad} onChange={(e) => setForm({ ...form, unidad: e.target.value })}>
+              {UNIDADES.map((u) => <option key={u} value={u}>{u}</option>)}
+            </select>
+          </div>
           <div className="field">
             <label>Precio total ($)</label>
             <input
@@ -271,12 +252,6 @@ function CompraModal({ initial, onClose, onSaved }) {
               data-testid="compra-form-precio"
             />
           </div>
-          {form.es_equipo && (
-            <>
-              <div className="field"><label>Marca</label><input className="input" value={form.equipo_marca || ""} onChange={(e) => setForm({ ...form, equipo_marca: e.target.value })} /></div>
-              <div className="field"><label>Modelo</label><input className="input" value={form.equipo_modelo || ""} onChange={(e) => setForm({ ...form, equipo_modelo: e.target.value })} /></div>
-            </>
-          )}
         </div>
         <div className="field" style={{ marginTop: 14 }}>
           <label>Descripción</label>
