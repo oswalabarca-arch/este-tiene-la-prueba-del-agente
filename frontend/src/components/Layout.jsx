@@ -20,7 +20,15 @@ const NAV = [
       { to: "/dashboard/rrhh/nomina", label: "Nómina", icon: Wallet },
     ],
   },
-  { to: "/dashboard/plantaciones", label: "Plantaciones", icon: Sprout, module: "plantaciones" },
+  {
+    label: "Plantaciones", icon: Sprout, module: "plantaciones",
+    sub: [
+      { to: "/dashboard/plantaciones", label: "Lotes", icon: Sprout },
+      { to: "/dashboard/plantaciones/aplicaciones", label: "Aplicaciones", icon: Droplets },
+      { to: "/dashboard/plantaciones/labores", label: "Labores de personal", icon: Users },
+      { to: "/dashboard/plantaciones/cosechas", label: "Cosechas", icon: Strawberry },
+    ],
+  },
   {
     label: "Equipos", icon: Truck, module: "equipos",
     sub: [

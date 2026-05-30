@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
-import { Plus, Pencil, Trash2, MapPin, ImageOff, Sprout } from "lucide-react";
+import { Plus, Pencil, Trash2, MapPin, ImageOff, Sprout, X, Upload } from "lucide-react";
 
 export default function Plantaciones() {
   const toast = useToast();
@@ -25,12 +25,15 @@ export default function Plantaciones() {
     (p) => !search || JSON.stringify(p).toLowerCase().includes(search.toLowerCase())
   );
 
+  const cultivosOf = (p) => p.cultivos?.length ? p.cultivos : (p.cultivo ? [p.cultivo] : []);
+  const variedadesOf = (p) => p.variedades?.length ? p.variedades : (p.variedad ? [p.variedad] : []);
+
   return (
     <div data-testid="plantaciones-page">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
         <div>
           <h1 className="page-title"><Sprout style={{ display: "inline", verticalAlign: "middle", color: "#16a34a" }} /> Plantaciones</h1>
-          <p className="page-subtitle">Gestión de lotes / huertas. Cada plantación vincula sus aplicaciones, actividades, labores y cosechas.</p>
+          <p className="page-subtitle">Gestión de lotes / huertas. Cada plantación vincula sus aplicaciones, actividades y cosechas.</p>
         </div>
         <button className="btn btn-primary" onClick={() => setEditing({})} data-testid="plantaciones-new-btn">
           <Plus size={16} /> Nueva Plantación
@@ -49,29 +52,41 @@ export default function Plantaciones() {
         />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 16 }}>
-        {filtered.map((p) => (
-          <div key={p._id} className="plant-card" data-testid={`plantacion-card-${p._id}`} onClick={() => setEditing(p)}>
-            <div className="plant-card-lote">Lote {p.lote}</div>
-            <div className="plant-card-img">
-              {p.foto_principal ? <img src={p.foto_principal} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <ImageOff size={40} />}
-            </div>
-            <div className="plant-card-body">
-              <div style={{ fontSize: 16, fontWeight: 700 }}>{p.nombre}</div>
-              <div style={{ color: "#64748b", fontSize: 13, marginTop: 2 }}>{p.cultivo || "Sin cultivo"} · {p.variedad || "Sin variedad"}</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, color: "#64748b", fontSize: 13 }}>
-                <MapPin size={14} /> {p.recinto_agronomico || "—"}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 16 }}>
+        {filtered.map((p) => {
+          const cultivos = cultivosOf(p);
+          const variedades = variedadesOf(p);
+          return (
+            <div key={p._id} className="plant-card" data-testid={`plantacion-card-${p._id}`} onClick={() => setEditing(p)}>
+              <div className="plant-card-lote">Lote {p.lote}</div>
+              <div className="plant-card-img">
+                {p.foto_principal ? <img src={p.foto_principal} alt={p.nombre} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <ImageOff size={40} />}
               </div>
-              <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span className="badge badge-primary">{p.tipo_plantacion}</span>
-                <div>
-                  {canEdit("plantaciones") && <button className="btn-icon" onClick={(e) => { e.stopPropagation(); setEditing(p); }}><Pencil size={14} /></button>}
-                  {canDelete("plantaciones") && <button className="btn-icon" style={{ color: "#dc2626" }} onClick={(e) => { e.stopPropagation(); remove(p); }}><Trash2 size={14} /></button>}
+              <div className="plant-card-body">
+                <div style={{ fontSize: 16, fontWeight: 700 }}>{p.nombre}</div>
+                <div style={{ marginTop: 6, display: "flex", gap: 4, flexWrap: "wrap" }}>
+                  {cultivos.slice(0, 3).map((c) => <span key={c} className="badge badge-primary" style={{ fontSize: 11 }}>{c}</span>)}
+                  {cultivos.length === 0 && <span style={{ color: "#94a3b8", fontSize: 12 }}>Sin cultivo</span>}
+                </div>
+                {variedades.length > 0 && (
+                  <div style={{ marginTop: 4, display: "flex", gap: 4, flexWrap: "wrap" }}>
+                    {variedades.slice(0, 3).map((v) => <span key={v} className="badge badge-purple" style={{ fontSize: 11 }}>{v}</span>)}
+                  </div>
+                )}
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, color: "#64748b", fontSize: 12 }}>
+                  <MapPin size={12} /> {p.superficie_geometrica ? `${p.superficie_geometrica} m²` : (p.recinto_agronomico || "—")}
+                </div>
+                <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span className="badge badge-primary" style={{ fontSize: 11 }}>{p.tipo_plantacion}</span>
+                  <div>
+                    {canEdit("plantaciones") && <button className="btn-icon" onClick={(e) => { e.stopPropagation(); setEditing(p); }}><Pencil size={14} /></button>}
+                    {canDelete("plantaciones") && <button className="btn-icon" style={{ color: "#dc2626" }} onClick={(e) => { e.stopPropagation(); remove(p); }}><Trash2 size={14} /></button>}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         {filtered.length === 0 && <div className="empty-state">Sin plantaciones</div>}
       </div>
 
@@ -80,30 +95,83 @@ export default function Plantaciones() {
   );
 }
 
+// Convierte un archivo a base64 data URL
+function fileToDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 function PlantacionModal({ initial, onClose, onSaved }) {
   const toast = useToast();
   const isNew = !initial._id;
+
+  const initialCultivos = initial.cultivos?.length ? initial.cultivos : (initial.cultivo ? [initial.cultivo] : []);
+  const initialVariedades = initial.variedades?.length ? initial.variedades : (initial.variedad ? [initial.variedad] : []);
+
   const [form, setForm] = useState({
     nombre: "",
     lote: "",
-    recinto_agronomico: "",
-    cultivo: "",
-    variedad: "",
-    tipo_plantacion: "CONVENCIONAL",
     superficie_geometrica: 0,
-    inventario_plantas: 0,
+    fecha_inicio: "",
+    fecha_finalizacion: "",
     sistema_riego: "",
+    tipo_plantacion: "CONVENCIONAL",
+    foto_principal: "",
+    foto_secundaria: "",
     observaciones: "",
     ...initial,
+    cultivos: initialCultivos,
+    variedades: initialVariedades,
+    fecha_inicio: (initial.fecha_inicio || "").slice(0, 10),
+    fecha_finalizacion: (initial.fecha_finalizacion || "").slice(0, 10),
   });
   const [busy, setBusy] = useState(false);
+  const [cultivoInput, setCultivoInput] = useState("");
+  const [variedadInput, setVariedadInput] = useState("");
+
+  const addCultivo = () => {
+    const v = cultivoInput.trim();
+    if (!v) return;
+    if (!form.cultivos.includes(v)) setForm({ ...form, cultivos: [...form.cultivos, v] });
+    setCultivoInput("");
+  };
+  const removeCultivo = (c) => setForm({ ...form, cultivos: form.cultivos.filter((x) => x !== c) });
+
+  const addVariedad = () => {
+    const v = variedadInput.trim();
+    if (!v) return;
+    if (!form.variedades.includes(v)) setForm({ ...form, variedades: [...form.variedades, v] });
+    setVariedadInput("");
+  };
+  const removeVariedad = (c) => setForm({ ...form, variedades: form.variedades.filter((x) => x !== c) });
+
+  const handlePhotoChange = async (key, e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { toast.show("Imagen muy grande (máx 2 MB)", "error"); return; }
+    const data = await fileToDataURL(file);
+    setForm({ ...form, [key]: data });
+  };
 
   const submit = async (e) => {
     e.preventDefault();
     setBusy(true);
     try {
-      if (isNew) await api.post("/plantaciones", form);
-      else await api.put(`/plantaciones/${initial._id}`, form);
+      // Mantener compatibilidad con campos legacy
+      const payload = {
+        ...form,
+        cultivo: form.cultivos[0] || "",
+        variedad: form.variedades[0] || "",
+        fecha_inicio: form.fecha_inicio || null,
+        fecha_finalizacion: form.fecha_finalizacion || null,
+        superficie_geometrica: Number(form.superficie_geometrica || 0),
+      };
+      if (isNew) await api.post("/plantaciones", payload);
+      else await api.put(`/plantaciones/${initial._id}`, payload);
       toast.show(isNew ? "Plantación creada" : "Actualizada");
       onSaved();
     } catch (err) {
@@ -113,14 +181,30 @@ function PlantacionModal({ initial, onClose, onSaved }) {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={submit} data-testid="plantacion-modal">
+      <form className="modal" style={{ maxWidth: 800 }} onClick={(e) => e.stopPropagation()} onSubmit={submit} data-testid="plantacion-modal">
         <h2 className="modal-title">{isNew ? "Nueva plantación" : `Editar: ${initial.nombre}`}</h2>
+        <div className="modal-sub">Datos generales del lote</div>
+
         <div className="form-grid">
-          <Field label="Nombre" value={form.nombre} onChange={(v) => setForm({ ...form, nombre: v })} required testid="plant-form-nombre" />
-          <Field label="Lote" value={form.lote} onChange={(v) => setForm({ ...form, lote: v })} required testid="plant-form-lote" />
-          <Field label="Recinto agronómico" value={form.recinto_agronomico} onChange={(v) => setForm({ ...form, recinto_agronomico: v })} />
-          <Field label="Cultivo" value={form.cultivo} onChange={(v) => setForm({ ...form, cultivo: v })} />
-          <Field label="Variedad" value={form.variedad} onChange={(v) => setForm({ ...form, variedad: v })} />
+          <div className="field">
+            <label>Nombre</label>
+            <input className="input" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} required data-testid="plant-form-nombre" />
+          </div>
+          <div className="field">
+            <label>Identificador del lote</label>
+            <input className="input" placeholder="Ej: A-01, Lote Norte" value={form.lote} onChange={(e) => setForm({ ...form, lote: e.target.value })} required data-testid="plant-form-lote" />
+          </div>
+          <div className="field">
+            <label>Superficie (m²)</label>
+            <input
+              type="number" step="0.01" className="input"
+              value={form.superficie_geometrica === 0 || form.superficie_geometrica === "" ? "" : form.superficie_geometrica}
+              onChange={(e) => setForm({ ...form, superficie_geometrica: e.target.value === "" ? 0 : Number(e.target.value) })}
+              onFocus={(e) => { if (form.superficie_geometrica === 0) e.target.select(); }}
+              placeholder="0"
+              data-testid="plant-form-superficie"
+            />
+          </div>
           <div className="field">
             <label>Tipo de plantación</label>
             <select className="select" value={form.tipo_plantacion} onChange={(e) => setForm({ ...form, tipo_plantacion: e.target.value })}>
@@ -129,14 +213,87 @@ function PlantacionModal({ initial, onClose, onSaved }) {
               <option value="HIDROPONICA">HIDROPÓNICA</option>
             </select>
           </div>
-          <Field label="Superficie geométrica (m²)" type="number" value={form.superficie_geometrica} onChange={(v) => setForm({ ...form, superficie_geometrica: Number(v) })} />
-          <Field label="Inventario de plantas" type="number" value={form.inventario_plantas} onChange={(v) => setForm({ ...form, inventario_plantas: Number(v) })} />
-          <Field label="Sistema de riego" value={form.sistema_riego} onChange={(v) => setForm({ ...form, sistema_riego: v })} />
+          <div className="field">
+            <label>Fecha de siembra</label>
+            <input type="date" className="input" value={form.fecha_inicio} onChange={(e) => setForm({ ...form, fecha_inicio: e.target.value })} data-testid="plant-form-fecha-inicio" />
+          </div>
+          <div className="field">
+            <label>Fecha de finalización</label>
+            <input type="date" className="input" value={form.fecha_finalizacion} onChange={(e) => setForm({ ...form, fecha_finalizacion: e.target.value })} data-testid="plant-form-fecha-fin" />
+          </div>
+          <div className="field">
+            <label>Sistema de riego</label>
+            <input className="input" placeholder="Ej: Goteo, Aspersión" value={form.sistema_riego} onChange={(e) => setForm({ ...form, sistema_riego: e.target.value })} data-testid="plant-form-riego" />
+          </div>
         </div>
-        <div className="field" style={{ marginTop: 14 }}>
+
+        {/* Cultivos */}
+        <div style={{ marginTop: 18 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>Tipos de cultivo</label>
+          <div style={{ color: "#64748b", fontSize: 12, marginBottom: 8 }}>Agrega uno o más cultivos (Fresa, Arándano, etc.)</div>
+          <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+            <input
+              className="input"
+              placeholder="Ej: Fresa"
+              value={cultivoInput}
+              onChange={(e) => setCultivoInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCultivo(); } }}
+              data-testid="plant-form-cultivo-input"
+            />
+            <button type="button" className="btn btn-primary" onClick={addCultivo} data-testid="plant-form-cultivo-add"><Plus size={14} /> Agregar</button>
+          </div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {form.cultivos.map((c) => (
+              <span key={c} className="badge badge-primary" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 8px 5px 12px" }}>
+                {c}
+                <button type="button" onClick={() => removeCultivo(c)} style={{ background: "transparent", border: "none", color: "inherit", cursor: "pointer", padding: 0, display: "inline-flex" }}><X size={12} /></button>
+              </span>
+            ))}
+            {form.cultivos.length === 0 && <span style={{ color: "#94a3b8", fontSize: 13 }}>Sin cultivos agregados</span>}
+          </div>
+        </div>
+
+        {/* Variedades */}
+        <div style={{ marginTop: 18 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>Variedades del cultivo</label>
+          <div style={{ color: "#64748b", fontSize: 12, marginBottom: 8 }}>Agrega una o más variedades (Albion, San Andreas, etc.)</div>
+          <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+            <input
+              className="input"
+              placeholder="Ej: Albion"
+              value={variedadInput}
+              onChange={(e) => setVariedadInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addVariedad(); } }}
+              data-testid="plant-form-variedad-input"
+            />
+            <button type="button" className="btn btn-primary" onClick={addVariedad} data-testid="plant-form-variedad-add"><Plus size={14} /> Agregar</button>
+          </div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {form.variedades.map((c) => (
+              <span key={c} className="badge badge-purple" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 8px 5px 12px" }}>
+                {c}
+                <button type="button" onClick={() => removeVariedad(c)} style={{ background: "transparent", border: "none", color: "inherit", cursor: "pointer", padding: 0, display: "inline-flex" }}><X size={12} /></button>
+              </span>
+            ))}
+            {form.variedades.length === 0 && <span style={{ color: "#94a3b8", fontSize: 13 }}>Sin variedades agregadas</span>}
+          </div>
+        </div>
+
+        {/* Fotos */}
+        <div style={{ marginTop: 18 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>Fotos del lote</label>
+          <div style={{ color: "#64748b", fontSize: 12, marginBottom: 8 }}>Sube hasta dos fotos (máx 2 MB cada una)</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <PhotoSlot label="Foto principal" value={form.foto_principal} onChange={(e) => handlePhotoChange("foto_principal", e)} onClear={() => setForm({ ...form, foto_principal: "" })} testid="plant-form-foto-principal" />
+            <PhotoSlot label="Foto secundaria" value={form.foto_secundaria} onChange={(e) => handlePhotoChange("foto_secundaria", e)} onClear={() => setForm({ ...form, foto_secundaria: "" })} testid="plant-form-foto-secundaria" />
+          </div>
+        </div>
+
+        <div className="field" style={{ marginTop: 18 }}>
           <label>Observaciones</label>
-          <textarea className="textarea" value={form.observaciones} onChange={(e) => setForm({ ...form, observaciones: e.target.value })} />
+          <textarea className="textarea" value={form.observaciones} onChange={(e) => setForm({ ...form, observaciones: e.target.value })} data-testid="plant-form-observaciones" />
         </div>
+
         <div className="modal-footer">
           <button type="button" className="btn" onClick={onClose}>Cancelar</button>
           <button type="submit" className="btn btn-primary" disabled={busy} data-testid="plant-form-submit">{busy ? "..." : "Guardar"}</button>
@@ -146,11 +303,25 @@ function PlantacionModal({ initial, onClose, onSaved }) {
   );
 }
 
-function Field({ label, value, onChange, type = "text", required, testid }) {
+function PhotoSlot({ label, value, onChange, onClear, testid }) {
+  const ref = useRef(null);
   return (
-    <div className="field">
-      <label>{label}{required && " *"}</label>
-      <input type={type} className="input" value={value ?? ""} onChange={(e) => onChange(e.target.value)} required={required} data-testid={testid} />
+    <div>
+      <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6 }}>{label}</div>
+      <div style={{ position: "relative", border: "2px dashed #cbd5e1", borderRadius: 10, background: "#f8fafc", height: 140, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", cursor: "pointer" }} onClick={() => ref.current?.click()}>
+        {value ? (
+          <>
+            <img src={value} alt={label} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            <button type="button" onClick={(e) => { e.stopPropagation(); onClear(); }} style={{ position: "absolute", top: 6, right: 6, background: "rgba(0,0,0,0.6)", color: "#fff", border: "none", borderRadius: 6, padding: 4, cursor: "pointer", display: "flex" }}><X size={14} /></button>
+          </>
+        ) : (
+          <div style={{ textAlign: "center", color: "#64748b", fontSize: 13 }}>
+            <Upload size={26} style={{ marginBottom: 4 }} />
+            <div>Click para subir</div>
+          </div>
+        )}
+        <input ref={ref} type="file" accept="image/*" onChange={onChange} style={{ display: "none" }} data-testid={testid} />
+      </div>
     </div>
   );
 }

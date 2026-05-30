@@ -6,6 +6,7 @@ import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Usuarios from "./pages/Usuarios";
 import Plantaciones from "./pages/Plantaciones";
+import { PlantacionesAplicaciones, PlantacionesLabores, PlantacionesCosechas } from "./pages/PlantacionesRel";
 import Cosecha from "./pages/Cosecha";
 import AsignacionDestino from "./pages/AsignacionDestino";
 import Compras from "./pages/Compras";
@@ -45,6 +46,9 @@ function App() {
               <Route index element={<Dashboard />} />
               <Route path="usuarios" element={<Usuarios />} />
               <Route path="plantaciones" element={<Plantaciones />} />
+              <Route path="plantaciones/aplicaciones" element={<PlantacionesAplicaciones />} />
+              <Route path="plantaciones/labores" element={<PlantacionesLabores />} />
+              <Route path="plantaciones/cosechas" element={<PlantacionesCosechas />} />
               <Route path="cosecha" element={<Cosecha />} />
               <Route path="asignacion-destino" element={<AsignacionDestino />} />
               <Route path="compras" element={<Compras />} />

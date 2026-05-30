@@ -335,8 +335,10 @@ class PlantacionIn(BaseModel):
     superficie_declarada: float = 0
     fecha_inicio: Optional[str] = None
     fecha_finalizacion: Optional[str] = None
-    cultivo: str = ""
-    variedad: str = ""
+    cultivo: str = ""  # mantenido por compatibilidad
+    variedad: str = ""  # mantenido por compatibilidad
+    cultivos: List[str] = []  # NUEVO: lista de cultivos (fresa, arándano, etc.)
+    variedades: List[str] = []  # NUEVO: lista de variedades (albion, san andreas, etc.)
     inventario_plantas: float = 0
     cobertura: str = ""
     sistema_riego: str = ""
@@ -344,8 +346,8 @@ class PlantacionIn(BaseModel):
     distancia_plantas: float = 0
     distancia_filas: float = 0
     codigo_externo: str = ""
-    foto_principal: str = ""
-    foto_secundaria: str = ""
+    foto_principal: str = ""  # base64 data URL
+    foto_secundaria: str = ""  # base64 data URL
     observaciones: str = ""
 
 
