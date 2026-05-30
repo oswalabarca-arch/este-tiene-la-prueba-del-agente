@@ -1,0 +1,35 @@
+{
+  "summary": "Backend testing of ERP Agricola FastAPI app. 21/21 pytest cases passed covering auth, users, plantaciones, tipos/variedades fruta, cosechas (with date filters), asignaciones-destino (cesta<->kg conversion via KG_POR_CESTA=14), compras (with es_equipo auto-creating an equipo row), aplicaciones with insumos, inventario aggregation, actividades (horas_hombre auto-calc), ventas finca/ciudad, frio-registros, trabajadores and analiticas/resumen.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "CORS", "issue": "CORSMiddleware uses allow_origins='*' with allow_credentials=True; browsers will block credentialed (cookie) requests. Cookie-based auth works only when explicit origin is set. Token (Bearer) flow works fine, but cookie SSO from frontend may fail. Recommend setting CORS_ORIGINS to the explicit REACT_APP_BACKEND_URL/frontend origin."},
+      {"endpoint": "/api/auth/login", "issue": "Cookie is set with secure=False; on HTTPS preview this still works but in production over HTTPS, secure=True is recommended."},
+      {"endpoint": "Startup ordering", "issue": "MODULOS_DISPONIBLES is referenced inside /api/auth/create-admin (defined later but resolved at call-time, so it works). Not a bug, just code-organization smell."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Consider tightening CORS by setting CORS_ORIGINS to the explicit preview URL instead of '*' to allow cookie-based auth from the React app.",
+    "Optional: set cookie secure=True (since preview is HTTPS) and samesite='none' if cross-site cookie auth is desired."
+  ],
+  "critical_code_review_comments": [
+    "Single-file server.py (~900 lines) - acceptable for MVP but should be split into routers (auth, plantaciones, cosechas, etc.) if it grows further.",
+    "_id field exposed as UUID string (not ObjectId) - safe, JSON-serializable.",
+    "password_hash correctly removed from responses.",
+    "Bcrypt hash format verified ($2b$) and seed_admin updates password on env change (matches playbook).",
+    "No brute-force lockout implemented - flagged for future hardening (not blocking)."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100%", "frontend": "N/A (not tested)"},
+  "test_credentials": "Admin: oswaldabarca@gmail.com / 123456 (auto-seeded). Verified working.",
+  "seed_data_creation": "Tests created TEST_-prefixed records (TEST_Plant_1, TEST_Aguacate/TEST_Hass, TEST_Urea compra+aplicacion, TEST_Tractor_X equipo, TEST_Worker, plus a cosecha 2026-01-15). Records left in DB for future iterations; no cleanup performed.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend 100% green. If retesting, note that TEST_Urea exists in inventario with total_comprado=100, total_enviado=10 from prior run; running tests again will increase those numbers but assertions use >= so they remain valid for some but inventario_aggregation uses ==; consider cleaning erp_agricola DB or adjusting assertions if re-running. Frontend not tested per request.",
+  "rca of the issue": "No bugs found."
+}
