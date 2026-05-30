@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
@@ -6,6 +7,8 @@ import { Plus, Pencil, Trash2, MapPin, ImageOff, Sprout, X, Upload } from "lucid
 
 export default function Plantaciones() {
   const toast = useToast();
+  const navigate = useNavigate();
+  const location = useLocation();
   const { canEdit, canDelete } = useAuth();
   const [items, setItems] = useState([]);
   const [search, setSearch] = useState("");
@@ -13,6 +16,17 @@ export default function Plantaciones() {
 
   const load = () => api.get("/plantaciones").then((r) => setItems(r.data.plantaciones));
   useEffect(() => { load(); }, []);
+
+  // Si llegamos aquí con state.edit (desde el detalle al hacer "Editar")
+  useEffect(() => {
+    const editId = location.state?.edit;
+    if (editId && items.length > 0) {
+      const p = items.find((x) => x._id === editId);
+      if (p) setEditing(p);
+      // limpiar state
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, items, navigate, location.pathname]);
 
   const remove = async (p) => {
     if (!window.confirm(`Eliminar plantación "${p.nombre}"?`)) return;
@@ -57,7 +71,7 @@ export default function Plantaciones() {
           const cultivos = cultivosOf(p);
           const variedades = variedadesOf(p);
           return (
-            <div key={p._id} className="plant-card" data-testid={`plantacion-card-${p._id}`} onClick={() => setEditing(p)}>
+            <div key={p._id} className="plant-card" data-testid={`plantacion-card-${p._id}`} onClick={() => navigate(`/dashboard/plantaciones/${p._id}`)}>
               <div className="plant-card-lote">Lote {p.lote}</div>
               <div className="plant-card-img">
                 {p.foto_principal ? <img src={p.foto_principal} alt={p.nombre} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <ImageOff size={40} />}
