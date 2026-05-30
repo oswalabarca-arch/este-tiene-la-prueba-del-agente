@@ -3,32 +3,34 @@ import { useParams } from "react-router-dom";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
-import { Truck, Plus, Pencil, Trash2, Car, Wrench, Cog, Package } from "lucide-react";
+import { Truck, Plus, Pencil, Trash2, Cog, Wrench, Package, List } from "lucide-react";
 
-const CATEGORIAS = ["vehiculo", "motor", "herramienta", "otros"];
+// "vehiculos" YA NO existe aquí - se maneja en GastosVehiculos.jsx
+const CATEGORIAS = ["motor", "herramienta", "otros"];
 const ESTADOS = ["activo", "mantenimiento", "inactivo"];
 
 const CAT_LABELS = {
-  vehiculo: { label: "Vehículos", icon: Car, color: "#3b82f6" },
-  motor: { label: "Motores", icon: Cog, color: "#8b5cf6" },
-  herramienta: { label: "Herramientas", icon: Wrench, color: "#f59e0b" },
-  otros: { label: "Otros", icon: Package, color: "#64748b" },
+  motor: { label: "Motores", icon: Cog, color: "#8b5cf6", bg: "#ede9fe" },
+  herramienta: { label: "Herramientas", icon: Wrench, color: "#f59e0b", bg: "#fef3c7" },
+  otros: { label: "Otros", icon: Package, color: "#64748b", bg: "#f1f5f9" },
 };
 
 export default function Equipos() {
   const toast = useToast();
   const { canEdit, canDelete } = useAuth();
-  const { categoria } = useParams(); // vehiculos | motores | herramientas | otros
+  const { categoria } = useParams();
   const [items, setItems] = useState([]);
   const [editing, setEditing] = useState(null);
 
-  // Mapeo URL → categoria almacenada
-  const urlToCat = { vehiculos: "vehiculo", motores: "motor", herramientas: "herramienta", otros: "otros" };
+  const urlToCat = { motores: "motor", herramientas: "herramienta", otros: "otros" };
   const filterCat = categoria ? urlToCat[categoria] : null;
-  const meta = filterCat ? CAT_LABELS[filterCat] : { label: "Todos los equipos", icon: Truck, color: "#16a34a" };
+  const meta = filterCat ? CAT_LABELS[filterCat] : { label: "Todos los equipos", icon: List, color: "#16a34a", bg: "#dcfce7" };
   const Icon = meta.icon;
 
-  const load = () => api.get("/equipos").then((r) => setItems(r.data.equipos));
+  const load = () => api.get("/equipos").then((r) => {
+    // Filtra cualquier dato antiguo con categoria="vehiculo" para no mostrarlo
+    setItems(r.data.equipos.filter((e) => (e.categoria || "otros") !== "vehiculo"));
+  });
   useEffect(() => { load(); }, []);
 
   const remove = async (e) => {
@@ -39,55 +41,72 @@ export default function Equipos() {
   };
 
   const filtered = filterCat ? items.filter((e) => (e.categoria || "otros") === filterCat) : items;
+  const totalValor = filtered.reduce((s, e) => s + (e.costo_adquisicion || 0), 0);
 
-  // KPIs por categoría
-  const kpis = CATEGORIAS.map((c) => ({
-    cat: c,
-    count: items.filter((e) => (e.categoria || "otros") === c).length,
-  }));
+  const kpis = CATEGORIAS.map((c) => {
+    const list = items.filter((e) => (e.categoria || "otros") === c);
+    return {
+      cat: c,
+      count: list.length,
+      valor: list.reduce((s, e) => s + (e.costo_adquisicion || 0), 0),
+    };
+  });
 
   return (
     <div data-testid={`equipos-page${filterCat ? `-${filterCat}` : ""}`}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
         <div>
           <h1 className="page-title"><Icon size={24} style={{ verticalAlign: "middle", color: meta.color }} /> Equipos — {meta.label}</h1>
-          <p className="page-subtitle">Gestión de equipos. Algunos se crean automáticamente desde Compras (marcando "Equipo").</p>
+          <p className="page-subtitle">
+            {filterCat
+              ? `Inventario de ${meta.label.toLowerCase()} con su valor de adquisición.`
+              : "Inventario general de motores, herramientas y otros equipos."}
+          </p>
         </div>
-        <button className="btn btn-primary" onClick={() => setEditing({ categoria: filterCat || "otros" })}><Plus size={16} /> Nuevo equipo</button>
+        <button className="btn btn-primary" onClick={() => setEditing({ categoria: filterCat || "otros" })} data-testid="equipo-new-btn"><Plus size={16} /> Nuevo</button>
       </div>
 
-      {!filterCat && (
+      {!filterCat ? (
         <div className="kpi-grid" style={{ marginBottom: 18 }}>
           {kpis.map((k) => {
             const m = CAT_LABELS[k.cat];
             const KI = m.icon;
             return (
-              <div key={k.cat} className="card kpi-card">
+              <div key={k.cat} className="card kpi-card" data-testid={`equipo-kpi-${k.cat}`}>
                 <div className="kpi-head">
                   <div className="kpi-label">{m.label}</div>
-                  <div className="kpi-icon-box" style={{ background: m.color + "22", color: m.color }}><KI size={18} /></div>
+                  <div className="kpi-icon-box" style={{ background: m.bg, color: m.color }}><KI size={18} /></div>
                 </div>
                 <div className="kpi-value" style={{ color: m.color }}>{k.count}</div>
+                <div style={{ color: "#64748b", fontSize: 13 }}>Valor: ${k.valor.toFixed(2)}</div>
               </div>
             );
           })}
         </div>
+      ) : (
+        <div className="kpi-grid" style={{ marginBottom: 18 }}>
+          <div className="card kpi-card"><div className="kpi-label">Total {meta.label.toLowerCase()}</div><div className="kpi-value" style={{ color: meta.color }}>{filtered.length}</div></div>
+          <div className="card kpi-card"><div className="kpi-label">Valor del inventario</div><div className="kpi-value" style={{ color: "#16a34a" }}>${totalValor.toFixed(2)}</div></div>
+          <div className="card kpi-card"><div className="kpi-label">Activos</div><div className="kpi-value">{filtered.filter((e) => e.estado === "activo").length}</div></div>
+          <div className="card kpi-card"><div className="kpi-label">En mantenimiento</div><div className="kpi-value" style={{ color: "#f59e0b" }}>{filtered.filter((e) => e.estado === "mantenimiento").length}</div></div>
+        </div>
       )}
 
       <div className="card">
+        <h3 style={{ marginTop: 0 }}>{filterCat ? `Inventario de ${meta.label}` : "Todos los equipos"}</h3>
         <table className="table">
-          <thead><tr><th>Nombre</th><th>Categoría</th><th>Marca/Modelo</th><th>Estado</th><th>Costo</th><th>Responsable</th><th>Acciones</th></tr></thead>
+          <thead><tr><th>Nombre</th><th>Categoría</th><th>Marca/Modelo</th><th>Estado</th><th>Valor</th><th>Responsable</th><th>Acciones</th></tr></thead>
           <tbody>
             {filtered.map((e) => {
               const cat = e.categoria || "otros";
               const m = CAT_LABELS[cat] || CAT_LABELS.otros;
               return (
-                <tr key={e._id}>
+                <tr key={e._id} data-testid={`equipo-row-${e._id}`}>
                   <td style={{ fontWeight: 600 }}>{e.nombre}</td>
-                  <td><span className="badge" style={{ background: m.color + "22", color: m.color }}>{m.label}</span></td>
+                  <td><span className="badge" style={{ background: m.bg, color: m.color }}>{m.label}</span></td>
                   <td>{[e.marca, e.modelo].filter(Boolean).join(" ") || "—"}</td>
                   <td><span className={`badge ${e.estado === "activo" ? "badge-primary" : e.estado === "mantenimiento" ? "badge-warn" : "badge-rose"}`}>{e.estado}</span></td>
-                  <td>${e.costo_adquisicion || 0}</td>
+                  <td style={{ fontWeight: 700, color: "#16a34a" }}>${(e.costo_adquisicion || 0).toFixed(2)}</td>
                   <td>{e.responsable || "—"}</td>
                   <td>
                     {canEdit("equipos") && <button className="btn-icon" onClick={() => setEditing(e)}><Pencil size={16} /></button>}
@@ -98,7 +117,7 @@ export default function Equipos() {
             })}
           </tbody>
         </table>
-        {filtered.length === 0 && <div className="empty-state">Sin equipos en esta categoría</div>}
+        {filtered.length === 0 && <div className="empty-state">Sin elementos en esta categoría</div>}
       </div>
 
       {editing && <EquipoModal initial={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
@@ -109,10 +128,13 @@ export default function Equipos() {
 function EquipoModal({ initial, onClose, onSaved }) {
   const toast = useToast();
   const isNew = !initial._id;
+  const today = new Date().toISOString().slice(0, 10);
   const [form, setForm] = useState({
     nombre: "", categoria: "otros", marca: "", modelo: "", año: "",
-    estado: "activo", costo_adquisicion: 0, ubicacion: "", responsable: "", observaciones: "",
+    estado: "activo", costo_adquisicion: 0, fecha_adquisicion: "",
+    ubicacion: "", responsable: "", observaciones: "",
     ...initial,
+    fecha_adquisicion: (initial.fecha_adquisicion || "").slice(0, 10),
   });
   const [busy, setBusy] = useState(false);
 
@@ -120,7 +142,12 @@ function EquipoModal({ initial, onClose, onSaved }) {
     e.preventDefault();
     setBusy(true);
     try {
-      const payload = { ...form, año: form.año ? Number(form.año) : null, costo_adquisicion: Number(form.costo_adquisicion || 0) };
+      const payload = {
+        ...form,
+        año: form.año ? Number(form.año) : null,
+        costo_adquisicion: Number(form.costo_adquisicion || 0),
+        fecha_adquisicion: form.fecha_adquisicion || null,
+      };
       if (isNew) await api.post("/equipos", payload);
       else await api.put(`/equipos/${initial._id}`, payload);
       toast.show("Guardado");
@@ -129,24 +156,40 @@ function EquipoModal({ initial, onClose, onSaved }) {
     finally { setBusy(false); }
   };
 
+  const catLabel = CAT_LABELS[form.categoria]?.label || "Equipo";
+
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
-        <h2 className="modal-title">{isNew ? "Nuevo equipo" : "Editar equipo"}</h2>
+      <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={submit} data-testid="equipo-modal">
+        <h2 className="modal-title">{isNew ? `Nuevo: ${catLabel}` : `Editar: ${form.nombre}`}</h2>
         <div className="form-grid">
-          <div className="field"><label>Nombre</label><input className="input" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} required /></div>
+          <div className="field"><label>Nombre</label><input className="input" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} required data-testid="equipo-form-nombre" /></div>
           <div className="field"><label>Categoría</label><select className="select" value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })}>{CATEGORIAS.map((c) => <option key={c} value={c}>{CAT_LABELS[c].label}</option>)}</select></div>
           <div className="field"><label>Marca</label><input className="input" value={form.marca || ""} onChange={(e) => setForm({ ...form, marca: e.target.value })} /></div>
           <div className="field"><label>Modelo</label><input className="input" value={form.modelo || ""} onChange={(e) => setForm({ ...form, modelo: e.target.value })} /></div>
-          <div className="field"><label>Año</label><input type="number" className="input" value={form.año || ""} onChange={(e) => setForm({ ...form, año: e.target.value })} /></div>
+          <div className="field"><label>Año</label><input type="number" className="input" value={form.año || ""} onChange={(e) => setForm({ ...form, año: e.target.value })} placeholder="2024" /></div>
           <div className="field"><label>Estado</label><select className="select" value={form.estado} onChange={(e) => setForm({ ...form, estado: e.target.value })}>{ESTADOS.map((s) => <option key={s} value={s}>{s}</option>)}</select></div>
-          <div className="field"><label>Costo</label><input type="number" className="input" value={form.costo_adquisicion} onChange={(e) => setForm({ ...form, costo_adquisicion: e.target.value })} /></div>
+          <div className="field">
+            <label>Valor ($)</label>
+            <input
+              type="number"
+              step="0.01"
+              className="input"
+              value={form.costo_adquisicion === 0 || form.costo_adquisicion === "" ? "" : form.costo_adquisicion}
+              onChange={(e) => setForm({ ...form, costo_adquisicion: e.target.value === "" ? 0 : Number(e.target.value) })}
+              onFocus={(e) => { if (form.costo_adquisicion === 0) e.target.select(); }}
+              placeholder="0"
+              data-testid="equipo-form-valor"
+            />
+          </div>
+          <div className="field"><label>Fecha de adquisición</label><input type="date" className="input" value={form.fecha_adquisicion} onChange={(e) => setForm({ ...form, fecha_adquisicion: e.target.value })} /></div>
           <div className="field"><label>Responsable</label><input className="input" value={form.responsable || ""} onChange={(e) => setForm({ ...form, responsable: e.target.value })} /></div>
+          <div className="field"><label>Ubicación</label><input className="input" value={form.ubicacion || ""} onChange={(e) => setForm({ ...form, ubicacion: e.target.value })} /></div>
         </div>
         <div className="field" style={{ marginTop: 12 }}><label>Observaciones</label><textarea className="textarea" value={form.observaciones || ""} onChange={(e) => setForm({ ...form, observaciones: e.target.value })} /></div>
         <div className="modal-footer">
           <button type="button" className="btn" onClick={onClose}>Cancelar</button>
-          <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? "..." : "Guardar"}</button>
+          <button type="submit" className="btn btn-primary" disabled={busy} data-testid="equipo-form-submit">{busy ? "..." : "Guardar"}</button>
         </div>
       </form>
     </div>

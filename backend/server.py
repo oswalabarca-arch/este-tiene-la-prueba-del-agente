@@ -613,6 +613,44 @@ async def delete_equipo(eid: str, _: dict = Depends(get_current_user)):
 
 
 # ============================================================
+# GASTOS DE VEHÍCULOS (Gasolina, Repuestos, Mano de Obra)
+# ============================================================
+CATEGORIAS_GASTO_VEHICULO = ["gasolina", "repuestos", "mano_obra"]
+
+
+class GastoVehiculoIn(BaseModel):
+    categoria: str  # gasolina | repuestos | mano_obra
+    vehiculo: str = ""  # nombre/identificador libre del vehículo
+    monto: float
+    fecha: str
+    descripcion: str = ""
+
+
+@api.get("/gastos-vehiculos")
+async def list_gastos_vehiculos(
+    categoria: Optional[str] = None,
+    _: dict = Depends(get_current_user),
+):
+    filt = {"categoria": categoria} if categoria else {}
+    return await _list("gastos_vehiculos", "gastos", filt, sort_field="fecha")
+
+
+@api.post("/gastos-vehiculos")
+async def create_gasto_vehiculo(payload: GastoVehiculoIn, user: dict = Depends(get_current_user)):
+    return await _create("gastos_vehiculos", payload.model_dump(), user)
+
+
+@api.put("/gastos-vehiculos/{gid}")
+async def update_gasto_vehiculo(gid: str, payload: GastoVehiculoIn, _: dict = Depends(get_current_user)):
+    return await _update("gastos_vehiculos", gid, payload.model_dump())
+
+
+@api.delete("/gastos-vehiculos/{gid}")
+async def delete_gasto_vehiculo(gid: str, _: dict = Depends(get_current_user)):
+    return await _delete("gastos_vehiculos", gid)
+
+
+# ============================================================
 # APLICACIONES + RECETAS
 # Una aplicación: lista de insumos consumidos del inventario, aplicado en un lote
 # Una receta: plantilla reutilizable de insumos
