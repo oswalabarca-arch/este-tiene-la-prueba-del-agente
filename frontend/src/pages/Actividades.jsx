@@ -50,17 +50,6 @@ function ActividadesBase({ filtro }) {
         modo_aplicacion: a.modo_aplicacion || null,
         observaciones: a.observaciones || "",
       });
-      await api.post("/actividades", {
-        tipo: "aplicacion",
-        tipo_personalizado: a.tipo,
-        cantidad_trabajadores: 1,
-        horas_trabajo: 1,
-        lote: a.lote,
-        fecha_actividad: a.fecha,
-        observaciones: `Aplicación ${a.tipo} confirmada${a.subtipo ? ` (${a.subtipo})` : ""}`,
-        origen: "aplicacion",
-        aplicacion_id: a._id,
-      });
       toast.show("Aplicación confirmada. Inventario actualizado.");
       load();
     } catch {
