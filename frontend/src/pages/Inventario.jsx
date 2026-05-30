@@ -2,6 +2,21 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { Boxes, Search } from "lucide-react";
 
+// Mismos colores por categoría que en Compras
+const CAT_COLORS = {
+  fertilizantes: { bg: "#dcfce7", color: "#15803d" },
+  plaguicidas:   { bg: "#fee2e2", color: "#b91c1c" },
+  fungicidas:    { bg: "#ede9fe", color: "#6d28d9" },
+  herbicidas:    { bg: "#fef3c7", color: "#b45309" },
+  tratamiento:   { bg: "#e0f2fe", color: "#0369a1" },
+  semillas:      { bg: "#fce7f3", color: "#be185d" },
+  otros:         { bg: "#f1f5f9", color: "#475569" },
+};
+const catBadge = (cat) => {
+  const c = CAT_COLORS[cat] || CAT_COLORS.otros;
+  return { background: c.bg, color: c.color };
+};
+
 export default function Inventario() {
   const [items, setItems] = useState([]);
   const [search, setSearch] = useState("");
@@ -52,7 +67,7 @@ export default function Inventario() {
           <tbody>
             {filtered.map((i, idx) => (
               <tr key={idx} data-testid={`inv-row-${idx}`}>
-                <td><span className="badge badge-info">{i.categoria}</span></td>
+                <td><span className="badge" style={catBadge(i.categoria)}>{i.categoria}</span></td>
                 <td style={{ fontWeight: 600 }}>{i.nombre_producto}</td>
                 <td>{i.total_comprado}</td>
                 <td style={{ color: "#dc2626" }}>{i.total_enviado}</td>

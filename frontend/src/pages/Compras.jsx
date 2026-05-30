@@ -7,6 +7,22 @@ import { ShoppingCart, Plus, Pencil, Trash2, Car, Fuel, Wrench, Users as UsersIc
 const CATEGORIAS = ["fertilizantes", "plaguicidas", "fungicidas", "herbicidas", "tratamiento", "semillas", "otros"];
 const UNIDADES = ["CC", "Gr"];
 
+// Color distintivo por categoría
+const CAT_COLORS = {
+  fertilizantes: { bg: "#dcfce7", color: "#15803d" },  // verde
+  plaguicidas:   { bg: "#fee2e2", color: "#b91c1c" },  // rojo
+  fungicidas:    { bg: "#ede9fe", color: "#6d28d9" },  // morado
+  herbicidas:    { bg: "#fef3c7", color: "#b45309" },  // ámbar/naranja
+  tratamiento:   { bg: "#e0f2fe", color: "#0369a1" },  // azul/cyan
+  semillas:      { bg: "#fce7f3", color: "#be185d" },  // rosa
+  otros:         { bg: "#f1f5f9", color: "#475569" },  // gris
+};
+
+const catBadge = (cat) => {
+  const c = CAT_COLORS[cat] || CAT_COLORS.otros;
+  return { background: c.bg, color: c.color };
+};
+
 const CATS_GASTO_VEH = [
   { key: "gasolina", label: "Gasolina", icon: Fuel, color: "#dc2626", bg: "#fee2e2" },
   { key: "repuestos", label: "Repuestos", icon: Wrench, color: "#f59e0b", bg: "#fef3c7" },
@@ -60,7 +76,7 @@ export default function Compras() {
             {items.map((c) => (
               <tr key={c._id}>
                 <td>{new Date(c.fecha_compra).toLocaleDateString()}</td>
-                <td><span className="badge badge-info">{c.categoria}</span></td>
+                <td><span className="badge" style={catBadge(c.categoria)}>{c.categoria}</span></td>
                 <td>{c.nombre_producto}</td>
                 <td>{c.cantidad} {c.unidad}</td>
                 <td>${c.precio}</td>
@@ -213,6 +229,9 @@ function CompraModal({ initial, onClose, onSaved }) {
             <select className="select" value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })}>
               {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
+            <div style={{ marginTop: 4 }}>
+              <span className="badge" style={catBadge(form.categoria)}>{form.categoria}</span>
+            </div>
           </div>
           <div className="field">
             <label>Nombre del producto</label>
