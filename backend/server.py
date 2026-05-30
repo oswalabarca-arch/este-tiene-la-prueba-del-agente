@@ -717,7 +717,8 @@ class AplicacionIn(BaseModel):
     tipo: str = "fertilizacion"  # fertilizacion | plaguicida | fungicida | herbicida | tratamiento
     subtipo: Optional[str] = None  # "receta" | "producto" — sólo aplica a fertilizacion/tratamiento
     lote: str = ""  # legacy single lote
-    lotes: List[str] = []  # NUEVO: múltiples lotes
+    lotes: List[str] = []  # múltiples lotes (planificados)
+    lotes_destino: List[str] = []  # lotes finales donde se aplicó (al confirmar)
     fecha: str
     estado: str = "pendiente"
     insumos: List[InsumoItem] = []
@@ -725,6 +726,10 @@ class AplicacionIn(BaseModel):
     modo_aplicacion: Optional[str] = None  # foliar | suelo | riego | drench
     observaciones: str = ""
     receta_id: Optional[str] = None
+    # Datos de ejecución (se llenan al confirmar desde Pendientes)
+    cantidad_trabajadores: int = 0
+    horas_trabajo: float = 0  # horas por trabajador
+    precio_hora: float = 0  # costo por hora de trabajo
 
 
 @api.get("/aplicaciones")
