@@ -2,17 +2,19 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
-import { Activity, Plus, Trash2, Clock, CheckCircle } from "lucide-react";
+import { Activity, Plus, Trash2, CheckCircle } from "lucide-react";
+import { catBadge } from "../lib/categoryColors";
 
 const TIPOS = ["deshierbar", "siembra", "poda", "limpieza", "transporte", "otro"];
 
 function ActividadesBase({ filtro }) {
   const toast = useToast();
-  const { canDelete } = useAuth();
+  const { canEdit, canDelete } = useAuth();
   const [items, setItems] = useState([]);
   const [aplicaciones, setAplicaciones] = useState([]);
   const [plantaciones, setPlantaciones] = useState([]);
   const [editing, setEditing] = useState(null);
+  const [confirmingId, setConfirmingId] = useState(null);
 
   const load = async () => {
     const [a, ap, p] = await Promise.all([
@@ -29,6 +31,43 @@ function ActividadesBase({ filtro }) {
     await api.delete(`/actividades/${a._id}`);
     toast.show("Eliminada");
     load();
+  };
+
+  const confirmarAplicacion = async (a) => {
+    if (!window.confirm(`¿Confirmar que se ejecutó la aplicación de ${a.tipo} en el lote ${a.lote}? Se descontarán los insumos del inventario.`)) return;
+    setConfirmingId(a._id);
+    try {
+      await api.put(`/aplicaciones/${a._id}`, {
+        tipo: a.tipo,
+        subtipo: a.subtipo || null,
+        lote: a.lote || "",
+        lotes: a.lotes || [],
+        fecha: a.fecha,
+        estado: "confirmada",
+        insumos: a.insumos || [],
+        receta_id: a.receta_id || null,
+        cantidad_agua: a.cantidad_agua || 0,
+        modo_aplicacion: a.modo_aplicacion || null,
+        observaciones: a.observaciones || "",
+      });
+      await api.post("/actividades", {
+        tipo: "aplicacion",
+        tipo_personalizado: a.tipo,
+        cantidad_trabajadores: 1,
+        horas_trabajo: 1,
+        lote: a.lote,
+        fecha_actividad: a.fecha,
+        observaciones: `Aplicación ${a.tipo} confirmada${a.subtipo ? ` (${a.subtipo})` : ""}`,
+        origen: "aplicacion",
+        aplicacion_id: a._id,
+      });
+      toast.show("Aplicación confirmada. Inventario actualizado.");
+      load();
+    } catch {
+      toast.show("Error al confirmar", "error");
+    } finally {
+      setConfirmingId(null);
+    }
   };
 
   const lotes = Array.from(new Set(plantaciones.map((p) => p.lote).filter(Boolean)));
@@ -53,16 +92,32 @@ function ActividadesBase({ filtro }) {
       {filtro === "pendientes" ? (
         <div className="card">
           <h3 style={{ marginTop: 0 }}>Aplicaciones pendientes</h3>
-          <p style={{ color: "#64748b", fontSize: 14 }}>Estas aplicaciones esperan confirmación. Confírmalas desde el módulo Aplicaciones.</p>
+          <p style={{ color: "#64748b", fontSize: 14 }}>Estas aplicaciones esperan ser confirmadas. Al confirmar, se registra la actividad y se descuentan los insumos del inventario.</p>
           <table className="table">
-            <thead><tr><th>Fecha</th><th>Tipo</th><th>Lote</th><th>Insumos</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Tipo</th><th>Lote</th><th>Insumos</th><th style={{ textAlign: "right" }}>Acciones</th></tr></thead>
             <tbody>
               {aplicaciones.filter((a) => a.estado !== "confirmada").map((a) => (
                 <tr key={a._id}>
                   <td>{new Date(a.fecha).toLocaleDateString()}</td>
-                  <td><span className="badge badge-info">{a.tipo}</span></td>
+                  <td><span className="badge" style={catBadge(a.tipo)}>{a.tipo}</span></td>
                   <td><span className="badge badge-primary">{a.lote}</span></td>
-                  <td style={{ fontSize: 13 }}>{a.insumos?.length || 0} insumo(s)</td>
+                  <td style={{ fontSize: 13, color: "#64748b" }}>
+                    {a.insumos?.length > 0
+                      ? a.insumos.map((i) => `${i.nombre_producto} ${i.cantidad}${i.unidad}`).join(", ")
+                      : "—"}
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    {canEdit("actividades") && (
+                      <button
+                        className="btn btn-sm btn-primary"
+                        onClick={() => confirmarAplicacion(a)}
+                        disabled={confirmingId === a._id}
+                        data-testid={`pendiente-confirm-${a._id}`}
+                      >
+                        <CheckCircle size={14} /> {confirmingId === a._id ? "Confirmando..." : "Confirmar"}
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

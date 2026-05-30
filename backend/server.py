@@ -542,7 +542,9 @@ async def get_inventario(_: dict = Depends(get_current_user)):
     compras_agg = await db.compras.aggregate(pipeline_compras).to_list(5000)
 
     # Consumos en aplicaciones (subarray insumos: nombre, cantidad, unidad)
+    # Solo se descuenta cuando la aplicación está confirmada (ejecutada en campo).
     pipeline_aplicaciones = [
+        {"$match": {"estado": "confirmada"}},
         {"$unwind": {"path": "$insumos", "preserveNullAndEmptyArrays": False}},
         {"$group": {
             "_id": {"nombre_producto": "$insumos.nombre_producto", "unidad": "$insumos.unidad"},
