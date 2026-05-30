@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
+import { useAuth } from "../lib/auth";
 import { Plus, Trash2, Home, Truck, DollarSign } from "lucide-react";
 
 export function VentasFinca() { return <Ventas tipo="finca" />; }
@@ -8,6 +9,7 @@ export function VentasCiudad() { return <Ventas tipo="ciudad" />; }
 
 function Ventas({ tipo }) {
   const toast = useToast();
+  const { canDelete } = useAuth();
   const [items, setItems] = useState([]);
   const [showForm, setShowForm] = useState(false);
 
@@ -55,7 +57,7 @@ function Ventas({ tipo }) {
                 <td>{v.cantidad_kg}</td>
                 <td>${v.precio_unitario}</td>
                 <td style={{ fontWeight: 700, color: "#16a34a" }}>${v.total}</td>
-                <td><button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(v)}><Trash2 size={16} /></button></td>
+                <td>{canDelete("ventas") && <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(v)}><Trash2 size={16} /></button>}</td>
               </tr>
             ))}
           </tbody>

@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
+import { useAuth } from "../lib/auth";
 import { Droplets, Plus, Trash2, BookOpen, X, CheckCircle, Clock } from "lucide-react";
 
 const TIPOS = ["fertilizacion", "fungicida", "plaguicida", "herbicida", "tratamiento"];
 
 export default function Aplicaciones() {
   const toast = useToast();
+  const { canEdit, canDelete } = useAuth();
   const [items, setItems] = useState([]);
   const [recetas, setRecetas] = useState([]);
   const [inventario, setInventario] = useState([]);
@@ -98,8 +100,8 @@ export default function Aplicaciones() {
                 <td style={{ fontSize: 13, color: "#64748b" }}>{a.insumos?.map((i) => `${i.nombre_producto} ${i.cantidad}${i.unidad}`).join(", ") || "—"}</td>
                 <td>{a.estado === "confirmada" ? <span className="badge badge-primary"><CheckCircle size={12} style={{ verticalAlign: "middle" }} /> Confirmada</span> : <span className="badge badge-warn"><Clock size={12} style={{ verticalAlign: "middle" }} /> Pendiente</span>}</td>
                 <td>
-                  {a.estado !== "confirmada" && <button className="btn btn-sm btn-primary" onClick={() => confirmar(a)}>Confirmar</button>}
-                  <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(a)}><Trash2 size={16} /></button>
+                  {canEdit("aplicaciones") && a.estado !== "confirmada" && <button className="btn btn-sm btn-primary" onClick={() => confirmar(a)}>Confirmar</button>}
+                  {canDelete("aplicaciones") && <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(a)}><Trash2 size={16} /></button>}
                 </td>
               </tr>
             ))}

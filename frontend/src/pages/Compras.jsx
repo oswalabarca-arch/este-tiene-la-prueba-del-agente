@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
+import { useAuth } from "../lib/auth";
 import { ShoppingCart, Plus, Pencil, Trash2 } from "lucide-react";
 
 const CATEGORIAS = ["fertilizantes", "plaguicidas", "fungicidas", "herbicidas", "tratamiento", "semillas", "otros"];
@@ -9,6 +10,7 @@ const EQUIPO_CATS = ["vehiculo", "herramienta", "maquinaria"];
 
 export default function Compras() {
   const toast = useToast();
+  const { canEdit, canDelete } = useAuth();
   const [items, setItems] = useState([]);
   const [editing, setEditing] = useState(null);
 
@@ -55,8 +57,8 @@ export default function Compras() {
                 <td>${c.precio}</td>
                 <td>{c.es_equipo ? <span className="badge badge-purple">Equipo</span> : <span className="badge badge-primary">Insumo</span>}</td>
                 <td>
-                  <button className="btn-icon" onClick={() => setEditing(c)}><Pencil size={16} /></button>
-                  <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(c)}><Trash2 size={16} /></button>
+                  {canEdit("compras") && <button className="btn-icon" onClick={() => setEditing(c)}><Pencil size={16} /></button>}
+                  {canDelete("compras") && <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(c)}><Trash2 size={16} /></button>}
                 </td>
               </tr>
             ))}

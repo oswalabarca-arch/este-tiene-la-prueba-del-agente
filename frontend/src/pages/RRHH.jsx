@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
+import { useAuth } from "../lib/auth";
 import { Briefcase, Plus, Pencil, Trash2, DollarSign } from "lucide-react";
 
 export function Trabajadores() {
   const toast = useToast();
+  const { canEdit, canDelete } = useAuth();
   const [items, setItems] = useState([]);
   const [editing, setEditing] = useState(null);
 
@@ -39,8 +41,8 @@ export function Trabajadores() {
                 <td>${t.salario_diario}</td>
                 <td>{t.activo ? <span className="badge badge-primary">Activo</span> : <span className="badge badge-rose">Inactivo</span>}</td>
                 <td>
-                  <button className="btn-icon" onClick={() => setEditing(t)}><Pencil size={16} /></button>
-                  <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(t)}><Trash2 size={16} /></button>
+                  {canEdit("recursos_humanos") && <button className="btn-icon" onClick={() => setEditing(t)}><Pencil size={16} /></button>}
+                  {canDelete("recursos_humanos") && <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(t)}><Trash2 size={16} /></button>}
                 </td>
               </tr>
             ))}

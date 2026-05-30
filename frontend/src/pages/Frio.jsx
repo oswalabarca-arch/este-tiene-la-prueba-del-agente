@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
+import { useAuth } from "../lib/auth";
 import { Snowflake, Plus, Trash2 } from "lucide-react";
 
 export default function Frio() {
   const toast = useToast();
+  const { canDelete } = useAuth();
   const [items, setItems] = useState([]);
   const [show, setShow] = useState(false);
   const [form, setForm] = useState({ fecha_ingreso: new Date().toISOString().slice(0, 10), cantidad_cestas: 0, lote: "", variedad: "", observaciones: "" });
@@ -55,7 +57,7 @@ export default function Frio() {
                 <td>{r.variedad}</td>
                 <td style={{ fontWeight: 700 }}>{r.cantidad_cestas}</td>
                 <td>{r.observaciones}</td>
-                <td><button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(r)}><Trash2 size={16} /></button></td>
+                <td>{canDelete("frio") && <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(r)}><Trash2 size={16} /></button>}</td>
               </tr>
             ))}
           </tbody>

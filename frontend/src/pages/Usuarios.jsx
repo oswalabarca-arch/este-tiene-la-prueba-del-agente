@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
+import { useAuth } from "../lib/auth";
 import { UserPlus, Pencil, Key, Trash2, Search } from "lucide-react";
 
 const MODULOS = [
@@ -11,6 +12,7 @@ const ROLES = ["administrador", "ingeniero", "encargado_campo", "operario"];
 
 export default function Usuarios() {
   const toast = useToast();
+  const { canEdit, canDelete } = useAuth();
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState(null);
@@ -86,9 +88,9 @@ export default function Usuarios() {
                   )}
                 </td>
                 <td style={{ textAlign: "right" }}>
-                  <button className="btn-icon" onClick={() => setEditing(u)} data-testid={`user-edit-${u._id}`}><Pencil size={16} /></button>
-                  <button className="btn-icon" onClick={() => setPwUser(u)} title="Cambiar contraseña" data-testid={`user-password-${u._id}`} style={{ color: "#f59e0b" }}><Key size={16} /></button>
-                  <button className="btn-icon" onClick={() => remove(u)} style={{ color: "#dc2626" }} data-testid={`user-delete-${u._id}`}><Trash2 size={16} /></button>
+                  {canEdit("usuarios") && <button className="btn-icon" onClick={() => setEditing(u)} data-testid={`user-edit-${u._id}`}><Pencil size={16} /></button>}
+                  {canEdit("usuarios") && <button className="btn-icon" onClick={() => setPwUser(u)} title="Cambiar contraseña" data-testid={`user-password-${u._id}`} style={{ color: "#f59e0b" }}><Key size={16} /></button>}
+                  {canDelete("usuarios") && <button className="btn-icon" onClick={() => remove(u)} style={{ color: "#dc2626" }} data-testid={`user-delete-${u._id}`}><Trash2 size={16} /></button>}
                 </td>
               </tr>
             ))}
@@ -120,6 +122,7 @@ function UserModal({ initial, onClose, onSaved }) {
     rol: initial.rol || "operario",
     salario: initial.salario || 0,
     modulos_asignados: initial.modulos_asignados || [],
+    permisos_modulos: initial.permisos_modulos || {},
   });
   const [busy, setBusy] = useState(false);
 
@@ -142,12 +145,27 @@ function UserModal({ initial, onClose, onSaved }) {
   };
 
   const toggleMod = (m) => {
-    setForm((f) => ({
-      ...f,
-      modulos_asignados: f.modulos_asignados.includes(m)
+    setForm((f) => {
+      const has = f.modulos_asignados.includes(m);
+      const next = has
         ? f.modulos_asignados.filter((x) => x !== m)
-        : [...f.modulos_asignados, m],
-    }));
+        : [...f.modulos_asignados, m];
+      // Si se quita el módulo, también limpiar sus permisos
+      const perms = { ...f.permisos_modulos };
+      if (has) delete perms[m];
+      else if (!perms[m]) perms[m] = { editar: true, eliminar: true };
+      return { ...f, modulos_asignados: next, permisos_modulos: perms };
+    });
+  };
+
+  const togglePerm = (m, key) => {
+    setForm((f) => {
+      const current = f.permisos_modulos[m] || { editar: true, eliminar: true };
+      return {
+        ...f,
+        permisos_modulos: { ...f.permisos_modulos, [m]: { ...current, [key]: !current[key] } },
+      };
+    });
   };
 
   return (
@@ -178,18 +196,64 @@ function UserModal({ initial, onClose, onSaved }) {
           </div>
           <div className="field">
             <label>Salario</label>
-            <input type="number" className="input" value={form.salario} onChange={(e) => setForm({ ...form, salario: Number(e.target.value) })} data-testid="user-form-salario" />
+            <input
+              type="number"
+              className="input"
+              value={form.salario === 0 || form.salario === "" ? "" : form.salario}
+              onChange={(e) => setForm({ ...form, salario: e.target.value === "" ? 0 : Number(e.target.value) })}
+              onFocus={(e) => { if (form.salario === 0) e.target.select(); }}
+              placeholder="0"
+              data-testid="user-form-salario"
+            />
           </div>
         </div>
+
         <div style={{ marginTop: 18 }}>
-          <label style={{ fontSize: 13, fontWeight: 500, color: "#334155" }}>Módulos asignados</label>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 8, marginTop: 8 }}>
-            {MODULOS.map((m) => (
-              <label key={m} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, cursor: "pointer" }}>
-                <input type="checkbox" checked={form.modulos_asignados.includes(m)} onChange={() => toggleMod(m)} data-testid={`user-form-modulo-${m}`} />
-                {m}
-              </label>
-            ))}
+          <label style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>Módulos asignados y permisos</label>
+          <div style={{ color: "#64748b", fontSize: 12, marginTop: 2, marginBottom: 10 }}>
+            Marca el módulo para dar acceso. Desmarca <b>editar</b> o <b>eliminar</b> para restringir esas acciones.
+          </div>
+          <div style={{ border: "1px solid #e2e8f0", borderRadius: 10, overflow: "hidden" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 90px 90px", padding: "10px 14px", background: "#f8fafc", fontSize: 12, fontWeight: 600, color: "#64748b" }}>
+              <div>Módulo</div>
+              <div style={{ textAlign: "center" }}>Editar</div>
+              <div style={{ textAlign: "center" }}>Eliminar</div>
+            </div>
+            {MODULOS.map((m) => {
+              const asignado = form.modulos_asignados.includes(m);
+              const perm = form.permisos_modulos[m] || { editar: true, eliminar: true };
+              return (
+                <div key={m} style={{ display: "grid", gridTemplateColumns: "1fr 90px 90px", padding: "10px 14px", borderTop: "1px solid #f1f5f9", alignItems: "center", background: asignado ? "#fff" : "#fafbfc" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={asignado}
+                      onChange={() => toggleMod(m)}
+                      data-testid={`user-form-modulo-${m}`}
+                    />
+                    <span style={{ textTransform: "capitalize" }}>{m.replace("_", " ")}</span>
+                  </label>
+                  <div style={{ textAlign: "center" }}>
+                    <input
+                      type="checkbox"
+                      disabled={!asignado}
+                      checked={asignado && perm.editar !== false}
+                      onChange={() => togglePerm(m, "editar")}
+                      data-testid={`user-form-perm-${m}-editar`}
+                    />
+                  </div>
+                  <div style={{ textAlign: "center" }}>
+                    <input
+                      type="checkbox"
+                      disabled={!asignado}
+                      checked={asignado && perm.eliminar !== false}
+                      onChange={() => togglePerm(m, "eliminar")}
+                      data-testid={`user-form-perm-${m}-eliminar`}
+                    />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
         <div className="modal-footer">

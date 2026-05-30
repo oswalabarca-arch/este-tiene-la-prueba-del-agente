@@ -32,8 +32,27 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  // Permission helpers
+  const isAdmin = user?.rol === "administrador";
+  const canSee = (modulo) => !modulo || isAdmin || (user?.modulos_asignados || []).includes(modulo);
+  const canEdit = (modulo) => {
+    if (!user) return false;
+    if (isAdmin) return true;
+    if (!canSee(modulo)) return false;
+    const p = user?.permisos_modulos?.[modulo];
+    // Si no se definió permiso explícito, por defecto puede editar
+    return p?.editar !== false;
+  };
+  const canDelete = (modulo) => {
+    if (!user) return false;
+    if (isAdmin) return true;
+    if (!canSee(modulo)) return false;
+    const p = user?.permisos_modulos?.[modulo];
+    return p?.eliminar !== false;
+  };
+
   return (
-    <AuthCtx.Provider value={{ user, setUser, loading, login, logout }}>
+    <AuthCtx.Provider value={{ user, setUser, loading, login, logout, isAdmin, canSee, canEdit, canDelete }}>
       {children}
     </AuthCtx.Provider>
   );

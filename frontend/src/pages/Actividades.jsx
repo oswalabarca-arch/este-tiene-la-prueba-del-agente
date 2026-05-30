@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
+import { useAuth } from "../lib/auth";
 import { Activity, Plus, Trash2, Clock, CheckCircle } from "lucide-react";
 
 const TIPOS = ["deshierbar", "siembra", "poda", "limpieza", "transporte", "otro"];
 
 function ActividadesBase({ filtro }) {
   const toast = useToast();
+  const { canDelete } = useAuth();
   const [items, setItems] = useState([]);
   const [aplicaciones, setAplicaciones] = useState([]);
   const [plantaciones, setPlantaciones] = useState([]);
@@ -84,7 +86,7 @@ function ActividadesBase({ filtro }) {
                   <td>{a.horas_trabajo}</td>
                   <td style={{ fontWeight: 700 }}>{a.horas_hombre || 0}</td>
                   <td><span className="badge badge-info">{a.origen}</span></td>
-                  <td><button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(a)}><Trash2 size={16} /></button></td>
+                  <td>{canDelete("actividades") && <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(a)}><Trash2 size={16} /></button>}</td>
                 </tr>
               ))}
             </tbody>

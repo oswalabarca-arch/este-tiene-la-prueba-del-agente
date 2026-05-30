@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
+import { useAuth } from "../lib/auth";
 import { Truck, Plus, Pencil, Trash2 } from "lucide-react";
 
 const CATEGORIAS = ["vehiculo", "herramienta", "maquinaria"];
@@ -8,6 +9,7 @@ const ESTADOS = ["activo", "mantenimiento", "inactivo"];
 
 export default function Equipos() {
   const toast = useToast();
+  const { canEdit, canDelete } = useAuth();
   const [items, setItems] = useState([]);
   const [editing, setEditing] = useState(null);
 
@@ -43,8 +45,8 @@ export default function Equipos() {
                 <td><span className={`badge ${e.estado === "activo" ? "badge-primary" : e.estado === "mantenimiento" ? "badge-warn" : "badge-rose"}`}>{e.estado}</span></td>
                 <td>${e.costo_adquisicion || 0}</td>
                 <td>
-                  <button className="btn-icon" onClick={() => setEditing(e)}><Pencil size={16} /></button>
-                  <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(e)}><Trash2 size={16} /></button>
+                  {canEdit("equipos") && <button className="btn-icon" onClick={() => setEditing(e)}><Pencil size={16} /></button>}
+                  {canDelete("equipos") && <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(e)}><Trash2 size={16} /></button>}
                 </td>
               </tr>
             ))}

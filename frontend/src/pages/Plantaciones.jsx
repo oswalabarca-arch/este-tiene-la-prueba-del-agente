@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
+import { useAuth } from "../lib/auth";
 import { Plus, Pencil, Trash2, MapPin, ImageOff, Sprout } from "lucide-react";
 
 export default function Plantaciones() {
   const toast = useToast();
+  const { canEdit, canDelete } = useAuth();
   const [items, setItems] = useState([]);
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState(null);
@@ -63,8 +65,8 @@ export default function Plantaciones() {
               <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span className="badge badge-primary">{p.tipo_plantacion}</span>
                 <div>
-                  <button className="btn-icon" onClick={(e) => { e.stopPropagation(); setEditing(p); }}><Pencil size={14} /></button>
-                  <button className="btn-icon" style={{ color: "#dc2626" }} onClick={(e) => { e.stopPropagation(); remove(p); }}><Trash2 size={14} /></button>
+                  {canEdit("plantaciones") && <button className="btn-icon" onClick={(e) => { e.stopPropagation(); setEditing(p); }}><Pencil size={14} /></button>}
+                  {canDelete("plantaciones") && <button className="btn-icon" style={{ color: "#dc2626" }} onClick={(e) => { e.stopPropagation(); remove(p); }}><Trash2 size={14} /></button>}
                 </div>
               </div>
             </div>

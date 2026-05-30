@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
+import { useAuth } from "../lib/auth";
 import { Plus, Pencil, Trash2, Eye, Award, TrendingUp, TrendingDown, AlertCircle, Apple, Filter } from "lucide-react";
 
 const KG_POR_CESTA = 14;
 
 export default function Cosecha() {
   const toast = useToast();
+  const { canEdit, canDelete } = useAuth();
   const [cosechas, setCosechas] = useState([]);
   const [tipos, setTipos] = useState([]);
   const [variedades, setVariedades] = useState([]);
@@ -187,8 +189,8 @@ export default function Cosecha() {
                   <td style={{ color: "#dc2626" }}>{conv(c.descarte)}</td>
                   <td style={{ fontWeight: 700 }}>{total.toFixed(2)} {unidadVista}</td>
                   <td>
-                    <button className="btn-icon" onClick={() => setEditing(c)}><Pencil size={16} /></button>
-                    <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(c)}><Trash2 size={16} /></button>
+                    {canEdit("cosecha") && <button className="btn-icon" onClick={() => setEditing(c)}><Pencil size={16} /></button>}
+                    {canDelete("cosecha") && <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(c)}><Trash2 size={16} /></button>}
                   </td>
                 </tr>
               );

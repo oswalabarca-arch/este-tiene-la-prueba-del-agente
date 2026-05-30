@@ -165,6 +165,7 @@ class UserCreate(BaseModel):
     rol: str = "operario"
     salario: float = 0
     modulos_asignados: List[str] = []
+    permisos_modulos: Optional[Dict[str, Dict[str, bool]]] = None
 
 
 class UserUpdate(BaseModel):
@@ -173,6 +174,7 @@ class UserUpdate(BaseModel):
     rol: Optional[str] = None
     salario: Optional[float] = None
     modulos_asignados: Optional[List[str]] = None
+    permisos_modulos: Optional[Dict[str, Dict[str, bool]]] = None
 
 
 class PasswordChange(BaseModel):
@@ -198,6 +200,7 @@ async def create_user(payload: UserCreate, _: dict = Depends(require_admin)):
         "rol": payload.rol,
         "salario": payload.salario,
         "modulos_asignados": payload.modulos_asignados,
+        "permisos_modulos": payload.permisos_modulos or {},
         "createdAt": now_iso(),
         "updatedAt": now_iso(),
     }

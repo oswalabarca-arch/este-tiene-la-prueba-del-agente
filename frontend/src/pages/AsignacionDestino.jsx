@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
+import { useAuth } from "../lib/auth";
 import { Send, Plus, Trash2, Truck, Snowflake, Home, AlertCircle } from "lucide-react";
 
 const DESTINOS = [
@@ -12,6 +13,7 @@ const DESTINOS = [
 
 export default function AsignacionDestino() {
   const toast = useToast();
+  const { canDelete } = useAuth();
   const [today] = useState(new Date().toISOString().slice(0, 10));
   const [asignaciones, setAsignaciones] = useState([]);
   const [cosechas, setCosechas] = useState([]);
@@ -113,7 +115,7 @@ export default function AsignacionDestino() {
                   <td>{a.cantidad_cestas?.toFixed(2)}</td>
                   <td>{a.cantidad_kg?.toFixed(2)} kg</td>
                   <td>{a.observaciones}</td>
-                  <td><button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(a)}><Trash2 size={16} /></button></td>
+                  <td>{canDelete("cosecha") && <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(a)}><Trash2 size={16} /></button>}</td>
                 </tr>
               );
             })}
