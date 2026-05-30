@@ -1,10 +1,13 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import {
-  LayoutGrid, Users, Sprout, Truck, Activity, Droplets, Apple, Send,
+  LayoutGrid, Users, Sprout, Truck, Activity, Droplets, Send,
   DollarSign, Snowflake, Boxes, ShoppingCart, BarChart3, ChevronDown,
-  ChevronUp, Briefcase, Leaf, LogOut
+  ChevronUp, Briefcase, Leaf, LogOut, Car, Cog, Wrench, Package,
+  Home, Building2, AlertCircle, Heart, Clock, PlusCircle, History,
+  UserCheck, Wallet, List,
 } from "lucide-react";
+import { Strawberry } from "./icons/Strawberry";
 import { useState } from "react";
 
 const NAV = [
@@ -13,40 +16,40 @@ const NAV = [
   {
     label: "Recursos Humanos", icon: Briefcase, module: "recursos_humanos",
     sub: [
-      { to: "/dashboard/rrhh/trabajadores", label: "Trabajadores" },
-      { to: "/dashboard/rrhh/nomina", label: "Nómina" },
+      { to: "/dashboard/rrhh/trabajadores", label: "Trabajadores", icon: UserCheck },
+      { to: "/dashboard/rrhh/nomina", label: "Nómina", icon: Wallet },
     ],
   },
   { to: "/dashboard/plantaciones", label: "Plantaciones", icon: Sprout, module: "plantaciones" },
   {
     label: "Equipos", icon: Truck, module: "equipos",
     sub: [
-      { to: "/dashboard/equipos", label: "Todos" },
-      { to: "/dashboard/equipos/vehiculos", label: "Vehículos" },
-      { to: "/dashboard/equipos/motores", label: "Motores" },
-      { to: "/dashboard/equipos/herramientas", label: "Herramientas" },
-      { to: "/dashboard/equipos/otros", label: "Otros" },
+      { to: "/dashboard/equipos", label: "Todos", icon: List },
+      { to: "/dashboard/equipos/vehiculos", label: "Vehículos", icon: Car },
+      { to: "/dashboard/equipos/motores", label: "Motores", icon: Cog },
+      { to: "/dashboard/equipos/herramientas", label: "Herramientas", icon: Wrench },
+      { to: "/dashboard/equipos/otros", label: "Otros", icon: Package },
     ],
   },
   {
     label: "Actividades", icon: Activity, module: "actividades",
     sub: [
-      { to: "/dashboard/actividades/pendientes", label: "Pendientes" },
-      { to: "/dashboard/actividades/registrar", label: "Registrar" },
-      { to: "/dashboard/actividades", label: "Historial" },
+      { to: "/dashboard/actividades/pendientes", label: "Pendientes", icon: Clock },
+      { to: "/dashboard/actividades/registrar", label: "Registrar", icon: PlusCircle },
+      { to: "/dashboard/actividades", label: "Historial", icon: History },
     ],
   },
   { to: "/dashboard/aplicaciones", label: "Aplicaciones", icon: Droplets, module: "aplicaciones" },
-  { to: "/dashboard/cosecha", label: "Cosecha", icon: Apple, module: "cosecha" },
+  { to: "/dashboard/cosecha", label: "Cosecha", icon: Strawberry, module: "cosecha" },
   { to: "/dashboard/asignacion-destino", label: "Asignación de destino", icon: Send, module: "cosecha" },
   {
     label: "Ventas", icon: DollarSign, module: "ventas",
     sub: [
-      { to: "/dashboard/ventas/finca", label: "Venta en finca" },
-      { to: "/dashboard/ventas/ciudad", label: "Envío a ciudad" },
-      { to: "/dashboard/ventas/refrigerar", label: "Refrigerar" },
-      { to: "/dashboard/ventas/descarte", label: "Descarte" },
-      { to: "/dashboard/ventas/donaciones", label: "Donaciones" },
+      { to: "/dashboard/ventas/finca", label: "Venta en finca", icon: Home },
+      { to: "/dashboard/ventas/ciudad", label: "Envío a ciudad", icon: Building2 },
+      { to: "/dashboard/ventas/refrigerar", label: "Refrigerar", icon: Snowflake },
+      { to: "/dashboard/ventas/descarte", label: "Descarte", icon: AlertCircle },
+      { to: "/dashboard/ventas/donaciones", label: "Donaciones", icon: Heart },
     ],
   },
   { to: "/dashboard/frio", label: "Frío", icon: Snowflake, module: "frio" },
@@ -56,16 +59,12 @@ const NAV = [
 ];
 
 export default function Layout() {
-  const { user, logout } = useAuth();
+  const { user, logout, canSee } = useAuth();
   const nav = useNavigate();
   const loc = useLocation();
   const [open, setOpen] = useState({});
 
   if (!user) return null;
-
-  const isAdmin = user.rol === "administrador";
-  const mods = user.modulos_asignados || [];
-  const canSee = (m) => !m || isAdmin || mods.includes(m);
 
   const toggle = (label) => setOpen((o) => ({ ...o, [label]: !o[label] }));
   const isActive = (to) => loc.pathname === to;
@@ -97,16 +96,21 @@ export default function Layout() {
                     <span style={{ flex: 1 }}>{n.label}</span>
                     {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                   </button>
-                  {isOpen && n.sub.map((s) => (
-                    <NavLink
-                      key={s.to}
-                      to={s.to}
-                      className={({ isActive }) => `sidebar-item sidebar-sub ${isActive ? "active" : ""}`}
-                      data-testid={`sidebar-link-${s.label.toLowerCase().replace(/\s/g, "-")}`}
-                    >
-                      {s.label}
-                    </NavLink>
-                  ))}
+                  {isOpen && n.sub.map((s) => {
+                    const SubIcon = s.icon;
+                    return (
+                      <NavLink
+                        key={s.to}
+                        to={s.to}
+                        end
+                        className={({ isActive }) => `sidebar-item sidebar-sub ${isActive ? "active" : ""}`}
+                        data-testid={`sidebar-link-${s.label.toLowerCase().replace(/\s/g, "-")}`}
+                      >
+                        {SubIcon && <SubIcon size={15} />}
+                        {s.label}
+                      </NavLink>
+                    );
+                  })}
                 </div>
               );
             }
