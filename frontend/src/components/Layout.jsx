@@ -18,7 +18,16 @@ const NAV = [
     ],
   },
   { to: "/dashboard/plantaciones", label: "Plantaciones", icon: Sprout, module: "plantaciones" },
-  { to: "/dashboard/equipos", label: "Equipos", icon: Truck, module: "equipos" },
+  {
+    label: "Equipos", icon: Truck, module: "equipos",
+    sub: [
+      { to: "/dashboard/equipos", label: "Todos" },
+      { to: "/dashboard/equipos/vehiculos", label: "Vehículos" },
+      { to: "/dashboard/equipos/motores", label: "Motores" },
+      { to: "/dashboard/equipos/herramientas", label: "Herramientas" },
+      { to: "/dashboard/equipos/otros", label: "Otros" },
+    ],
+  },
   {
     label: "Actividades", icon: Activity, module: "actividades",
     sub: [
@@ -35,6 +44,9 @@ const NAV = [
     sub: [
       { to: "/dashboard/ventas/finca", label: "Venta en finca" },
       { to: "/dashboard/ventas/ciudad", label: "Envío a ciudad" },
+      { to: "/dashboard/ventas/refrigerar", label: "Refrigerar" },
+      { to: "/dashboard/ventas/descarte", label: "Descarte" },
+      { to: "/dashboard/ventas/donaciones", label: "Donaciones" },
     ],
   },
   { to: "/dashboard/frio", label: "Frío", icon: Snowflake, module: "frio" },

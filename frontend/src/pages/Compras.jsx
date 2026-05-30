@@ -6,7 +6,7 @@ import { ShoppingCart, Plus, Pencil, Trash2 } from "lucide-react";
 
 const CATEGORIAS = ["fertilizantes", "plaguicidas", "fungicidas", "herbicidas", "tratamiento", "semillas", "otros"];
 const UNIDADES = ["mililitros", "litros", "gramos", "kilogramos", "unidades"];
-const EQUIPO_CATS = ["vehiculo", "herramienta", "maquinaria"];
+const EQUIPO_CATS = ["vehiculo", "motor", "herramienta", "otros"];
 
 export default function Compras() {
   const toast = useToast();

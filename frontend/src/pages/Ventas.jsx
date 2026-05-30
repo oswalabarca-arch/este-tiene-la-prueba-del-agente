@@ -2,10 +2,21 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
-import { Plus, Trash2, Home, Truck, DollarSign } from "lucide-react";
+import { Plus, Trash2, Home, Truck, DollarSign, Snowflake, AlertCircle, Heart } from "lucide-react";
+
+const TIPO_META = {
+  finca: { label: "Venta en finca", icon: Home, color: "#16a34a" },
+  ciudad: { label: "Envío a ciudad", icon: Truck, color: "#3b82f6" },
+  refrigerar: { label: "Refrigerar", icon: Snowflake, color: "#0ea5e9" },
+  descarte: { label: "Descarte", icon: AlertCircle, color: "#dc2626" },
+  donaciones: { label: "Donaciones", icon: Heart, color: "#ec4899" },
+};
 
 export function VentasFinca() { return <Ventas tipo="finca" />; }
 export function VentasCiudad() { return <Ventas tipo="ciudad" />; }
+export function VentasRefrigerar() { return <Ventas tipo="refrigerar" />; }
+export function VentasDescarte() { return <Ventas tipo="descarte" />; }
+export function VentasDonaciones() { return <Ventas tipo="donaciones" />; }
 
 function Ventas({ tipo }) {
   const toast = useToast();
@@ -26,22 +37,24 @@ function Ventas({ tipo }) {
   const total = items.reduce((s, v) => s + (v.total || 0), 0);
   const totalCestas = items.reduce((s, v) => s + (v.cantidad_cestas || 0), 0);
 
-  const Icon = tipo === "finca" ? Home : Truck;
+  const meta = TIPO_META[tipo] || TIPO_META.finca;
+  const Icon = meta.icon;
+  const esIngreso = tipo === "finca" || tipo === "ciudad";  // los demás no son ventas con $$
 
   return (
     <div data-testid={`ventas-${tipo}-page`}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
         <div>
-          <h1 className="page-title"><Icon size={24} style={{ verticalAlign: "middle", color: "#16a34a" }} /> Ventas — {tipo === "finca" ? "En finca" : "Envío a ciudad"}</h1>
-          <p className="page-subtitle">Registro de ventas recibidas desde Asignación de Destino.</p>
+          <h1 className="page-title"><Icon size={24} style={{ verticalAlign: "middle", color: meta.color }} /> {meta.label}</h1>
+          <p className="page-subtitle">{esIngreso ? "Registro de ventas recibidas desde Asignación de Destino." : `Registro de ${meta.label.toLowerCase()} (sin valor de venta).`}</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowForm(true)} data-testid="venta-new-btn"><Plus size={16} /> Nueva venta</button>
+        <button className="btn btn-primary" onClick={() => setShowForm(true)} data-testid="venta-new-btn"><Plus size={16} /> Nuevo registro</button>
       </div>
 
       <div className="kpi-grid" style={{ marginBottom: 18 }}>
-        <div className="card kpi-card"><div className="kpi-label">Total ventas</div><div className="kpi-value">{items.length}</div></div>
-        <div className="card kpi-card"><div className="kpi-label">Cestas vendidas</div><div className="kpi-value" style={{ color: "#16a34a" }}>{totalCestas.toFixed(2)}</div></div>
-        <div className="card kpi-card"><div className="kpi-label">Ingresos totales</div><div className="kpi-value" style={{ color: "#16a34a" }}>${total.toFixed(2)}</div></div>
+        <div className="card kpi-card"><div className="kpi-label">Total registros</div><div className="kpi-value">{items.length}</div></div>
+        <div className="card kpi-card"><div className="kpi-label">Cestas</div><div className="kpi-value" style={{ color: meta.color }}>{totalCestas.toFixed(2)}</div></div>
+        {esIngreso && <div className="card kpi-card"><div className="kpi-label">Ingresos totales</div><div className="kpi-value" style={{ color: "#16a34a" }}>${total.toFixed(2)}</div></div>}
       </div>
 
       <div className="card">

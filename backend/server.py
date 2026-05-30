@@ -762,6 +762,9 @@ def _ventas_router(tipo: str):
 
 _ventas_router("finca")
 _ventas_router("ciudad")
+_ventas_router("refrigerar")
+_ventas_router("descarte")
+_ventas_router("donaciones")
 
 
 # ============================================================
