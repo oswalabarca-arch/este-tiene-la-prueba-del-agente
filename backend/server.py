@@ -574,7 +574,7 @@ async def get_inventario(_: dict = Depends(get_current_user)):
 # ============================================================
 class EquipoIn(BaseModel):
     nombre: str
-    categoria: str = "herramienta"  # vehiculo | herramienta | maquinaria
+    categoria: str = "herramienta"  # motor | herramienta | otros
     marca: str = ""
     modelo: str = ""
     año: Optional[int] = None
@@ -585,7 +585,8 @@ class EquipoIn(BaseModel):
     descripcion_uso: str = ""
     estado: str = "activo"  # activo | mantenimiento | inactivo
     fecha_adquisicion: Optional[str] = None
-    costo_adquisicion: float = 0
+    cantidad: int = 1
+    costo_adquisicion: float = 0  # precio unitario
     ubicacion: str = ""
     responsable: str = ""
     observaciones: str = ""
