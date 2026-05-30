@@ -12,7 +12,7 @@ import AsignacionDestino from "./pages/AsignacionDestino";
 import Compras from "./pages/Compras";
 import Inventario from "./pages/Inventario";
 import Aplicaciones from "./pages/Aplicaciones";
-import { Actividades, ActividadesPendientes, ActividadesRegistrar } from "./pages/Actividades";
+import { ActividadesPendientes, ActividadesRegistrar } from "./pages/Actividades";
 import { VentasFinca, VentasCiudad, VentasRefrigerar, VentasDescarte, VentasDonaciones } from "./pages/Ventas";
 import Frio from "./pages/Frio";
 import Equipos from "./pages/Equipos";
@@ -52,7 +52,7 @@ function App() {
               <Route path="compras" element={<Compras />} />
               <Route path="inventario" element={<Inventario />} />
               <Route path="aplicaciones" element={<Aplicaciones />} />
-              <Route path="actividades" element={<Actividades />} />
+              <Route path="actividades" element={<Navigate to="/dashboard/actividades/pendientes" replace />} />
               <Route path="actividades/pendientes" element={<ActividadesPendientes />} />
               <Route path="actividades/registrar" element={<ActividadesRegistrar />} />
               <Route path="ventas/finca" element={<VentasFinca />} />

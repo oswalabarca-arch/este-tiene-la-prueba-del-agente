@@ -4,7 +4,7 @@ import {
   LayoutGrid, Users, Sprout, Truck, Activity, Droplets, Send,
   DollarSign, Snowflake, Boxes, ShoppingCart, BarChart3, ChevronDown,
   ChevronUp, Briefcase, Leaf, LogOut, Car, Cog, Wrench,
-  Home, Building2, AlertCircle, Heart, Clock, PlusCircle, History,
+  Home, Building2, AlertCircle, Heart, Clock, PlusCircle,
   UserCheck, Wallet,
 } from "lucide-react";
 import { Strawberry } from "./icons/Strawberry";
@@ -34,7 +34,6 @@ const NAV = [
     sub: [
       { to: "/dashboard/actividades/pendientes", label: "Pendientes", icon: Clock },
       { to: "/dashboard/actividades/registrar", label: "Registrar", icon: PlusCircle },
-      { to: "/dashboard/actividades", label: "Historial", icon: History },
     ],
   },
   { to: "/dashboard/aplicaciones", label: "Aplicaciones", icon: Droplets, module: "aplicaciones" },

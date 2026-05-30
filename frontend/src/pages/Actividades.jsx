@@ -229,7 +229,5 @@ function ActividadModal({ lotes, onClose, onSaved }) {
   );
 }
 
-export function Actividades() { return <ActividadesBase filtro="historial" />; }
 export function ActividadesPendientes() { return <ActividadesBase filtro="pendientes" />; }
 export function ActividadesRegistrar() { return <ActividadesBase filtro="registrar" />; }
-export default Actividades;
