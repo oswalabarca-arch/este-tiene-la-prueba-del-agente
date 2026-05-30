@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
-import { Droplets, Plus, Trash2, BookOpen, X, CheckCircle, Clock, Eye } from "lucide-react";
+import { Droplets, Plus, Trash2, BookOpen, X, CheckCircle, Clock, Eye, Pencil } from "lucide-react";
 
 const TIPOS = ["fertilizacion", "fungicida", "plaguicida", "herbicida", "tratamiento"];
 const UNIDADES = ["Gramos", "CC", "ml", "Kg", "Lt"];
@@ -25,7 +25,10 @@ export default function Aplicaciones() {
   const [showForm, setShowForm] = useState(false);
   const [showRecetaForm, setShowRecetaForm] = useState(false);
   const [viewReceta, setViewReceta] = useState(null);
+  const [viewAplic, setViewAplic] = useState(null);
+  const [editAplic, setEditAplic] = useState(null);
   const [filtroTipo, setFiltroTipo] = useState("");
+  const [filtroPeriodo, setFiltroPeriodo] = useState("todos");
 
   const load = async () => {
     const [a, r, i, p] = await Promise.all([
@@ -53,24 +56,32 @@ export default function Aplicaciones() {
     load();
   };
 
-  const confirmar = async (a) => {
-    await api.put(`/aplicaciones/${a._id}`, { ...a, estado: "confirmada" });
-    await api.post(`/actividades`, {
-      tipo: "aplicacion",
-      tipo_personalizado: a.tipo,
-      cantidad_trabajadores: 1,
-      horas_trabajo: 1,
-      lote: a.lote,
-      fecha_actividad: a.fecha,
-      observaciones: `Aplicación ${a.tipo} confirmada`,
-      origen: "aplicacion",
-      aplicacion_id: a._id,
-    });
-    toast.show("Aplicación confirmada y enviada a Actividades");
-    load();
+  const inPeriodo = (fechaStr) => {
+    if (filtroPeriodo === "todos") return true;
+    const f = new Date(fechaStr);
+    if (isNaN(f.getTime())) return false;
+    const now = new Date();
+    if (filtroPeriodo === "hoy") {
+      return f.toDateString() === now.toDateString();
+    }
+    if (filtroPeriodo === "semana") {
+      const start = new Date(now);
+      start.setDate(now.getDate() - now.getDay()); // domingo
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 7);
+      return f >= start && f < end;
+    }
+    if (filtroPeriodo === "mes") {
+      return f.getMonth() === now.getMonth() && f.getFullYear() === now.getFullYear();
+    }
+    if (filtroPeriodo === "ano") {
+      return f.getFullYear() === now.getFullYear();
+    }
+    return true;
   };
 
-  const filtered = filtroTipo ? items.filter((a) => a.tipo === filtroTipo) : items;
+  const filtered = items.filter((a) => (filtroTipo ? a.tipo === filtroTipo : true) && inPeriodo(a.fecha));
   const confirmadas = items.filter((a) => a.estado === "confirmada").length;
   const pendientes = items.filter((a) => a.estado !== "confirmada").length;
 
@@ -124,9 +135,29 @@ export default function Aplicaciones() {
           </div>
 
           <div className="card" style={{ marginBottom: 18 }}>
-            <div className="pill-group">
-              <button className={`pill ${!filtroTipo ? "active" : ""}`} onClick={() => setFiltroTipo("")}>Todos</button>
-              {TIPOS.map((t) => <button key={t} className={`pill ${filtroTipo === t ? "active" : ""}`} onClick={() => setFiltroTipo(t)}>{t}</button>)}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
+              <div>
+                <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 600, marginBottom: 6 }}>Periodo</div>
+                <div className="pill-group" data-testid="aplic-filtro-periodo">
+                  {[
+                    { k: "hoy", label: "Hoy" },
+                    { k: "semana", label: "Semana" },
+                    { k: "mes", label: "Mes" },
+                    { k: "ano", label: "Año" },
+                    { k: "todos", label: "Todos" },
+                  ].map((p) => (
+                    <button key={p.k} className={`pill ${filtroPeriodo === p.k ? "active" : ""}`} onClick={() => setFiltroPeriodo(p.k)} data-testid={`aplic-periodo-${p.k}`}>{p.label}</button>
+                  ))}
+                </div>
+              </div>
+              <div style={{ width: 1, height: 36, background: "#e2e8f0" }} />
+              <div style={{ flex: 1, minWidth: 240 }}>
+                <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 600, marginBottom: 6 }}>Tipo</div>
+                <div className="pill-group">
+                  <button className={`pill ${!filtroTipo ? "active" : ""}`} onClick={() => setFiltroTipo("")}>Todos</button>
+                  {TIPOS.map((t) => <button key={t} className={`pill ${filtroTipo === t ? "active" : ""}`} onClick={() => setFiltroTipo(t)}>{t}</button>)}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -134,7 +165,7 @@ export default function Aplicaciones() {
             <h3 style={{ marginTop: 0 }}>Aplicaciones Registradas</h3>
             <table className="table">
               <thead>
-                <tr><th>Fecha</th><th>Tipo</th><th>Lote</th><th>Insumos</th><th>Estado</th><th>Acciones</th></tr>
+                <tr><th>Fecha</th><th>Tipo</th><th>Lote</th><th>Insumos</th><th>Estado</th><th style={{ textAlign: "right" }}>Acciones</th></tr>
               </thead>
               <tbody>
                 {filtered.map((a) => (
@@ -145,8 +176,11 @@ export default function Aplicaciones() {
                     <td style={{ fontSize: 13, color: "#64748b" }}>{a.insumos?.map((i) => `${i.nombre_producto} ${i.cantidad}${i.unidad}`).join(", ") || "—"}</td>
                     <td>{a.estado === "confirmada" ? <span className="badge badge-primary"><CheckCircle size={12} style={{ verticalAlign: "middle" }} /> Confirmada</span> : <span className="badge badge-warn"><Clock size={12} style={{ verticalAlign: "middle" }} /> Pendiente</span>}</td>
                     <td>
-                      {canEdit("aplicaciones") && a.estado !== "confirmada" && <button className="btn btn-sm btn-primary" onClick={() => confirmar(a)}>Confirmar</button>}
-                      {canDelete("aplicaciones") && <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(a)}><Trash2 size={16} /></button>}
+                      <div style={{ display: "inline-flex", gap: 4, justifyContent: "flex-end", width: "100%" }}>
+                        <button className="btn-icon" title="Ver" onClick={() => setViewAplic(a)} data-testid={`aplic-view-${a._id}`} style={{ color: "#0ea5e9" }}><Eye size={16} /></button>
+                        {canEdit("aplicaciones") && <button className="btn-icon" title="Editar" onClick={() => setEditAplic(a)} data-testid={`aplic-edit-${a._id}`} style={{ color: "#16a34a" }}><Pencil size={16} /></button>}
+                        {canDelete("aplicaciones") && <button className="btn-icon" title="Eliminar" style={{ color: "#dc2626" }} onClick={() => remove(a)} data-testid={`aplic-delete-${a._id}`}><Trash2 size={16} /></button>}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -201,28 +235,35 @@ export default function Aplicaciones() {
       )}
 
       {showForm && <AplicacionForm inventario={inventario} plantaciones={plantaciones} recetas={recetas} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load(); }} />}
+      {editAplic && <AplicacionForm initial={editAplic} inventario={inventario} plantaciones={plantaciones} recetas={recetas} onClose={() => setEditAplic(null)} onSaved={() => { setEditAplic(null); load(); }} />}
+      {viewAplic && <AplicacionDetail aplicacion={viewAplic} recetas={recetas} onClose={() => setViewAplic(null)} />}
       {showRecetaForm && <RecetaForm inventario={inventario} onClose={() => setShowRecetaForm(false)} onSaved={() => { setShowRecetaForm(false); load(); toast.show("Receta creada"); }} />}
       {viewReceta && <RecetaDetail receta={viewReceta} onClose={() => setViewReceta(null)} />}
     </div>
   );
 }
 
-function AplicacionForm({ inventario, plantaciones, recetas, onClose, onSaved }) {
+function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, onSaved }) {
   const toast = useToast();
   const today = new Date().toISOString().slice(0, 10);
+  const isEdit = !!initial;
+  const initialDate = initial?.fecha ? new Date(initial.fecha).toISOString().slice(0, 10) : today;
   const [form, setForm] = useState({
-    tipo: "",
-    subtipo: "",
-    lotes: [],
-    fecha: today,
-    estado: "pendiente",
-    insumos: [],
-    receta_id: "",
-    cantidad_agua: 0,
-    modo_aplicacion: "",
-    observaciones: "",
+    tipo: initial?.tipo || "",
+    subtipo: initial?.subtipo || "",
+    lotes: initial?.lotes && initial.lotes.length > 0 ? initial.lotes : (initial?.lote ? [initial.lote] : []),
+    fecha: initialDate,
+    estado: initial?.estado || "pendiente",
+    insumos: initial?.insumos || [],
+    receta_id: initial?.receta_id || "",
+    cantidad_agua: initial?.cantidad_agua || 0,
+    modo_aplicacion: initial?.modo_aplicacion || "",
+    observaciones: initial?.observaciones || "",
   });
-  const [productoRows, setProductoRows] = useState([{ nombre_producto: "", cantidad: 0, unidad: "Gramos" }]);
+  const initRows = initial?.insumos && initial.insumos.length > 0 && initial.subtipo !== "receta"
+    ? initial.insumos.slice(0, 3).map((i) => ({ nombre_producto: i.nombre_producto, cantidad: i.cantidad, unidad: i.unidad }))
+    : [{ nombre_producto: "", cantidad: 0, unidad: "Gramos" }];
+  const [productoRows, setProductoRows] = useState(initRows);
   const [loteInput, setLoteInput] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -278,15 +319,20 @@ function AplicacionForm({ inventario, plantaciones, recetas, onClose, onSaved })
         lote: form.lotes[0] || "",
         lotes: form.lotes,
         fecha: form.fecha + "T12:00:00.000Z",
-        estado: "pendiente",
+        estado: form.estado || "pendiente",
         insumos,
         receta_id: form.receta_id || null,
         cantidad_agua: Number(form.cantidad_agua || 0),
         modo_aplicacion: form.modo_aplicacion || null,
         observaciones: form.observaciones,
       };
-      await api.post("/aplicaciones", payload);
-      toast.show("Aplicación creada");
+      if (isEdit) {
+        await api.put(`/aplicaciones/${initial._id}`, payload);
+        toast.show("Aplicación actualizada");
+      } else {
+        await api.post("/aplicaciones", payload);
+        toast.show("Aplicación creada");
+      }
       onSaved();
     } catch { toast.show("Error", "error"); }
     finally { setBusy(false); }
@@ -297,8 +343,8 @@ function AplicacionForm({ inventario, plantaciones, recetas, onClose, onSaved })
   return (
     <div className="modal-overlay" onClick={onClose}>
       <form className="modal" style={{ maxWidth: 860 }} onClick={(e) => e.stopPropagation()} onSubmit={submit} data-testid="aplicacion-modal">
-        <h2 className="modal-title">Nueva Aplicación</h2>
-        <div className="modal-sub">Registra una nueva aplicación de insumos agrícolas</div>
+        <h2 className="modal-title">{isEdit ? "Editar Aplicación" : "Nueva Aplicación"}</h2>
+        <div className="modal-sub">{isEdit ? "Modifica los datos de la aplicación" : "Registra una nueva aplicación de insumos agrícolas"}</div>
 
         <div className="form-grid">
           <div className="field">
@@ -432,7 +478,7 @@ function AplicacionForm({ inventario, plantaciones, recetas, onClose, onSaved })
 
         <div className="modal-footer">
           <button type="button" className="btn" onClick={onClose}>Cancelar</button>
-          <button type="submit" className="btn btn-primary" disabled={busy} data-testid="aplicacion-form-submit">{busy ? "..." : "Crear Aplicación"}</button>
+          <button type="submit" className="btn btn-primary" disabled={busy} data-testid="aplicacion-form-submit">{busy ? "..." : (isEdit ? "Guardar cambios" : "Crear Aplicación")}</button>
         </div>
       </form>
     </div>
@@ -564,6 +610,84 @@ function RecetaDetail({ receta, onClose }) {
           <div style={{ marginTop: 18 }}>
             <h4 style={{ margin: "0 0 8px" }}>Observaciones</h4>
             <div style={{ color: "#475569", fontSize: 13, background: "#f8fafc", padding: 10, borderRadius: 6 }}>{receta.observaciones}</div>
+          </div>
+        )}
+
+        <div className="modal-footer">
+          <button type="button" className="btn" onClick={onClose}>Cerrar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+function AplicacionDetail({ aplicacion, recetas, onClose }) {
+  const a = aplicacion;
+  const receta = a.receta_id ? recetas.find((r) => r._id === a.receta_id) : null;
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 640 }} onClick={(e) => e.stopPropagation()} data-testid="aplicacion-detail">
+        <h2 className="modal-title">Detalle de aplicación</h2>
+        <div className="modal-sub">{new Date(a.fecha).toLocaleDateString()} · {a.tipo}{a.subtipo ? ` · ${a.subtipo}` : ""}</div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
+          <div className="card" style={{ padding: 12 }}>
+            <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 600 }}>Estado</div>
+            <div style={{ marginTop: 6 }}>
+              {a.estado === "confirmada"
+                ? <span className="badge badge-primary"><CheckCircle size={12} style={{ verticalAlign: "middle" }} /> Confirmada</span>
+                : <span className="badge badge-warn"><Clock size={12} style={{ verticalAlign: "middle" }} /> Pendiente</span>}
+            </div>
+          </div>
+          <div className="card" style={{ padding: 12 }}>
+            <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 600 }}>Agua</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "#0ea5e9" }}><Droplets size={16} style={{ verticalAlign: "middle" }} /> {a.cantidad_agua || 0} L</div>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 600, marginBottom: 4 }}>Modo de aplicación</div>
+            <div style={{ fontSize: 14 }}>{a.modo_aplicacion || "—"}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 600, marginBottom: 4 }}>Lotes</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+              {(a.lotes && a.lotes.length > 0 ? a.lotes : [a.lote].filter(Boolean)).map((l) => (
+                <span key={l} className="badge badge-primary">{l}</span>
+              ))}
+              {(!a.lotes || a.lotes.length === 0) && !a.lote && <span style={{ color: "#94a3b8" }}>—</span>}
+            </div>
+          </div>
+        </div>
+
+        {receta && (
+          <div style={{ marginTop: 16, padding: 10, background: "#f5f3ff", borderRadius: 6, border: "1px solid #ddd6fe" }}>
+            <div style={{ fontSize: 12, color: "#7c3aed", fontWeight: 600 }}><BookOpen size={12} style={{ verticalAlign: "middle" }} /> Aplicada con receta: {receta.nombre}</div>
+          </div>
+        )}
+
+        <div style={{ marginTop: 16 }}>
+          <h4 style={{ margin: "0 0 8px" }}>Insumos</h4>
+          {a.insumos && a.insumos.length > 0 ? (
+            <table className="table">
+              <thead><tr><th>Producto</th><th>Cantidad</th><th>Unidad</th></tr></thead>
+              <tbody>
+                {a.insumos.map((i, idx) => (
+                  <tr key={idx}><td>{i.nombre_producto}</td><td>{i.cantidad}</td><td>{i.unidad}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div style={{ color: "#94a3b8", fontSize: 13 }}>Sin insumos registrados</div>
+          )}
+        </div>
+
+        {a.observaciones && (
+          <div style={{ marginTop: 16 }}>
+            <h4 style={{ margin: "0 0 8px" }}>Observaciones</h4>
+            <div style={{ color: "#475569", fontSize: 13, background: "#f8fafc", padding: 10, borderRadius: 6 }}>{a.observaciones}</div>
           </div>
         )}
 
