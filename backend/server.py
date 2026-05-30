@@ -613,14 +613,55 @@ async def delete_equipo(eid: str, _: dict = Depends(get_current_user)):
 
 
 # ============================================================
+# VEHÍCULOS — registro de vehículos comprados
+# ============================================================
+class VehiculoIn(BaseModel):
+    nombre: str
+    marca: str = ""
+    modelo: str = ""
+    año: Optional[int] = None
+    placa: str = ""
+    color: str = ""
+    tipo_combustible: str = ""  # gasolina | diesel | electrico | hibrido
+    kilometraje_inicial: float = 0
+    costo_adquisicion: float = 0
+    fecha_adquisicion: Optional[str] = None
+    estado: str = "activo"  # activo | mantenimiento | inactivo
+    responsable: str = ""
+    observaciones: str = ""
+    foto: str = ""
+
+
+@api.get("/vehiculos")
+async def list_vehiculos(_: dict = Depends(get_current_user)):
+    return await _list("vehiculos", "vehiculos")
+
+
+@api.post("/vehiculos")
+async def create_vehiculo(payload: VehiculoIn, user: dict = Depends(get_current_user)):
+    return await _create("vehiculos", payload.model_dump(), user)
+
+
+@api.put("/vehiculos/{vid}")
+async def update_vehiculo(vid: str, payload: VehiculoIn, _: dict = Depends(get_current_user)):
+    return await _update("vehiculos", vid, payload.model_dump())
+
+
+@api.delete("/vehiculos/{vid}")
+async def delete_vehiculo(vid: str, _: dict = Depends(get_current_user)):
+    return await _delete("vehiculos", vid)
+
+
+# ============================================================
 # GASTOS DE VEHÍCULOS (Gasolina, Repuestos, Mano de Obra)
+# Ahora cada gasto se vincula a un vehículo
 # ============================================================
 CATEGORIAS_GASTO_VEHICULO = ["gasolina", "repuestos", "mano_obra"]
 
 
 class GastoVehiculoIn(BaseModel):
+    vehiculo_id: str
     categoria: str  # gasolina | repuestos | mano_obra
-    vehiculo: str = ""  # nombre/identificador libre del vehículo
     monto: float
     fecha: str
     descripcion: str = ""
@@ -628,10 +669,15 @@ class GastoVehiculoIn(BaseModel):
 
 @api.get("/gastos-vehiculos")
 async def list_gastos_vehiculos(
+    vehiculo_id: Optional[str] = None,
     categoria: Optional[str] = None,
     _: dict = Depends(get_current_user),
 ):
-    filt = {"categoria": categoria} if categoria else {}
+    filt = {}
+    if vehiculo_id:
+        filt["vehiculo_id"] = vehiculo_id
+    if categoria:
+        filt["categoria"] = categoria
     return await _list("gastos_vehiculos", "gastos", filt, sort_field="fecha")
 
 

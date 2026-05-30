@@ -15,7 +15,7 @@ import { Actividades, ActividadesPendientes, ActividadesRegistrar } from "./page
 import { VentasFinca, VentasCiudad, VentasRefrigerar, VentasDescarte, VentasDonaciones } from "./pages/Ventas";
 import Frio from "./pages/Frio";
 import Equipos from "./pages/Equipos";
-import GastosVehiculos from "./pages/GastosVehiculos";
+import Vehiculos from "./pages/Vehiculos";
 import { Trabajadores, Nomina } from "./pages/RRHH";
 import Analiticas from "./pages/Analiticas";
 import "./App.css";
@@ -60,7 +60,7 @@ function App() {
               <Route path="ventas/donaciones" element={<VentasDonaciones />} />
               <Route path="frio" element={<Frio />} />
               <Route path="equipos" element={<Equipos />} />
-              <Route path="equipos/vehiculos" element={<GastosVehiculos />} />
+              <Route path="equipos/vehiculos" element={<Vehiculos />} />
               <Route path="equipos/:categoria" element={<Equipos />} />
               <Route path="rrhh/trabajadores" element={<Trabajadores />} />
               <Route path="rrhh/nomina" element={<Nomina />} />
