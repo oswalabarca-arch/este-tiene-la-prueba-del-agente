@@ -788,8 +788,9 @@ async def delete_receta(rid: str, _: dict = Depends(get_current_user)):
 class ActividadIn(BaseModel):
     tipo: str  # deshierbar | siembra | poda | otro | aplicacion
     tipo_personalizado: Optional[str] = None
-    cantidad_trabajadores: int = 0
+    cantidad_trabajadores: float = 0  # puede ser fraccionario al repartir entre lotes
     horas_trabajo: float = 0
+    precio_hora: float = 0
     lote: str = ""
     fecha_actividad: str
     observaciones: str = ""
@@ -813,18 +814,25 @@ async def list_actividades(
     return await _list("actividades", "actividades", filt, sort_field="fecha_actividad")
 
 
+def _compute_actividad_derived(data: dict) -> dict:
+    trab = float(data.get("cantidad_trabajadores") or 0)
+    horas = float(data.get("horas_trabajo") or 0)
+    precio = float(data.get("precio_hora") or 0)
+    data["horas_hombre"] = trab * horas
+    data["costo_total"] = trab * horas * precio
+    return data
+
+
 @api.post("/actividades")
 async def create_actividad(payload: ActividadIn, user: dict = Depends(get_current_user)):
-    data = payload.model_dump()
-    data["horas_hombre"] = (data.get("cantidad_trabajadores") or 0) * (data.get("horas_trabajo") or 0)
+    data = _compute_actividad_derived(payload.model_dump())
     data["registrado_por"] = user.get("email")
     return await _create("actividades", data, user)
 
 
 @api.put("/actividades/{aid}")
 async def update_actividad(aid: str, payload: ActividadIn, _: dict = Depends(get_current_user)):
-    data = payload.model_dump()
-    data["horas_hombre"] = (data.get("cantidad_trabajadores") or 0) * (data.get("horas_trabajo") or 0)
+    data = _compute_actividad_derived(payload.model_dump())
     return await _update("actividades", aid, data)
 
 

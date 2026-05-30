@@ -236,23 +236,28 @@ function AplicacionesTab({ items }) {
 function LaboresTab({ items }) {
   if (items.length === 0) return <div className="card empty-state">Sin labores registradas en este lote</div>;
   const totalHH = items.reduce((s, a) => s + (a.horas_hombre || 0), 0);
+  const totalCosto = items.reduce((s, a) => s + (a.costo_total || 0), 0);
   return (
     <>
       <div className="kpi-grid" style={{ marginBottom: 14 }}>
         <div className="card kpi-card"><div className="kpi-label">Labores</div><div className="kpi-value">{items.length}</div></div>
-        <div className="card kpi-card"><div className="kpi-label">Horas-hombre acumuladas</div><div className="kpi-value" style={{ color: "#8b5cf6" }}>{totalHH.toFixed(1)}</div></div>
+        <div className="card kpi-card"><div className="kpi-label">Horas-hombre acumuladas</div><div className="kpi-value" style={{ color: "#8b5cf6" }}>{totalHH.toFixed(2)}</div></div>
+        <div className="card kpi-card"><div className="kpi-label">Costo mano de obra</div><div className="kpi-value" style={{ color: "#16a34a" }}>${totalCosto.toFixed(2)}</div></div>
       </div>
       <div className="card">
         <table className="table">
-          <thead><tr><th>Fecha</th><th>Tipo</th><th>Trabajadores</th><th>Horas</th><th>Horas-hombre</th></tr></thead>
+          <thead><tr><th>Fecha</th><th>Tipo</th><th>Trabajadores</th><th>Horas</th><th>Precio/hr</th><th>Horas-H</th><th>Costo</th><th>Origen</th></tr></thead>
           <tbody>
             {items.map((a) => (
               <tr key={a._id}>
                 <td>{new Date(a.fecha_actividad).toLocaleDateString()}</td>
                 <td><span className="badge badge-purple">{a.tipo_personalizado || a.tipo}</span></td>
-                <td>{a.cantidad_trabajadores}</td>
+                <td>{Number(a.cantidad_trabajadores || 0).toFixed(2)}</td>
                 <td>{a.horas_trabajo}</td>
-                <td style={{ fontWeight: 700 }}>{a.horas_hombre || 0}</td>
+                <td>${Number(a.precio_hora || 0).toFixed(2)}</td>
+                <td style={{ fontWeight: 600 }}>{Number(a.horas_hombre || 0).toFixed(2)}</td>
+                <td style={{ fontWeight: 700, color: "#16a34a" }}>${Number(a.costo_total || 0).toFixed(2)}</td>
+                <td><span className="badge badge-info">{a.origen}</span></td>
               </tr>
             ))}
           </tbody>

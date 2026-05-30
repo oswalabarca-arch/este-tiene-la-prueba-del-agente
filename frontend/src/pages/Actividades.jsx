@@ -121,12 +121,14 @@ function PendienteCard({ aplicacion: a, lotesDisponibles, canEdit, onConfirmed }
   const removeLote = (lote) => setLotesDestino((prev) => prev.filter((x) => x !== lote));
 
   const confirmar = async () => {
-    if (lotesDestino.length === 0) return toast.show("Selecciona al menos un lote destino", "error");
-    if (!trabajadores || trabajadores < 1) return toast.show("Indica cantidad de trabajadores", "error");
-    if (!horas || horas <= 0) return toast.show("Indica horas de trabajo", "error");
-    if (!window.confirm(`¿Marcar como aplicada? Se descontarán los insumos del inventario.`)) return;
+    if (lotesDestino.length === 0) { toast.show("Selecciona al menos un lote destino", "error"); return; }
+    if (!trabajadores || Number(trabajadores) < 1) { toast.show("Indica la cantidad de trabajadores", "error"); return; }
+    if (!horas || Number(horas) <= 0) { toast.show("Indica las horas de trabajo", "error"); return; }
+    if (!precioHora || Number(precioHora) <= 0) { toast.show("Indica el precio por hora", "error"); return; }
+    if (!window.confirm(`¿Marcar como aplicada? Se descontarán los insumos del inventario y se registrará en Nómina y Plantaciones.`)) return;
     setBusy(true);
     try {
+      // 1. Confirmar la aplicación (descuenta inventario)
       await api.put(`/aplicaciones/${a._id}`, {
         tipo: a.tipo,
         subtipo: a.subtipo || null,
@@ -144,7 +146,27 @@ function PendienteCard({ aplicacion: a, lotesDisponibles, canEdit, onConfirmed }
         horas_trabajo: Number(horas),
         precio_hora: Number(precioHora),
       });
-      toast.show("Aplicación marcada como aplicada. Inventario actualizado.");
+
+      // 2. Crear actividad por cada lote destino (reparte trabajadores entre lotes)
+      //    Esto alimenta: Nómina (horas_hombre × precio_hora = costo) y la pestaña Labores de cada Plantación
+      const N = lotesDestino.length;
+      const trabPorLote = Number(trabajadores) / N;
+      for (const lote of lotesDestino) {
+        await api.post("/actividades", {
+          tipo: "aplicacion",
+          tipo_personalizado: a.tipo,
+          cantidad_trabajadores: trabPorLote,
+          horas_trabajo: Number(horas),
+          precio_hora: Number(precioHora),
+          lote,
+          fecha_actividad: a.fecha,
+          observaciones: `Aplicación ${a.tipo}${a.subtipo ? ` (${a.subtipo})` : ""}${N > 1 ? ` — repartida entre ${N} lotes` : ""}`,
+          origen: "aplicacion",
+          aplicacion_id: a._id,
+        });
+      }
+
+      toast.show("Aplicación confirmada. Inventario, Nómina y Plantaciones actualizados.");
       onConfirmed();
     } catch {
       toast.show("Error al confirmar", "error");
@@ -220,22 +242,22 @@ function PendienteCard({ aplicacion: a, lotesDisponibles, canEdit, onConfirmed }
 
         <div className="form-grid" style={{ gap: 10 }}>
           <div className="field">
-            <label style={{ display: "flex", alignItems: "center", gap: 6 }}><UsersIcon size={13} /> Trabajadores</label>
-            <input type="number" min="1" className="input" value={trabajadores}
+            <label style={{ display: "flex", alignItems: "center", gap: 6 }}><UsersIcon size={13} /> Trabajadores *</label>
+            <input type="number" min="1" required className="input" value={trabajadores}
               onChange={(e) => setTrabajadores(e.target.value)}
               data-testid={`pendiente-trabajadores-${a._id}`} />
           </div>
           <div className="field">
-            <label style={{ display: "flex", alignItems: "center", gap: 6 }}><Clock size={13} /> Horas <span style={{ color: "#94a3b8", fontWeight: 400 }}>(por trabajador)</span></label>
-            <input type="number" step="0.5" min="0" className="input" value={horas}
+            <label style={{ display: "flex", alignItems: "center", gap: 6 }}><Clock size={13} /> Horas * <span style={{ color: "#94a3b8", fontWeight: 400 }}>(por trabajador)</span></label>
+            <input type="number" step="0.5" min="0.5" required className="input" value={horas}
               onChange={(e) => setHoras(e.target.value)}
               data-testid={`pendiente-horas-${a._id}`} />
           </div>
           <div className="field" style={{ gridColumn: "1 / -1" }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 6 }}><DollarSign size={13} /> Precio por hora</label>
-            <input type="number" step="0.01" min="0" className="input" value={precioHora}
+            <label style={{ display: "flex", alignItems: "center", gap: 6 }}><DollarSign size={13} /> Precio por hora *</label>
+            <input type="number" step="0.01" min="0.01" required className="input" value={precioHora}
               onChange={(e) => setPrecioHora(e.target.value)}
-              placeholder="0.00"
+              placeholder="Ej: 5.00"
               data-testid={`pendiente-precio-${a._id}`} />
           </div>
         </div>
