@@ -6,7 +6,7 @@ import { ShoppingCart, Plus, Pencil, Trash2, Car, Fuel, Wrench, Users as UsersIc
 
 const CATEGORIAS = ["fertilizantes", "plaguicidas", "fungicidas", "herbicidas", "tratamiento", "semillas", "otros"];
 const UNIDADES = ["CC", "Gr"];
-const EQUIPO_CATS = ["motor", "herramienta", "otros"];
+const EQUIPO_CATS = ["motor", "herramienta"];
 
 const CATS_GASTO_VEH = [
   { key: "gasolina", label: "Gasolina", icon: Fuel, color: "#dc2626", bg: "#fee2e2" },

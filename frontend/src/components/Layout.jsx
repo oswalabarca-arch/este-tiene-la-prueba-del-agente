@@ -3,9 +3,9 @@ import { useAuth } from "../lib/auth";
 import {
   LayoutGrid, Users, Sprout, Truck, Activity, Droplets, Send,
   DollarSign, Snowflake, Boxes, ShoppingCart, BarChart3, ChevronDown,
-  ChevronUp, Briefcase, Leaf, LogOut, Car, Cog, Wrench, Package,
+  ChevronUp, Briefcase, Leaf, LogOut, Car, Cog, Wrench,
   Home, Building2, AlertCircle, Heart, Clock, PlusCircle, History,
-  UserCheck, Wallet, List,
+  UserCheck, Wallet,
 } from "lucide-react";
 import { Strawberry } from "./icons/Strawberry";
 import { useState } from "react";
@@ -24,11 +24,9 @@ const NAV = [
   {
     label: "Equipos", icon: Truck, module: "equipos",
     sub: [
-      { to: "/dashboard/equipos", label: "Todos", icon: List },
       { to: "/dashboard/equipos/vehiculos", label: "Vehículos", icon: Car },
       { to: "/dashboard/equipos/motores", label: "Motores", icon: Cog },
       { to: "/dashboard/equipos/herramientas", label: "Herramientas", icon: Wrench },
-      { to: "/dashboard/equipos/otros", label: "Otros", icon: Package },
     ],
   },
   {
