@@ -5,7 +5,7 @@ import { useAuth } from "../lib/auth";
 import { ShoppingCart, Plus, Pencil, Trash2 } from "lucide-react";
 
 const CATEGORIAS = ["fertilizantes", "plaguicidas", "fungicidas", "herbicidas", "tratamiento", "semillas", "otros"];
-const UNIDADES = ["mililitros", "litros", "gramos", "kilogramos", "unidades"];
+const UNIDADES = ["CC", "Gr"];
 const EQUIPO_CATS = ["vehiculo", "motor", "herramienta", "otros"];
 
 export default function Compras() {
@@ -81,7 +81,7 @@ function CompraModal({ initial, onClose, onSaved }) {
     nombre_producto: "",
     precio: 0,
     cantidad: 0,
-    unidad: "mililitros",
+    unidad: "CC",
     descripcion: "",
     fecha_compra: today,
     es_equipo: false,
@@ -140,7 +140,17 @@ function CompraModal({ initial, onClose, onSaved }) {
           </div>
           <div className="field">
             <label>Cantidad</label>
-            <input type="number" step="0.01" className="input" value={form.cantidad} onChange={(e) => setForm({ ...form, cantidad: e.target.value })} required data-testid="compra-form-cantidad" />
+            <input
+              type="number"
+              step="0.01"
+              className="input"
+              value={form.cantidad === 0 || form.cantidad === "" ? "" : form.cantidad}
+              onChange={(e) => setForm({ ...form, cantidad: e.target.value === "" ? 0 : Number(e.target.value) })}
+              onFocus={(e) => { if (form.cantidad === 0) e.target.select(); }}
+              placeholder="0"
+              required
+              data-testid="compra-form-cantidad"
+            />
           </div>
           {!form.es_equipo && (
             <div className="field">
@@ -152,7 +162,17 @@ function CompraModal({ initial, onClose, onSaved }) {
           )}
           <div className="field">
             <label>Precio total ($)</label>
-            <input type="number" step="0.01" className="input" value={form.precio} onChange={(e) => setForm({ ...form, precio: e.target.value })} required data-testid="compra-form-precio" />
+            <input
+              type="number"
+              step="0.01"
+              className="input"
+              value={form.precio === 0 || form.precio === "" ? "" : form.precio}
+              onChange={(e) => setForm({ ...form, precio: e.target.value === "" ? 0 : Number(e.target.value) })}
+              onFocus={(e) => { if (form.precio === 0) e.target.select(); }}
+              placeholder="0"
+              required
+              data-testid="compra-form-precio"
+            />
           </div>
           {form.es_equipo && (
             <>
