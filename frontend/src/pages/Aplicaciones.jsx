@@ -118,100 +118,227 @@ export default function Aplicaciones() {
 
 function AplicacionForm({ inventario, plantaciones, recetas, onClose, onSaved }) {
   const toast = useToast();
+  const today = new Date().toISOString().slice(0, 10);
   const [form, setForm] = useState({
-    tipo: "fertilizacion",
-    lote: "",
-    fecha: new Date().toISOString().slice(0, 10),
+    tipo: "",
+    subtipo: "",
+    lotes: [],
+    fecha: today,
     estado: "pendiente",
     insumos: [],
+    receta_id: "",
+    cantidad_agua: 0,
+    modo_aplicacion: "",
     observaciones: "",
   });
+  const [productoRows, setProductoRows] = useState([{ nombre_producto: "", cantidad: 0, unidad: "Gramos" }]);
+  const [loteInput, setLoteInput] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const addInsumo = (inv) => {
-    if (form.insumos.some((i) => i.nombre_producto === inv.nombre_producto)) return;
-    setForm((f) => ({ ...f, insumos: [...f.insumos, { nombre_producto: inv.nombre_producto, cantidad: 0, unidad: inv.unidad, categoria: inv.categoria }] }));
-  };
+  const requiresSubtipo = form.tipo === "fertilizacion" || form.tipo === "tratamiento";
+  const isReceta = requiresSubtipo && form.subtipo === "receta";
+  const showProductos = form.tipo && (!requiresSubtipo || form.subtipo === "producto");
 
-  const cargarReceta = (r) => {
-    setForm((f) => ({ ...f, insumos: r.insumos.map((i) => ({ ...i })) }));
+  const updateRow = (i, key, val) => {
+    const rows = [...productoRows];
+    rows[i] = { ...rows[i], [key]: val };
+    setProductoRows(rows);
   };
+  const addRow = () => {
+    if (productoRows.length >= 3) return;
+    setProductoRows([...productoRows, { nombre_producto: "", cantidad: 0, unidad: "Gramos" }]);
+  };
+  const removeRow = (i) => setProductoRows(productoRows.filter((_, idx) => idx !== i));
+
+  const toggleLote = (lote) => {
+    setForm((f) => ({ ...f, lotes: f.lotes.includes(lote) ? f.lotes.filter((x) => x !== lote) : [...f.lotes, lote] }));
+  };
+  const addLoteFromInput = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const v = loteInput.trim();
+      if (v && !form.lotes.includes(v)) setForm({ ...form, lotes: [...form.lotes, v] });
+      setLoteInput("");
+    }
+  };
+  const removeLote = (l) => setForm({ ...form, lotes: form.lotes.filter((x) => x !== l) });
 
   const submit = async (e) => {
     e.preventDefault();
+    if (!form.tipo) return toast.show("Selecciona el tipo de aplicación", "error");
+    if (form.lotes.length === 0) return toast.show("Selecciona al menos un lote", "error");
+    if (showProductos && productoRows.every((r) => !r.nombre_producto)) return toast.show("Agrega al menos un producto", "error");
+    if (isReceta && !form.receta_id) return toast.show("Selecciona una receta", "error");
+
     setBusy(true);
     try {
-      await api.post("/aplicaciones", { ...form, fecha: form.fecha + "T12:00:00.000Z" });
+      // Insumos a guardar
+      let insumos = [];
+      if (isReceta) {
+        const r = recetas.find((x) => x._id === form.receta_id);
+        insumos = r?.insumos || [];
+      } else if (showProductos) {
+        insumos = productoRows.filter((r) => r.nombre_producto && r.cantidad > 0).map((r) => ({
+          nombre_producto: r.nombre_producto, cantidad: Number(r.cantidad), unidad: r.unidad, categoria: "",
+        }));
+      }
+      const payload = {
+        tipo: form.tipo,
+        subtipo: form.subtipo || null,
+        lote: form.lotes[0] || "",
+        lotes: form.lotes,
+        fecha: form.fecha + "T12:00:00.000Z",
+        estado: "pendiente",
+        insumos,
+        receta_id: form.receta_id || null,
+        cantidad_agua: Number(form.cantidad_agua || 0),
+        modo_aplicacion: form.modo_aplicacion || null,
+        observaciones: form.observaciones,
+      };
+      await api.post("/aplicaciones", payload);
       toast.show("Aplicación creada");
       onSaved();
     } catch { toast.show("Error", "error"); }
     finally { setBusy(false); }
   };
 
-  const lotes = Array.from(new Set(plantaciones.map((p) => p.lote).filter(Boolean)));
+  const lotesPlanta = Array.from(new Set(plantaciones.map((p) => ({ lote: p.lote, nombre: p.nombre })).filter((p) => p.lote).map((p) => JSON.stringify(p)))).map((s) => JSON.parse(s));
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <form className="modal" style={{ maxWidth: 800 }} onClick={(e) => e.stopPropagation()} onSubmit={submit} data-testid="aplicacion-modal">
-        <h2 className="modal-title">Nueva aplicación</h2>
+      <form className="modal" style={{ maxWidth: 860 }} onClick={(e) => e.stopPropagation()} onSubmit={submit} data-testid="aplicacion-modal">
+        <h2 className="modal-title">Nueva Aplicación</h2>
+        <div className="modal-sub">Registra una nueva aplicación de insumos agrícolas</div>
+
         <div className="form-grid">
           <div className="field">
-            <label>Tipo</label>
-            <select className="select" value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })}>{TIPOS.map((t) => <option key={t} value={t}>{t}</option>)}</select>
+            <label>Tipo de Aplicación *</label>
+            <select className="select" value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value, subtipo: "" })} required data-testid="aplic-tipo">
+              <option value="">Selecciona tipo</option>
+              <option value="fertilizacion">Fertilización</option>
+              <option value="plaguicida">Plaguicida</option>
+              <option value="fungicida">Fungicida</option>
+              <option value="herbicida">Herbicida</option>
+              <option value="tratamiento">Tratamiento</option>
+            </select>
+          </div>
+          {requiresSubtipo && (
+            <div className="field">
+              <label>Subtipo *</label>
+              <select className="select" value={form.subtipo} onChange={(e) => setForm({ ...form, subtipo: e.target.value, receta_id: "" })} required data-testid="aplic-subtipo">
+                <option value="">Selecciona subtipo</option>
+                <option value="producto">Por producto</option>
+                <option value="receta">Por receta</option>
+              </select>
+            </div>
+          )}
+        </div>
+
+        {showProductos && (
+          <div style={{ marginTop: 18 }}>
+            <label style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>Productos (máx. 3)</label>
+            {productoRows.map((row, i) => (
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 8, marginTop: 8, alignItems: "center" }}>
+                <select className="select" value={row.nombre_producto} onChange={(e) => updateRow(i, "nombre_producto", e.target.value)}>
+                  <option value="">Producto</option>
+                  {inventario.filter((x) => x.existencia).map((p, idx) => <option key={idx} value={p.nombre_producto}>{p.nombre_producto} ({p.total_disponible} {p.unidad})</option>)}
+                </select>
+                <input type="number" className="input" placeholder="Cantidad" value={row.cantidad || ""} onChange={(e) => updateRow(i, "cantidad", e.target.value)} />
+                <select className="select" value={row.unidad} onChange={(e) => updateRow(i, "unidad", e.target.value)}>
+                  <option value="Gramos">Gramos</option>
+                  <option value="CC">CC</option>
+                </select>
+                {i === productoRows.length - 1 && productoRows.length < 3 ? (
+                  <button type="button" className="btn btn-primary" onClick={addRow} style={{ padding: "8px 14px" }}><Plus size={16} /></button>
+                ) : (
+                  <button type="button" className="btn-icon" onClick={() => removeRow(i)} style={{ color: "#dc2626" }}><X size={16} /></button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {isReceta && (
+          <div className="field" style={{ marginTop: 18 }}>
+            <label>Receta *</label>
+            <select className="select" value={form.receta_id} onChange={(e) => setForm({ ...form, receta_id: e.target.value })} required data-testid="aplic-receta">
+              <option value="">Selecciona una receta</option>
+              {recetas.map((r) => <option key={r._id} value={r._id}>{r.nombre} ({r.insumos?.length || 0} insumos)</option>)}
+            </select>
+          </div>
+        )}
+
+        <div className="form-grid" style={{ marginTop: 18 }}>
+          <div className="field">
+            <label>Cantidad de Agua (Litros) *</label>
+            <input type="number" step="0.01" className="input" value={form.cantidad_agua || ""} onChange={(e) => setForm({ ...form, cantidad_agua: e.target.value })} required data-testid="aplic-agua" placeholder="" />
           </div>
           <div className="field">
-            <label>Lote</label>
-            <select className="select" value={form.lote} onChange={(e) => setForm({ ...form, lote: e.target.value })} required>
-              <option value="">Selecciona...</option>{lotes.map((l) => <option key={l} value={l}>{l}</option>)}
+            <label>Modo de Aplicación *</label>
+            <select className="select" value={form.modo_aplicacion} onChange={(e) => setForm({ ...form, modo_aplicacion: e.target.value })} required data-testid="aplic-modo">
+              <option value="">Selecciona modo</option>
+              <option value="foliar">Foliar</option>
+              <option value="suelo">Suelo</option>
+              <option value="riego">Riego</option>
+              <option value="drench">Drench</option>
             </select>
           </div>
           <div className="field">
-            <label>Fecha</label>
+            <label>Fecha de Aplicación *</label>
             <input type="date" className="input" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} required />
           </div>
         </div>
 
-        {recetas.length > 0 && (
-          <div style={{ marginTop: 14 }}>
-            <label style={{ fontSize: 13, fontWeight: 500 }}>Cargar receta (opcional)</label>
-            <div className="pill-group" style={{ marginTop: 6 }}>
-              {recetas.map((r) => <button key={r._id} type="button" className="pill" onClick={() => cargarReceta(r)}>{r.nombre}</button>)}
+        <div style={{ marginTop: 18 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, color: "#334155", display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ color: "#f97316" }}>📍</span> Lote(s) / Sector destino *
+          </label>
+          <div style={{ color: "#64748b", fontSize: 12, marginTop: 4 }}>
+            Podés seleccionar <b>varios lotes</b>. Las cantidades se repartirán equitativamente entre ellos.
+          </div>
+          {lotesPlanta.length > 0 && (
+            <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 13, color: "#64748b" }}>Plantaciones:</span>
+              {lotesPlanta.map((p) => {
+                const isActive = form.lotes.includes(p.lote);
+                return (
+                  <button key={p.lote} type="button" onClick={() => toggleLote(p.lote)}
+                    style={{
+                      padding: "5px 12px", borderRadius: 999,
+                      border: isActive ? "1px solid #16a34a" : "1px solid #bbf7d0",
+                      background: isActive ? "#16a34a" : "#fff",
+                      color: isActive ? "#fff" : "#15803d", cursor: "pointer", fontSize: 13,
+                    }}>
+                    {p.lote} · {p.nombre}
+                  </button>
+                );
+              })}
             </div>
-          </div>
-        )}
-
-        <div style={{ marginTop: 14 }}>
-          <label style={{ fontSize: 13, fontWeight: 500 }}>Insumos disponibles (clic para añadir)</label>
-          <div className="pill-group" style={{ marginTop: 6, maxHeight: 120, overflow: "auto" }}>
-            {inventario.filter((i) => i.existencia).map((i, idx) => (
-              <button key={idx} type="button" className="pill" onClick={() => addInsumo(i)}>{i.nombre_producto} ({i.total_disponible} {i.unidad})</button>
-            ))}
-          </div>
+          )}
+          <input className="input" style={{ marginTop: 8, width: "100%" }} placeholder="O escribe un lote y presiona Enter para agregarlo..."
+            value={loteInput} onChange={(e) => setLoteInput(e.target.value)} onKeyDown={addLoteFromInput} />
+          {form.lotes.length > 0 && (
+            <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {form.lotes.map((l) => (
+                <span key={l} className="badge badge-primary" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 8px 5px 12px" }}>
+                  {l}
+                  <button type="button" onClick={() => removeLote(l)} style={{ background: "transparent", border: "none", color: "inherit", cursor: "pointer", padding: 0, display: "inline-flex" }}><X size={12} /></button>
+                </span>
+              ))}
+            </div>
+          )}
+          <div style={{ color: "#64748b", fontSize: 12, marginTop: 8 }}>A qué lote o sector del campo está dirigida esta aplicación</div>
         </div>
 
-        <div style={{ marginTop: 14 }}>
-          <h4 style={{ margin: "0 0 8px" }}>Insumos seleccionados</h4>
-          {form.insumos.map((ins, idx) => (
-            <div key={idx} style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "center" }}>
-              <div style={{ flex: 1, fontSize: 14 }}>{ins.nombre_producto}</div>
-              <input type="number" className="input" style={{ width: 100 }} value={ins.cantidad} onChange={(e) => {
-                const v = Number(e.target.value);
-                setForm((f) => { const ins2 = [...f.insumos]; ins2[idx].cantidad = v; return { ...f, insumos: ins2 }; });
-              }} />
-              <div style={{ width: 80, fontSize: 13, color: "#64748b" }}>{ins.unidad}</div>
-              <button type="button" className="btn-icon" style={{ color: "#dc2626" }} onClick={() => setForm((f) => ({ ...f, insumos: f.insumos.filter((_, i) => i !== idx) }))}><X size={16} /></button>
-            </div>
-          ))}
-          {form.insumos.length === 0 && <div style={{ color: "#94a3b8", fontSize: 14 }}>Sin insumos. Selecciona de la lista arriba.</div>}
-        </div>
-
-        <div className="field" style={{ marginTop: 14 }}>
+        <div className="field" style={{ marginTop: 18 }}>
           <label>Observaciones</label>
-          <textarea className="textarea" value={form.observaciones} onChange={(e) => setForm({ ...form, observaciones: e.target.value })} />
+          <textarea className="textarea" value={form.observaciones} onChange={(e) => setForm({ ...form, observaciones: e.target.value })} placeholder="Escriba cualquier observación relevante sobre esta aplicación..." />
+          <div style={{ color: "#64748b", fontSize: 12, marginTop: 4 }}>Campo opcional para notas del ingeniero agrónomo</div>
         </div>
+
         <div className="modal-footer">
           <button type="button" className="btn" onClick={onClose}>Cancelar</button>
-          <button type="submit" className="btn btn-primary" disabled={busy} data-testid="aplicacion-form-submit">{busy ? "..." : "Crear aplicación"}</button>
+          <button type="submit" className="btn btn-primary" disabled={busy} data-testid="aplicacion-form-submit">{busy ? "..." : "Crear Aplicación"}</button>
         </div>
       </form>
     </div>

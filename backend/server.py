@@ -712,11 +712,15 @@ class InsumoItem(BaseModel):
 
 
 class AplicacionIn(BaseModel):
-    tipo: str = "fertilizacion"  # fertilizacion | fungicida | plaguicida | herbicida | tratamiento
-    lote: str
+    tipo: str = "fertilizacion"  # fertilizacion | plaguicida | fungicida | herbicida | tratamiento
+    subtipo: Optional[str] = None  # "receta" | "producto" — sólo aplica a fertilizacion/tratamiento
+    lote: str = ""  # legacy single lote
+    lotes: List[str] = []  # NUEVO: múltiples lotes
     fecha: str
-    estado: str = "pendiente"  # pendiente | confirmada
+    estado: str = "pendiente"
     insumos: List[InsumoItem] = []
+    cantidad_agua: float = 0
+    modo_aplicacion: Optional[str] = None  # foliar | suelo | riego | drench
     observaciones: str = ""
     receta_id: Optional[str] = None
 
