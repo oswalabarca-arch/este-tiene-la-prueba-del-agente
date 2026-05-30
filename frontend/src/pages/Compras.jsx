@@ -3,25 +3,10 @@ import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
 import { ShoppingCart, Plus, Pencil, Trash2, Car, Fuel, Wrench, Users as UsersIcon } from "lucide-react";
+import { catBadge } from "../lib/categoryColors";
 
 const CATEGORIAS = ["fertilizantes", "plaguicidas", "fungicidas", "herbicidas", "tratamiento", "semillas", "otros"];
 const UNIDADES = ["CC", "Gr"];
-
-// Color distintivo por categoría
-const CAT_COLORS = {
-  fertilizantes: { bg: "#dcfce7", color: "#15803d" },  // verde
-  plaguicidas:   { bg: "#fee2e2", color: "#b91c1c" },  // rojo
-  fungicidas:    { bg: "#ede9fe", color: "#6d28d9" },  // morado
-  herbicidas:    { bg: "#fef3c7", color: "#b45309" },  // ámbar/naranja
-  tratamiento:   { bg: "#e0f2fe", color: "#0369a1" },  // azul/cyan
-  semillas:      { bg: "#fce7f3", color: "#be185d" },  // rosa
-  otros:         { bg: "#f1f5f9", color: "#475569" },  // gris
-};
-
-const catBadge = (cat) => {
-  const c = CAT_COLORS[cat] || CAT_COLORS.otros;
-  return { background: c.bg, color: c.color };
-};
 
 const CATS_GASTO_VEH = [
   { key: "gasolina", label: "Gasolina", icon: Fuel, color: "#dc2626", bg: "#fee2e2" },

@@ -7,6 +7,7 @@ import {
   ArrowLeft, Pencil, Trash2, MapPin, Calendar, Droplet, Sprout, ImageOff,
   Droplets, Users as UsersIcon, Apple, Info,
 } from "lucide-react";
+import { catBadge } from "../lib/categoryColors";
 
 const TABS = [
   { key: "general", label: "Información general", icon: Info, color: "#16a34a" },
@@ -221,7 +222,7 @@ function AplicacionesTab({ items }) {
           {items.map((a) => (
             <tr key={a._id}>
               <td>{new Date(a.fecha).toLocaleDateString()}</td>
-              <td><span className="badge badge-info">{a.tipo}</span></td>
+              <td><span className="badge" style={catBadge(a.tipo)}>{a.tipo}</span></td>
               <td style={{ fontSize: 13, color: "#64748b" }}>{a.insumos?.map((i) => `${i.nombre_producto} ${i.cantidad}${i.unidad}`).join(", ") || "—"}</td>
               <td>{a.estado === "confirmada" ? <span className="badge badge-primary">Confirmada</span> : <span className="badge badge-warn">Pendiente</span>}</td>
             </tr>

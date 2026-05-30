@@ -3,6 +3,7 @@ import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
 import { Droplets, Plus, Trash2, BookOpen, X, CheckCircle, Clock, Eye, Pencil } from "lucide-react";
+import { catBadge, catPill } from "../lib/categoryColors";
 
 const TIPOS = ["fertilizacion", "fungicida", "plaguicida", "herbicida", "tratamiento"];
 const UNIDADES = ["Gramos", "CC", "ml", "Kg", "Lt"];
@@ -155,7 +156,16 @@ export default function Aplicaciones() {
                 <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 600, marginBottom: 6 }}>Tipo</div>
                 <div className="pill-group">
                   <button className={`pill ${!filtroTipo ? "active" : ""}`} onClick={() => setFiltroTipo("")}>Todos</button>
-                  {TIPOS.map((t) => <button key={t} className={`pill ${filtroTipo === t ? "active" : ""}`} onClick={() => setFiltroTipo(t)}>{t}</button>)}
+                  {TIPOS.map((t) => (
+                    <button
+                      key={t}
+                      className="pill"
+                      style={catPill(t, filtroTipo === t)}
+                      onClick={() => setFiltroTipo(t)}
+                    >
+                      {t}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
@@ -171,7 +181,7 @@ export default function Aplicaciones() {
                 {filtered.map((a) => (
                   <tr key={a._id}>
                     <td>{new Date(a.fecha).toLocaleDateString()}</td>
-                    <td><span className="badge badge-info">{a.tipo}</span></td>
+                    <td><span className="badge" style={catBadge(a.tipo)}>{a.tipo}</span></td>
                     <td><span className="badge badge-primary">{a.lote}</span></td>
                     <td style={{ fontSize: 13, color: "#64748b" }}>{a.insumos?.map((i) => `${i.nombre_producto} ${i.cantidad}${i.unidad}`).join(", ") || "—"}</td>
                     <td>{a.estado === "confirmada" ? <span className="badge badge-primary"><CheckCircle size={12} style={{ verticalAlign: "middle" }} /> Confirmada</span> : <span className="badge badge-warn"><Clock size={12} style={{ verticalAlign: "middle" }} /> Pendiente</span>}</td>
