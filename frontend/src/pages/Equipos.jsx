@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, Navigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
@@ -13,21 +13,27 @@ const CAT_LABELS = {
   herramienta: { label: "Herramientas", icon: Wrench, color: "#f59e0b", bg: "#fef3c7" },
 };
 
+const URL_TO_CAT = { motores: "motor", herramientas: "herramienta" };
+
 export default function Equipos() {
   const toast = useToast();
+  const navigate = useNavigate();
   const { canEdit, canDelete } = useAuth();
   const { categoria } = useParams();
   const [items, setItems] = useState([]);
   const [editing, setEditing] = useState(null);
 
-  const urlToCat = { motores: "motor", herramientas: "herramienta" };
-  const filterCat = categoria ? urlToCat[categoria] : null;
+  const filterCat = categoria ? URL_TO_CAT[categoria] : null;
 
-  const load = () => api.get("/equipos").then((r) => setItems(r.data.equipos));
+  // Redirección defensiva: si la URL no tiene una categoría válida, ir a motores
+  useEffect(() => {
+    if (!filterCat) navigate("/dashboard/equipos/motores", { replace: true });
+  }, [filterCat, navigate]);
+
+  const load = () => api.get("/equipos").then((r) => setItems(r.data.equipos)).catch(() => {});
   useEffect(() => { if (filterCat) load(); }, [filterCat]);
 
-  // Si no hay categoría válida en la URL → redirigir a motores
-  if (!filterCat) return <Navigate to="/dashboard/equipos/motores" replace />;
+  if (!filterCat) return null;  // mientras redirige
 
   const meta = CAT_LABELS[filterCat];
   const Icon = meta.icon;
