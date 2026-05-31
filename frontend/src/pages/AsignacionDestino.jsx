@@ -4,6 +4,7 @@ import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
 import { Send, Plus, Trash2, Truck, Snowflake, Home, AlertCircle } from "lucide-react";
 import { todayLocal } from "../lib/dates";
+import { CalidadBoxes } from "./Cosecha";
 
 const DESTINOS = [
   { key: "venta_finca", label: "Venta en finca", icon: Home, color: "#16a34a", bg: "#dcfce7" },
@@ -36,6 +37,16 @@ export default function AsignacionDestino() {
     const totalCalidad = (c.primera_calidad || 0) + (c.segunda_calidad || 0) + (c.tercera_calidad || 0) + (c.descarte || 0);
     return sum + (c.unidad === "kg" ? totalCalidad / KG : totalCalidad);
   }, 0);
+
+  // Desglose de calidades de la cosecha del día (en cestas) para decidir destino
+  const totalsCalidad = cosechas.reduce((acc, c) => {
+    const mult = c.unidad === "kg" ? 1 / KG : 1;
+    ["primera_calidad", "segunda_calidad", "tercera_calidad", "descarte"].forEach((k) => {
+      acc[k] += (c[k] || 0) * mult;
+    });
+    return acc;
+  }, { primera_calidad: 0, segunda_calidad: 0, tercera_calidad: 0, descarte: 0 });
+  const sumCalidad = totalsCalidad.primera_calidad + totalsCalidad.segunda_calidad + totalsCalidad.tercera_calidad + totalsCalidad.descarte;
   const asignado = asignaciones.reduce((s, a) => s + (a.cantidad_cestas || 0), 0);
   const disponible = cestas_hoy - asignado;
 
@@ -55,6 +66,17 @@ export default function AsignacionDestino() {
     <div data-testid="asignacion-page">
       <h1 className="page-title"><Send size={24} style={{ verticalAlign: "middle", color: "#16a34a" }} /> Asignación de Destino</h1>
       <p className="page-subtitle">Distribuye la cosecha del día ({today}) hacia los diferentes destinos.</p>
+
+      <div className="card" style={{ marginBottom: 18, background: "#f0fdf4", borderColor: "#bbf7d0" }} data-testid="asignacion-cosecha-dia">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <div>
+            <h3 style={{ margin: 0, color: "#15803d" }}>● Cosecha del día</h3>
+            <div style={{ color: "#64748b", fontSize: 13 }}>Calidades cosechadas hoy ({today}). Úsalas para decidir el destino de cada calidad.</div>
+          </div>
+          <span className="badge badge-primary">{cosechas.length} cosecha(s) · {sumCalidad.toFixed(2)} cestas</span>
+        </div>
+        <CalidadBoxes totals={totalsCalidad} sum={sumCalidad} unidad="cestas" compact />
+      </div>
 
       <div className="kpi-grid" style={{ marginBottom: 18 }}>
         <div className="card kpi-card">
