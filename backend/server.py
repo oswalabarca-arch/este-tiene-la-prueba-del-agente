@@ -406,17 +406,26 @@ async def list_cosechas(
 
 @api.post("/cosechas")
 async def create_cosecha(payload: CosechaIn, user: dict = Depends(get_current_user)):
-    return await _create("cosechas", payload.model_dump(), user)
+    created = await _create("cosechas", payload.model_dump(), user)
+    await _sync_descarte_asignacion(created.get("fecha_cosecha"), user)
+    return created
 
 
 @api.put("/cosechas/{cid}")
-async def update_cosecha(cid: str, payload: CosechaIn, _: dict = Depends(get_current_user)):
-    return await _update("cosechas", cid, payload.model_dump())
+async def update_cosecha(cid: str, payload: CosechaIn, user: dict = Depends(get_current_user)):
+    updated = await _update("cosechas", cid, payload.model_dump())
+    await _sync_descarte_asignacion(payload.model_dump().get("fecha_cosecha"), user)
+    return updated
 
 
 @api.delete("/cosechas/{cid}")
-async def delete_cosecha(cid: str, _: dict = Depends(get_current_user)):
-    return await _delete("cosechas", cid)
+async def delete_cosecha(cid: str, user: dict = Depends(get_current_user)):
+    doc = await db.cosechas.find_one({"_id": cid})
+    fecha = doc.get("fecha_cosecha") if doc else None
+    res = await _delete("cosechas", cid)
+    if fecha:
+        await _sync_descarte_asignacion(fecha, user)
+    return res
 
 
 # ============================================================
@@ -495,6 +504,57 @@ async def _asignado_cestas_dia(fecha_prefix: str) -> float:
     return sum((a.get("cantidad_cestas", 0) or 0) for a in docs)
 
 
+async def _sync_descarte_asignacion(fecha_cosecha_iso, user):
+    """El descarte generado en Cosecha se asigna OBLIGATORIAMENTE al destino 'descarte'.
+    Mantiene una única asignación automática (origen='cosecha_descarte_auto') igual al
+    total de descarte cosechado ese día. Solo aplica al descarte, no a las demás calidades."""
+    fecha_prefix = (fecha_cosecha_iso or "")[:10]
+    if not fecha_prefix:
+        return
+    docs = await db.cosechas.find({"fecha_cosecha": {"$regex": f"^{fecha_prefix}"}}).to_list(5000)
+    total_descarte = 0.0
+    for c in docs:
+        d = c.get("descarte", 0) or 0
+        total_descarte += (d / KG_POR_CESTA) if c.get("unidad") == "kg" else d
+    total_descarte = round(total_descarte, 2)
+    existing = await db.asignaciones_destino.find_one({
+        "fecha": {"$regex": f"^{fecha_prefix}"},
+        "destino": "descarte",
+        "origen": "cosecha_descarte_auto",
+    })
+    if total_descarte <= 0:
+        if existing:
+            await db.asignaciones_destino.delete_one({"_id": existing["_id"]})
+            for coll in _LINKED_COLLS:
+                await db[coll].delete_many({"asignacion_id": existing["_id"]})
+        return
+    fecha_full = fecha_prefix + "T12:00:00.000Z"
+    kg = round(total_descarte * KG_POR_CESTA, 2)
+    if existing:
+        if abs((existing.get("cantidad_cestas", 0) or 0) - total_descarte) > 0.001:
+            await db.asignaciones_destino.update_one(
+                {"_id": existing["_id"]},
+                {"$set": {"cantidad_cestas": total_descarte, "cantidad_kg": kg, "cantidad_ingresada": total_descarte, "unidad_ingreso": "cestas"}},
+            )
+            await db.ventas_descarte.update_many(
+                {"asignacion_id": existing["_id"]},
+                {"$set": {"cantidad_cestas": total_descarte, "cantidad_kg": kg}},
+            )
+    else:
+        data = {
+            "destino": "descarte", "unidad_ingreso": "cestas",
+            "cantidad_ingresada": total_descarte, "cantidad_cestas": total_descarte, "cantidad_kg": kg,
+            "fecha": fecha_full, "observaciones": "Descarte de cosecha (automático)",
+            "origen": "cosecha_descarte_auto",
+        }
+        created = await _create("asignaciones_destino", data, user)
+        linked = _build_linked_doc("descarte", total_descarte, kg, fecha_full, created["_id"])
+        if linked:
+            coll, doc = linked
+            doc["observaciones"] = "Descarte de cosecha (automático)"
+            await _create(coll, doc, user)
+
+
 @api.post("/asignaciones-destino")
 async def create_asignacion(payload: AsignacionIn, user: dict = Depends(get_current_user)):
     data = payload.model_dump()
@@ -520,6 +580,10 @@ async def create_asignacion(payload: AsignacionIn, user: dict = Depends(get_curr
 
 @api.delete("/asignaciones-destino/{aid}")
 async def delete_asignacion(aid: str, _: dict = Depends(get_current_user)):
+    # El descarte de cosecha es obligatorio: no se puede eliminar manualmente
+    doc = await db.asignaciones_destino.find_one({"_id": aid})
+    if doc and doc.get("origen") == "cosecha_descarte_auto":
+        raise HTTPException(400, "El descarte de cosecha es obligatorio y no se puede eliminar. Ajusta el descarte en el módulo Cosecha.")
     # Eliminar el registro vinculado en el módulo destino, si existe
     for coll in _LINKED_COLLS:
         await db[coll].delete_many({"asignacion_id": aid})

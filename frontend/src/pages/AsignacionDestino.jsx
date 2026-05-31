@@ -213,6 +213,11 @@ export default function AsignacionDestino() {
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontWeight: 600 }}>
                       <Icon size={16} style={{ color: d.color }} /> {d.label}
                     </span>
+                    {d.key === "descarte" && (
+                      <div style={{ color: "#94a3b8", fontSize: 11, marginTop: 2 }}>
+                        El descarte de cosecha se asigna aquí automáticamente
+                      </div>
+                    )}
                   </td>
                   <td style={{ color: acum > 0 ? "#15803d" : "#94a3b8", fontWeight: acum > 0 ? 600 : 400 }}>
                     {acum > 0 ? `${acum.toFixed(2)} cestas` : "—"}
@@ -286,8 +291,11 @@ export default function AsignacionDestino() {
                     <td>{a.cantidad_cestas?.toFixed(2)}</td>
                     <td>{a.cantidad_kg?.toFixed(2)} kg</td>
                     <td style={{ textAlign: "right" }}>
-                      {isToday && canDelete("cosecha") && <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(a)}><Trash2 size={16} /></button>}
-                      {!isToday && <span style={{ color: "#94a3b8", fontSize: 12 }}>—</span>}
+                      {a.origen === "cosecha_descarte_auto"
+                        ? <span className="badge" style={{ background: "#fee2e2", color: "#dc2626" }}>Auto · descarte</span>
+                        : isToday && canDelete("cosecha")
+                        ? <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(a)}><Trash2 size={16} /></button>
+                        : <span style={{ color: "#94a3b8", fontSize: 12 }}>—</span>}
                     </td>
                   </tr>
                 );
