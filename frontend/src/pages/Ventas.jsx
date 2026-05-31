@@ -73,7 +73,10 @@ function Ventas({ tipo }) {
 
   const meta = TIPO_META[tipo] || TIPO_META.finca;
   const Icon = meta.icon;
-  const esIngreso = tipo === "finca" || tipo === "ciudad";  // los demás no son ventas con $$
+  const esIngreso = tipo === "finca" || tipo === "ciudad";  // ventas con $$ (cliente/abono/saldo)
+  const esDonacion = tipo === "donaciones";                  // sin dinero (beneficiario/cestas)
+  const conPanel = esIngreso || esDonacion;                  // muestran panel + formulario inline + registro
+  const persona = esDonacion ? "beneficiario" : "cliente";
 
   // Separar el stock recibido desde Asignación de destino vs las ventas reales (manuales)
   const realToday = todayLocal();
@@ -136,20 +139,21 @@ function Ventas({ tipo }) {
   const numv = (v) => (v === 0 || v === "" || v == null ? "" : v);
 
   const registrarVenta = async () => {
-    if (!nv.cliente.trim()) { toast.show("Ingresa el nombre del cliente", "error"); return; }
-    if (!Number(nv.cantidad_cestas) || !Number(nv.precio_unitario)) { toast.show("Cestas y precio son obligatorios", "error"); return; }
+    if (!nv.cliente.trim()) { toast.show(esDonacion ? "Ingresa el beneficiario" : "Ingresa el nombre del cliente", "error"); return; }
+    if (!Number(nv.cantidad_cestas)) { toast.show("La cantidad de cestas es obligatoria", "error"); return; }
+    if (esIngreso && !Number(nv.precio_unitario)) { toast.show("El precio por cesta es obligatorio", "error"); return; }
     await api.post(`/ventas-${tipo}`, {
       fecha: nv.fecha + "T12:00:00.000Z",
       cantidad_cestas: Number(nv.cantidad_cestas),
       cantidad_kg: Number(nv.cantidad_cestas) * 14,
-      precio_unitario: Number(nv.precio_unitario),
-      total: nvTotal,
+      precio_unitario: esDonacion ? 0 : Number(nv.precio_unitario),
+      total: esDonacion ? 0 : nvTotal,
       cliente: nv.cliente,
       telefono: nv.telefono,
-      abono_inicial: Number(nv.abono_inicial || 0),
+      abono_inicial: esDonacion ? 0 : Number(nv.abono_inicial || 0),
       observaciones: nv.observaciones,
     });
-    toast.show("Venta registrada");
+    toast.show(esDonacion ? "Donación registrada" : "Venta registrada");
     setNv(emptyNv);
     load();
   };
@@ -169,17 +173,17 @@ function Ventas({ tipo }) {
 
   const limpiarFiltros = () => { setPeriod("todo"); setSearch(""); setEstadoPago("todos"); setDiasMin(""); setSoloDeudores(false); };
 
-  const rows = esIngreso ? ventasFiltradas : items;
+  const rows = conPanel ? ventasFiltradas : items;
 
   return (
     <div data-testid={`ventas-${tipo}-page`}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
         <div>
           <h1 className="page-title" style={{ margin: 0 }}><Icon size={24} style={{ verticalAlign: "middle", color: meta.color }} /> {meta.label}</h1>
-          <p className="page-subtitle" style={{ marginTop: 4 }}>{esIngreso ? "Registro de ventas directas con seguimiento de abonos y saldos pendientes." : `Registro de ${meta.label.toLowerCase()} (sin valor de venta).`}</p>
+          <p className="page-subtitle" style={{ marginTop: 4 }}>{esIngreso ? "Registro de ventas directas con seguimiento de abonos y saldos pendientes." : esDonacion ? "Registro de donaciones de fruta a beneficiarios." : `Registro de ${meta.label.toLowerCase()} (sin valor de venta).`}</p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {esIngreso && (
+          {conPanel && (
             <div style={{ display: "inline-flex", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
               {["cestas", "kg"].map((opt) => (
                 <button key={opt} type="button"
@@ -192,13 +196,13 @@ function Ventas({ tipo }) {
               ))}
             </div>
           )}
-          {!esIngreso && (
+          {!conPanel && (
             <button className="btn btn-primary" onClick={() => setEditing({})} data-testid="venta-new-btn"><Plus size={16} /> Nuevo registro</button>
           )}
         </div>
       </div>
 
-      {esIngreso && (
+      {conPanel && (
         <>
           {/* Acumulado de hoy */}
           <div className="card" style={{ background: "#f0fdf4", borderColor: "#bbf7d0", marginBottom: 16 }} data-testid="ventas-acumulado-hoy">
@@ -208,33 +212,35 @@ function Ventas({ tipo }) {
                 <div>
                   <h3 style={{ margin: 0, color: "#15803d" }}>● Acumulado de hoy · {meta.label}</h3>
                   <div style={{ color: "#64748b", fontSize: 13, marginTop: 2, maxWidth: 620 }}>
-                    {realToday} · Saldo inicial proveniente de "Asignación de destino &gt; Distribución del día", se descuenta al registrar cada venta.
+                    {realToday} · Saldo inicial proveniente de "Asignación de destino &gt; Distribución del día", se descuenta al registrar cada {esDonacion ? "donación" : "venta"}.
                   </div>
                 </div>
               </div>
               <div style={{ textAlign: "right" }}>
                 <div style={{ fontSize: 30, fontWeight: 800, color: disponible < -0.001 ? "#dc2626" : disponible > 0.001 ? "#15803d" : "#94a3b8" }} data-testid="ventas-disponible-grande">{fc(disponible)}</div>
-                <div style={{ color: "#64748b", fontSize: 12 }}>Disponible para vender hoy</div>
+                <div style={{ color: "#64748b", fontSize: 12 }}>Disponible para {esDonacion ? "donar" : "vender"} hoy</div>
               </div>
             </div>
             <div className="kpi-grid" style={{ marginTop: 16, gridTemplateColumns: "repeat(3, 1fr)" }}>
               <SubCard label="Asignado hoy" value={fc(asignadoHoy)} sub={`${movAsignado} movimiento(s) desde Asignación de destino`} color="#16a34a" />
-              <SubCard label="Vendido hoy" value={fc(vendidoHoyCestas)} sub={`${ventasHoy.length} venta(s) registrada(s)`} color="#3b82f6" />
-              <SubCard label="Disponible" value={fc(disponible)} sub="Restante a vender" color={disponible < -0.001 ? "#dc2626" : disponible > 0.001 ? "#16a34a" : "#94a3b8"} />
+              <SubCard label={esDonacion ? "Donado hoy" : "Vendido hoy"} value={fc(vendidoHoyCestas)} sub={`${ventasHoy.length} ${esDonacion ? "donación(es)" : "venta(s)"} registrada(s)`} color="#3b82f6" />
+              <SubCard label="Disponible" value={fc(disponible)} sub={esDonacion ? "Restante a donar" : "Restante a vender"} color={disponible < -0.001 ? "#dc2626" : disponible > 0.001 ? "#16a34a" : "#94a3b8"} />
             </div>
           </div>
 
-          {/* Barra de dinero */}
+          {/* Barra de dinero (solo ventas) */}
+          {esIngreso && (
           <div className="kpi-grid" style={{ marginBottom: 16, gridTemplateColumns: "repeat(4, 1fr)" }}>
             <MoneyCard title="Vendido (hoy)" icon={TrendingUp} color="#16a34a" value={fmtMoney(vendidoHoyDinero)} sub={`${vendidoHoyCestas.toFixed(2)} cestas en ${ventasHoy.length} venta(s)`} testid="money-vendido-hoy" />
             <MoneyCard title="Total vendido" icon={DollarSign} color="#0f172a" value={fmtMoney(totalVendido)} sub={`${ventasFiltradas.length} venta(s) en vista`} testid="money-total-vendido" />
             <MoneyCard title="Cobrado" icon={Wallet} color="#3b82f6" value={fmtMoney(cobrado)} sub={`${pctCobrado.toFixed(1)}% del total`} testid="money-cobrado" />
             <MoneyCard title="Saldo / Deuda" icon={AlertTriangle} color="#dc2626" value={fmtMoney(deuda)} sub={`${deudores} deudor(es)`} testid="money-deuda" />
           </div>
+          )}
         </>
       )}
 
-      {!esIngreso && (
+      {!conPanel && (
         <div className="kpi-grid" style={{ marginBottom: 18 }}>
           <div className="card kpi-card"><div className="kpi-label">Total registros</div><div className="kpi-value">{items.length}</div></div>
           <div className="card kpi-card"><div className="kpi-label">Cestas</div><div className="kpi-value" style={{ color: meta.color }}>{items.reduce((s, v) => s + cestasDe(v), 0).toFixed(2)}</div></div>
