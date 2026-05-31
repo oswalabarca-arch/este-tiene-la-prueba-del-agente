@@ -143,6 +143,12 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - Filtra por `fecha_actividad` y por `tipo_personalizado || tipo`; combinables. Muestra "X de Y actividad(es)" y estado vacío "Sin actividades para los filtros aplicados".
 - Cambio 100% frontend en `Actividades.jsx`. Testing frontend 100% (iteration_8.json): visibilidad de pickers, filtrado por período/tipo, combinación y estado vacío.
 
+## Implementado (Plantaciones · plantas por variedad + total — 31/05/2026)
+- En el formulario **Nueva/Editar Plantación**, cada variedad agregada ahora tiene un campo numérico **"Plantas"** para indicar la cantidad de plantas de esa variedad (`plant-form-variedad-cantidad-<nombre>`).
+- Cuando hay **2 o más variedades** se muestra un bloque **"Total de plantas de la plantación"** (`plant-form-total-plantas`) con la suma en vivo y el número de variedades. (Con 1 sola variedad no se muestra, ya que el conteo es el total.)
+- Backend: `PlantacionIn` ahora tiene `plantas_por_variedad: Dict[str,float]` y `total_plantas: float`. El form también setea `inventario_plantas = total` (con fallback al valor previo si el total es 0). POST/PUT `/api/plantaciones`.
+- Testing 100% backend (persistencia) + frontend (iteration_9.json): total condicional, actualización en vivo, quitar variedad, y persistencia al reabrir en Editar.
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.
