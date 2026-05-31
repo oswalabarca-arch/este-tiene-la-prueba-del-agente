@@ -169,6 +169,14 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 ## Implementado (Plantación · columna "Cantidad de plantas" en Rendimiento — 31/05/2026)
 - En la tabla **"Rendimiento por planta"** (pestaña Cosechas del detalle de plantación) se agregó la columna **"Cantidad de plantas"** entre Variedad y Rendimiento, mostrando las plantas registradas de esa variedad (`f.plantas`). Testid `plant-rendimiento-plantas`. Solo frontend, lint OK.
 
+## Implementado (Plantación · gráficos de calidades en Cosechas — 31/05/2026)
+- En la pestaña **Cosechas** del detalle de plantación:
+  - La ficha **"Rendimiento por planta"** se redujo a ~mitad de ancho (`maxWidth: 560`).
+  - **Gráfico principal "Calidades del lote"** (`plant-calidades-chart`): donut con las 4 calidades (1ª verde, 2ª azul, 3ª ámbar, descarte rojo) en porcentaje, con el **rendimiento total en kg** en el centro y leyenda con % + kg por calidad.
+  - **Gráficos secundarios "Calidades por variedad"** (`plant-calidades-variedad-chart`): un pie pequeño por cada variedad (`plant-variedad-chart-<variedad>`) con el % de cada calidad y total en kg, más una leyenda compartida.
+- Implementado con **recharts** (primer uso en el proyecto, ya instalado). Cálculos en kg (cestas × 14). Cambio 100% frontend (`PlantacionDetail.jsx`).
+- Testing frontend 100% (iteration_12.json). Nota: recharts emite un warning benigno de ResponsiveContainer en el primer render (no es error; los gráficos renderizan bien).
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.
