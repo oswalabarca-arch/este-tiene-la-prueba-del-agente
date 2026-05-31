@@ -1380,6 +1380,64 @@ async def analiticas_resumen(_: dict = Depends(get_current_user)):
     }
 
 
+@api.get("/analiticas/cuentas-por-cobrar")
+async def analiticas_cuentas_por_cobrar(_: dict = Depends(get_current_user)):
+    """Deuda agrupada por cliente, sumando ventas de finca + ciudad con saldo pendiente."""
+    ventas = []
+    for coll, origen in (("ventas_finca", "Venta en finca"), ("ventas_ciudad", "Envío a ciudad")):
+        docs = await db[coll].find({}).to_list(5000)
+        for v in docs:
+            ventas.append({**v, "_origen_modulo": origen})
+
+    hoy = datetime.now(timezone.utc)
+    grupos = {}
+    for v in ventas:
+        total = v.get("total", 0) or 0
+        abono = v.get("abono_inicial", 0) or 0
+        saldo = total - abono
+        if saldo <= 0.001:
+            continue  # solo deudores
+        cliente = (v.get("cliente") or "").strip() or "Sin nombre"
+        telefono = (v.get("telefono") or "").strip()
+        key = cliente.lower() + "|" + telefono
+        g = grupos.get(key)
+        if not g:
+            g = {"cliente": cliente, "telefono": telefono, "total_vendido": 0.0, "total_abonado": 0.0,
+                  "saldo": 0.0, "n_ventas": 0, "dias_max": 0, "modulos": set()}
+            grupos[key] = g
+        g["total_vendido"] += total
+        g["total_abonado"] += abono
+        g["saldo"] += saldo
+        g["n_ventas"] += 1
+        g["modulos"].add(v["_origen_modulo"])
+        try:
+            fecha = datetime.fromisoformat((v.get("fecha") or "").replace("Z", "+00:00"))
+            dias = max(0, (hoy - fecha).days)
+            g["dias_max"] = max(g["dias_max"], dias)
+        except Exception:
+            pass
+
+    cuentas = []
+    for g in grupos.values():
+        cuentas.append({
+            "cliente": g["cliente"], "telefono": g["telefono"],
+            "total_vendido": round(g["total_vendido"], 2),
+            "total_abonado": round(g["total_abonado"], 2),
+            "saldo": round(g["saldo"], 2),
+            "n_ventas": g["n_ventas"], "dias_max": g["dias_max"],
+            "modulos": sorted(g["modulos"]),
+        })
+    cuentas.sort(key=lambda c: c["saldo"], reverse=True)
+
+    return {
+        "cuentas": cuentas,
+        "total_deuda": round(sum(c["saldo"] for c in cuentas), 2),
+        "total_vendido": round(sum(c["total_vendido"] for c in cuentas), 2),
+        "total_cobrado": round(sum(c["total_abonado"] for c in cuentas), 2),
+        "n_deudores": len(cuentas),
+    }
+
+
 # ============================================================
 # SEED
 # ============================================================

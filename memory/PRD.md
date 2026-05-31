@@ -98,6 +98,11 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - Las money cards reflejan la vista filtrada ("X venta(s) en vista"). Sin cambios de backend (todo se calcula de ventas_finca existentes).
 - Testing: backend 100% (5/5) + frontend 100% (`/app/backend/tests/test_ventas_descarte_auto.py`).
 
+## Implementado (Analíticas · Cuentas por cobrar — 31/05/2026)
+- Nueva sección **"Cuentas por cobrar"** dentro del módulo **Analíticas** (solo se ve ahí).
+- Backend `GET /api/analiticas/cuentas-por-cobrar`: agrupa la deuda **por cliente** sumando ventas de **finca + ciudad** con saldo pendiente (total − abono_inicial > 0). Devuelve por cliente: total vendido, abonado, saldo, n_ventas, días máx. de mora y módulos de origen; más totales (deuda total, vendido, cobrado, n_deudores). Excluye clientes pagados.
+- Frontend Analíticas: KPIs (Deuda total, Total vendido, Total cobrado, Deudores) + tabla "Deuda por cliente" con badges de origen, búsqueda y badge de días (rojo si ≥30). Verificado: Maria Perez agrupada correctamente entre finca+ciudad; clientes pagados excluidos.
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.
