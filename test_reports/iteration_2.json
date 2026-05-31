@@ -1,0 +1,39 @@
+{
+  "summary": "Validación end-to-end (backend + frontend) de la nueva trazabilidad 'Asignación de destino' → Ventas/Frío. 11/11 pruebas pytest pasan y los flujos UI funcionan: creación de asignación alimenta el módulo correcto, badge 'Asignación' aparece en Ventas y Frío, edición de precio preserva origen + asignacion_id, cascade delete borra el registro vinculado, conversión kg↔cestas correcta (KG_POR_CESTA=14).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Asignación de destino", "issues": ["Cuando no hay cosechas del día, el número grande 'Disponible' puede volverse negativo sin advertencia (e.g. -2.00 cestas). El backend acepta el POST igualmente. Considerar bloquear o mostrar confirmación cuando se intenta asignar más cestas que las disponibles."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_asignacion_destino.py",
+    "/app/test_reports/pytest/pytest_asignacion_destino.xml"
+  ],
+  "action_items": [
+    "(Opcional UX) Asignación de destino: impedir/avisar cuando 'Disponible' quedaría < 0. Hoy el backend permite asignar sin cosechas registradas en el día."
+  ],
+  "critical_code_review_comments": [
+    "_build_linked_doc + _VENTAS_DESTINO/_FRIO_DESTINO maps están limpios y desacoplados — fácil de extender a nuevos destinos.",
+    "PUT /ventas-{tipo}/{vid} hace data.pop('origen') y data.pop('asignacion_id') antes de _update: correcto, preserva el vínculo. Sin embargo, esto significa que NUNCA se puede cambiar origen/asignacion_id por PUT — está bien para el caso de uso pero conviene documentarlo.",
+    "delete_asignacion itera sobre todas las _LINKED_COLLS para borrar — funciona, pero genera 5 deleteMany por delete. Aceptable para volúmenes bajos. Para alto throughput, indexar 'asignacion_id' en esas colecciones.",
+    "Conversión kg→cestas usa round(...,2). Para 70/14=5.0 funciona; valores no divisibles podrían generar discrepancias pequeñas entre cantidad_cestas*14 y cantidad_kg. No es bloqueante.",
+    "FrioIn y VentaIn aceptan origen/asignacion_id desde el POST público — un cliente malicioso autenticado podría falsificar el badge 'Asignación'. Mitigación: ignorar esos campos en POST manual o validar que asignacion_id exista.",
+    "server.py supera 1300 líneas — se recomienda dividir en routers (asignaciones, ventas, frio, etc.)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_asignacion_destino.py"
+  ],
+  "success_rate": {"backend": "100% (11/11)", "frontend": "100% (flujos clave validados)"},
+  "test_credentials": "Admin: oswaldabarca@gmail.com / 123456 (validado)",
+  "seed_data_creation": "Tests crearon 10 asignaciones de prueba con sus registros vinculados (frio, ventas_finca, ventas_ciudad, ventas_descarte, ventas_donaciones). Todas se limpiaron al finalizar (fixture module teardown + script cleanup). El registro preexistente de Frío (2026-01-15, 20 cestas, Hass, L1, origen=null) se preservó correctamente. Quedó una venta_ciudad manual del 2026-01-15 (no creada por esta iteración).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend + UI 100% verde para la feature de trazabilidad. Casos cubiertos: refrigerar→frio (refrigerado), congelar→frio (congelado), venta_finca→ventas_finca con precio 0, enviar_ciudad y enviar_otra_ciudad→ventas_ciudad (esta última con 'Otra ciudad' en observaciones), descarte→ventas_descarte, donaciones→ventas_donaciones, conversión kg→cestas (70 kg=5 cestas), cascade delete por asignacion_id en _LINKED_COLLS, PUT /ventas-finca/{id} preserva origen y asignacion_id, GET con fecha=YYYY-MM-DD filtra por regex prefijo. UI: tabla 7 destinos con data-testid destino-cantidad-{key} / destino-agregar-{key}, contador Acumulado hoy se actualiza, 'Disponible' decrece, badges 'Asignación' y 'Refrigerado/Congelado' aparecen.",
+  "rca of the issue": "No se identificaron bugs. La feature está implementada correctamente conforme al diseño."
+}

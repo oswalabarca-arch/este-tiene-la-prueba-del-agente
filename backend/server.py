@@ -428,11 +428,42 @@ KG_POR_CESTA = 14
 
 
 class AsignacionIn(BaseModel):
-    destino: str  # venta_finca | enviar_ciudad | descarte | frio
+    destino: str  # venta_finca | enviar_ciudad | enviar_otra_ciudad | refrigerar | congelar | descarte | donaciones
     unidad_ingreso: str = "cestas"  # cestas | kg
     cantidad_ingresada: float
     fecha: str
     observaciones: str = ""
+
+
+# Módulos vinculados: alimenta Ventas / Frío según el destino (trazabilidad)
+_VENTAS_DESTINO = {
+    "venta_finca": "finca",
+    "enviar_ciudad": "ciudad",
+    "enviar_otra_ciudad": "ciudad",
+    "descarte": "descarte",
+    "donaciones": "donaciones",
+}
+_FRIO_DESTINO = {"refrigerar": "refrigerado", "congelar": "congelado"}
+_LINKED_COLLS = ["ventas_finca", "ventas_ciudad", "ventas_descarte", "ventas_donaciones", "frio_registros"]
+
+
+def _build_linked_doc(destino, cestas, kg, fecha, asignacion_id):
+    """Devuelve (coleccion, doc) para alimentar el módulo destino, o None."""
+    base = {"origen": "asignacion_destino", "asignacion_id": asignacion_id}
+    if destino in _VENTAS_DESTINO:
+        nota = "Otra ciudad · desde Asignación de destino" if destino == "enviar_otra_ciudad" else "Desde Asignación de destino"
+        doc = {
+            "fecha": fecha, "cantidad_cestas": cestas, "cantidad_kg": kg,
+            "precio_unitario": 0, "total": 0, "cliente": "", "observaciones": nota, **base,
+        }
+        return (f"ventas_{_VENTAS_DESTINO[destino]}", doc)
+    if destino in _FRIO_DESTINO:
+        doc = {
+            "fecha_ingreso": fecha, "cantidad_cestas": cestas, "lote": "", "variedad": "",
+            "tipo_conservacion": _FRIO_DESTINO[destino], "observaciones": "Desde Asignación de destino", **base,
+        }
+        return ("frio_registros", doc)
+    return None
 
 
 @api.get("/asignaciones-destino")
@@ -453,11 +484,20 @@ async def create_asignacion(payload: AsignacionIn, user: dict = Depends(get_curr
     else:
         data["cantidad_kg"] = data["cantidad_ingresada"]
         data["cantidad_cestas"] = round(data["cantidad_ingresada"] / KG_POR_CESTA, 2)
-    return await _create("asignaciones_destino", data, user)
+    created = await _create("asignaciones_destino", data, user)
+    # Alimentar el módulo destino correspondiente (trazabilidad)
+    linked = _build_linked_doc(created["destino"], created["cantidad_cestas"], created["cantidad_kg"], created["fecha"], created["_id"])
+    if linked:
+        coll, doc = linked
+        await _create(coll, doc, user)
+    return created
 
 
 @api.delete("/asignaciones-destino/{aid}")
 async def delete_asignacion(aid: str, _: dict = Depends(get_current_user)):
+    # Eliminar el registro vinculado en el módulo destino, si existe
+    for coll in _LINKED_COLLS:
+        await db[coll].delete_many({"asignacion_id": aid})
     return await _delete("asignaciones_destino", aid)
 
 
@@ -1120,6 +1160,8 @@ class VentaIn(BaseModel):
     total: float = 0
     cliente: str = ""
     observaciones: str = ""
+    origen: str = ""
+    asignacion_id: str = ""
 
 
 def _ventas_router(tipo: str):
@@ -1131,6 +1173,14 @@ def _ventas_router(tipo: str):
     @api.post(f"/ventas-{tipo}")
     async def _create_v(payload: VentaIn, user: dict = Depends(get_current_user)):
         return await _create(f"ventas_{tipo}", payload.model_dump(), user)
+
+    @api.put(f"/ventas-{tipo}/{{vid}}")
+    async def _update_v(vid: str, payload: VentaIn, _: dict = Depends(get_current_user)):
+        data = payload.model_dump()
+        # No permitir que una edición rompa el vínculo con Asignación de destino
+        data.pop("origen", None)
+        data.pop("asignacion_id", None)
+        return await _update(f"ventas_{tipo}", vid, data)
 
     @api.delete(f"/ventas-{tipo}/{{vid}}")
     async def _delete_v(vid: str, _: dict = Depends(get_current_user)):
@@ -1151,7 +1201,10 @@ class FrioIn(BaseModel):
     cantidad_cestas: float
     lote: str = ""
     variedad: str = ""
+    tipo_conservacion: str = ""
     observaciones: str = ""
+    origen: str = ""
+    asignacion_id: str = ""
 
 
 @api.get("/frio-registros")

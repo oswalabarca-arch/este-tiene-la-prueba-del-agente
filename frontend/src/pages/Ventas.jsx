@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
-import { Plus, Trash2, Home, Truck, DollarSign, Snowflake, AlertCircle, Heart } from "lucide-react";
+import { Plus, Pencil, Trash2, Home, Truck, DollarSign, Snowflake, AlertCircle, Heart } from "lucide-react";
 import { todayLocal } from "../lib/dates";
 
 const TIPO_META = {
@@ -21,9 +21,9 @@ export function VentasDonaciones() { return <Ventas tipo="donaciones" />; }
 
 function Ventas({ tipo }) {
   const toast = useToast();
-  const { canDelete } = useAuth();
+  const { canDelete, canEdit } = useAuth();
   const [items, setItems] = useState([]);
-  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState(null); // null=cerrado, {}=nuevo, {...}=editar
 
   const load = () => api.get(`/ventas-${tipo}`).then((r) => setItems(r.data.ventas));
   useEffect(() => { load(); }, [tipo]);
@@ -49,7 +49,7 @@ function Ventas({ tipo }) {
           <h1 className="page-title"><Icon size={24} style={{ verticalAlign: "middle", color: meta.color }} /> {meta.label}</h1>
           <p className="page-subtitle">{esIngreso ? "Registro de ventas recibidas desde Asignación de Destino." : `Registro de ${meta.label.toLowerCase()} (sin valor de venta).`}</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowForm(true)} data-testid="venta-new-btn"><Plus size={16} /> Nuevo registro</button>
+        <button className="btn btn-primary" onClick={() => setEditing({})} data-testid="venta-new-btn"><Plus size={16} /> Nuevo registro</button>
       </div>
 
       <div className="kpi-grid" style={{ marginBottom: 18 }}>
@@ -61,7 +61,7 @@ function Ventas({ tipo }) {
       <div className="card">
         <h3 style={{ marginTop: 0 }}>Registros de venta</h3>
         <table className="table">
-          <thead><tr><th>Fecha</th><th>Cliente</th><th>Cestas</th><th>kg</th><th>Precio unitario</th><th>Total</th><th>Acciones</th></tr></thead>
+          <thead><tr><th>Fecha</th><th>Cliente</th><th>Cestas</th><th>kg</th><th>Precio unitario</th><th>Total</th><th>Origen</th><th>Acciones</th></tr></thead>
           <tbody>
             {items.map((v) => (
               <tr key={v._id}>
@@ -71,7 +71,11 @@ function Ventas({ tipo }) {
                 <td>{v.cantidad_kg}</td>
                 <td>${v.precio_unitario}</td>
                 <td style={{ fontWeight: 700, color: "#16a34a" }}>${v.total}</td>
-                <td>{canDelete("ventas") && <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(v)}><Trash2 size={16} /></button>}</td>
+                <td>{v.origen === "asignacion_destino" ? <span className="badge" style={{ background: "#dcfce7", color: "#15803d" }}>Asignación</span> : <span style={{ color: "#94a3b8", fontSize: 12 }}>Manual</span>}</td>
+                <td>
+                  {canEdit("ventas") && <button className="btn-icon" onClick={() => setEditing(v)} title="Editar"><Pencil size={16} /></button>}
+                  {canDelete("ventas") && <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(v)}><Trash2 size={16} /></button>}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -79,21 +83,22 @@ function Ventas({ tipo }) {
         {items.length === 0 && <div className="empty-state">Sin ventas registradas</div>}
       </div>
 
-      {showForm && <VentaForm tipo={tipo} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load(); }} />}
+      {editing && <VentaForm tipo={tipo} initial={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
     </div>
   );
 }
 
-function VentaForm({ tipo, onClose, onSaved }) {
+function VentaForm({ tipo, initial = {}, onClose, onSaved }) {
   const toast = useToast();
+  const isEdit = !!initial._id;
   const [form, setForm] = useState({
-    fecha: todayLocal(),
-    cantidad_cestas: 0,
-    cantidad_kg: 0,
-    precio_unitario: 0,
-    total: 0,
-    cliente: "",
-    observaciones: "",
+    fecha: (initial.fecha || todayLocal()).slice(0, 10),
+    cantidad_cestas: initial.cantidad_cestas ?? 0,
+    cantidad_kg: initial.cantidad_kg ?? 0,
+    precio_unitario: initial.precio_unitario ?? 0,
+    total: initial.total ?? 0,
+    cliente: initial.cliente || "",
+    observaciones: initial.observaciones || "",
   });
   const [busy, setBusy] = useState(false);
 
@@ -108,8 +113,10 @@ function VentaForm({ tipo, onClose, onSaved }) {
     e.preventDefault();
     setBusy(true);
     try {
-      await api.post(`/ventas-${tipo}`, { ...form, fecha: form.fecha + "T12:00:00.000Z", cantidad_cestas: Number(form.cantidad_cestas), cantidad_kg: Number(form.cantidad_kg), precio_unitario: Number(form.precio_unitario), total: Number(form.total) });
-      toast.show("Venta creada");
+      const payload = { ...form, fecha: form.fecha + "T12:00:00.000Z", cantidad_cestas: Number(form.cantidad_cestas), cantidad_kg: Number(form.cantidad_kg), precio_unitario: Number(form.precio_unitario), total: Number(form.total) };
+      if (isEdit) await api.put(`/ventas-${tipo}/${initial._id}`, payload);
+      else await api.post(`/ventas-${tipo}`, payload);
+      toast.show(isEdit ? "Registro actualizado" : "Registro creado");
       onSaved();
     } catch { toast.show("Error", "error"); }
     finally { setBusy(false); }
@@ -118,7 +125,7 @@ function VentaForm({ tipo, onClose, onSaved }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <form className="modal" style={{ maxWidth: 600 }} onClick={(e) => e.stopPropagation()} onSubmit={submit} data-testid="venta-modal">
-        <h2 className="modal-title">Nueva venta</h2>
+        <h2 className="modal-title">{isEdit ? "Editar registro" : "Nuevo registro"}</h2>
         <div className="form-grid">
           <div className="field"><label>Fecha</label><input type="date" className="input" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} required /></div>
           <div className="field"><label>Cliente</label><input className="input" value={form.cliente} onChange={(e) => setForm({ ...form, cliente: e.target.value })} /></div>

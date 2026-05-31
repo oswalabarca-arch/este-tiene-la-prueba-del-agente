@@ -49,14 +49,22 @@ export default function Frio() {
 
       <div className="card">
         <table className="table">
-          <thead><tr><th>Fecha</th><th>Lote</th><th>Variedad</th><th>Cestas</th><th>Observaciones</th><th>Acciones</th></tr></thead>
+          <thead><tr><th>Fecha</th><th>Tipo</th><th>Lote</th><th>Variedad</th><th>Cestas</th><th>Origen</th><th>Observaciones</th><th>Acciones</th></tr></thead>
           <tbody>
             {items.map((r) => (
               <tr key={r._id}>
                 <td>{new Date(r.fecha_ingreso).toLocaleDateString()}</td>
-                <td><span className="badge badge-primary">{r.lote}</span></td>
-                <td>{r.variedad}</td>
+                <td>
+                  {r.tipo_conservacion === "congelado"
+                    ? <span className="badge" style={{ background: "#dbeafe", color: "#0284c7" }}>Congelado</span>
+                    : r.tipo_conservacion === "refrigerado"
+                    ? <span className="badge" style={{ background: "#e0f2fe", color: "#0ea5e9" }}>Refrigerado</span>
+                    : "—"}
+                </td>
+                <td>{r.lote ? <span className="badge badge-primary">{r.lote}</span> : "—"}</td>
+                <td>{r.variedad || "—"}</td>
                 <td style={{ fontWeight: 700 }}>{r.cantidad_cestas}</td>
+                <td>{r.origen === "asignacion_destino" ? <span className="badge" style={{ background: "#dcfce7", color: "#15803d" }}>Asignación</span> : <span style={{ color: "#94a3b8", fontSize: 12 }}>Manual</span>}</td>
                 <td>{r.observaciones}</td>
                 <td>{canDelete("frio") && <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(r)}><Trash2 size={16} /></button>}</td>
               </tr>
