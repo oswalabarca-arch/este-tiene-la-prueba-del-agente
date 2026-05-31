@@ -90,6 +90,14 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 ## Implementado (Plantaciones · pestaña Cosechas — 31/05/2026)
 - La pestaña "Cosechas" del detalle de Plantaciones ahora muestra los registros reales del módulo Cosecha filtrados por el lote (Fecha, Tipo, Variedad, 1ª/2ª/3ª/Descarte, Total, Unidad) — antes usaba campos inexistentes.
 
+## Implementado (Ventas en finca/ciudad · panel completo — 31/05/2026)
+- **Panel superior**: tarjeta verde "Acumulado de hoy" (Asignado hoy / Vendido hoy / Disponible) + toggle Cestas/kg + barra de dinero (Vendido hoy, Total vendido, Cobrado %, Saldo/Deuda con deudores). "Asignado" = cestas recibidas desde Asignación de destino (origen=asignacion_destino); "Vendido" = ventas manuales; Disponible = Asignado − Vendido (rojo si negativo).
+- **Registrar nueva venta (inline)**: cliente, teléfono, cestas, precio, abono inicial, fecha, observaciones, con Total/Saldo en vivo y botones Limpiar/Registrar.
+- **Filtros del registro**: período (Todo/Hoy/Semana/Mes/Año), buscar (nombre/teléfono), estado de pago, días endeudado mínimo, sólo deudores, limpiar.
+- **Registro de Ventas**: tabla con Cliente, Teléfono, Cestas, Precio/cesta, Total, Abono, Saldo, Fecha, **Días endeudado**, **Estado** (Sin abonar/Abono parcial/Pagado) y acciones: **abonar** (modal, usa PUT sobre abono_inicial), editar, eliminar.
+- Las money cards reflejan la vista filtrada ("X venta(s) en vista"). Sin cambios de backend (todo se calcula de ventas_finca existentes).
+- Testing: backend 100% (5/5) + frontend 100% (`/app/backend/tests/test_ventas_descarte_auto.py`).
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.

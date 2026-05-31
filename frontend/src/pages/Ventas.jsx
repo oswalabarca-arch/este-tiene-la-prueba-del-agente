@@ -213,14 +213,14 @@ function Ventas({ tipo }) {
                 </div>
               </div>
               <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: 30, fontWeight: 800, color: disponible > 0.001 ? "#15803d" : "#94a3b8" }} data-testid="ventas-disponible-grande">{fc(disponible)}</div>
+                <div style={{ fontSize: 30, fontWeight: 800, color: disponible < -0.001 ? "#dc2626" : disponible > 0.001 ? "#15803d" : "#94a3b8" }} data-testid="ventas-disponible-grande">{fc(disponible)}</div>
                 <div style={{ color: "#64748b", fontSize: 12 }}>Disponible para vender hoy</div>
               </div>
             </div>
             <div className="kpi-grid" style={{ marginTop: 16, gridTemplateColumns: "repeat(3, 1fr)" }}>
               <SubCard label="Asignado hoy" value={fc(asignadoHoy)} sub={`${movAsignado} movimiento(s) desde Asignación de destino`} color="#16a34a" />
               <SubCard label="Vendido hoy" value={fc(vendidoHoyCestas)} sub={`${ventasHoy.length} venta(s) registrada(s)`} color="#3b82f6" />
-              <SubCard label="Disponible" value={fc(disponible)} sub="Restante a vender" color={disponible > 0.001 ? "#16a34a" : "#94a3b8"} />
+              <SubCard label="Disponible" value={fc(disponible)} sub="Restante a vender" color={disponible < -0.001 ? "#dc2626" : disponible > 0.001 ? "#16a34a" : "#94a3b8"} />
             </div>
           </div>
 
@@ -384,7 +384,7 @@ function AbonoModal({ venta, onClose, onConfirm }) {
         <div style={{ color: "#64748b", fontSize: 13, marginBottom: 14 }}>
           Total: <b>{fmtMoney(venta.total)}</b> · Abonado: <b style={{ color: "#3b82f6" }}>{fmtMoney(venta.abono_inicial || 0)}</b> · Saldo: <b style={{ color: "#dc2626" }}>{fmtMoney(saldo)}</b>
         </div>
-        <div className="field"><label>Monto del abono ($)</label><input type="number" step="0.01" min="0" max={saldo} className="input" placeholder="0.00" value={monto} onChange={(e) => setMonto(e.target.value)} autoFocus data-testid="abono-monto" /></div>
+        <div className="field"><label>Monto del abono ($)</label><input type="number" step="0.01" min="0" className="input" placeholder="0.00" value={monto} onChange={(e) => setMonto(e.target.value)} autoFocus data-testid="abono-monto" /></div>
         <div style={{ marginTop: 8 }}>
           <button type="button" className="btn btn-sm" onClick={() => setMonto(String(saldo.toFixed(2)))}>Pagar todo ({fmtMoney(saldo)})</button>
         </div>
