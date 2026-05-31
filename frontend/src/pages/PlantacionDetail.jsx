@@ -5,10 +5,10 @@ import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
 import {
   ArrowLeft, Pencil, Trash2, ImagePlus,
-  Droplets, Users as UsersIcon, Apple, Sprout,
+  Droplets, Users as UsersIcon, Apple, Sprout, TrendingUp,
 } from "lucide-react";
 import { catBadge, actBadge } from "../lib/categoryColors";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
 import { PeriodPicker, currentMonthStr, currentYearStr } from "../components/PeriodPicker";
 
 const TABS = [
