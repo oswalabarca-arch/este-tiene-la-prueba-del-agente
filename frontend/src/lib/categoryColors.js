@@ -80,8 +80,15 @@ const actNorm = (raw) => {
 export const actColor = (tipo) => ACT_PALETTE[actNorm(tipo)] || ACT_PALETTE.otra;
 
 export const actBadge = (tipo) => {
-  const { bg, color } = actColor(tipo);
-  return { background: bg, color };
+  // Una actividad puede venir de una aplicación confirmada (tipo = "fertilizacion",
+  // "plaguicida", etc.) — en ese caso usamos la paleta de categorías.
+  const k = actNorm(tipo);
+  const fromAct = ACT_PALETTE[k];
+  if (fromAct) return { background: fromAct.bg, color: fromAct.color };
+  const normCat = norm(tipo);
+  const fromCat = CAT_PALETTE[normCat];
+  if (fromCat) return { background: fromCat.bg, color: fromCat.color };
+  return { background: ACT_PALETTE.otra.bg, color: ACT_PALETTE.otra.color };
 };
 
 // Para tiles del formulario "Registrar"
