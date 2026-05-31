@@ -74,10 +74,8 @@ export default function AsignacionDestino() {
     const unidad = inp.unidad || "cestas";
     const cestas = unidad === "kg" ? cantidad / KG : cantidad;
     if (cestas > disponible + 0.001) {
-      const ok = window.confirm(
-        `Estás asignando ${cestas.toFixed(2)} cestas pero solo hay ${disponible.toFixed(2)} disponibles hoy. ¿Asignar de todas formas?`
-      );
-      if (!ok) return;
+      toast.show(`No hay cestas disponibles suficientes. Disponible: ${Math.max(disponible, 0).toFixed(2)} cestas`, "error");
+      return;
     }
     setBusy(key);
     try {
@@ -89,9 +87,11 @@ export default function AsignacionDestino() {
         observaciones: "",
       });
       toast.show("Asignado a " + (DESTINOS.find((d) => d.key === key)?.label || key));
-      setInputs((prev) => ({ ...prev, [key]: { cantidad: "", unidad: inp.unidad || "cestas" } }));
+      setInputs((prev) => ({ ...prev, [key]: { cantidad: "", unidad } }));
       load();
-    } catch { toast.show("Error", "error"); }
+    } catch (err) {
+      toast.show(err?.response?.data?.detail || "Error", "error");
+    }
     finally { setBusy(""); }
   };
 
@@ -198,7 +198,7 @@ export default function AsignacionDestino() {
                     <button
                       className="btn btn-primary btn-sm"
                       onClick={() => agregar(d.key)}
-                      disabled={busy === d.key}
+                      disabled={busy === d.key || disponible <= 0.001}
                       data-testid={`destino-agregar-${d.key}`}
                     >
                       <Plus size={14} /> {busy === d.key ? "..." : "Agregar"}

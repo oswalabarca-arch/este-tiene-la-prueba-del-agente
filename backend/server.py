@@ -475,6 +475,26 @@ async def list_asignaciones(fecha: Optional[str] = None, _: dict = Depends(get_c
     return await _list("asignaciones_destino", "asignaciones", filt, sort_field="fecha")
 
 
+async def _cosecha_cestas_dia(fecha_prefix: str) -> float:
+    """Total cosechado (en cestas) para una fecha YYYY-MM-DD."""
+    if not fecha_prefix:
+        return 0.0
+    docs = await db.cosechas.find({"fecha_cosecha": {"$regex": f"^{fecha_prefix}"}}).to_list(5000)
+    total = 0.0
+    for c in docs:
+        suma = (c.get("primera_calidad", 0) or 0) + (c.get("segunda_calidad", 0) or 0) + (c.get("tercera_calidad", 0) or 0) + (c.get("descarte", 0) or 0)
+        total += (suma / KG_POR_CESTA) if c.get("unidad") == "kg" else suma
+    return total
+
+
+async def _asignado_cestas_dia(fecha_prefix: str) -> float:
+    """Total ya asignado (en cestas) para una fecha YYYY-MM-DD."""
+    if not fecha_prefix:
+        return 0.0
+    docs = await db.asignaciones_destino.find({"fecha": {"$regex": f"^{fecha_prefix}"}}).to_list(5000)
+    return sum((a.get("cantidad_cestas", 0) or 0) for a in docs)
+
+
 @api.post("/asignaciones-destino")
 async def create_asignacion(payload: AsignacionIn, user: dict = Depends(get_current_user)):
     data = payload.model_dump()
@@ -484,6 +504,11 @@ async def create_asignacion(payload: AsignacionIn, user: dict = Depends(get_curr
     else:
         data["cantidad_kg"] = data["cantidad_ingresada"]
         data["cantidad_cestas"] = round(data["cantidad_ingresada"] / KG_POR_CESTA, 2)
+    # Validar disponibilidad: no permitir asignar más cestas de las cosechadas hoy
+    fecha_prefix = (data.get("fecha") or "")[:10]
+    disponible = await _cosecha_cestas_dia(fecha_prefix) - await _asignado_cestas_dia(fecha_prefix)
+    if data["cantidad_cestas"] > disponible + 0.001:
+        raise HTTPException(400, f"No hay cestas disponibles suficientes. Disponible: {round(max(disponible, 0), 2)} cestas")
     created = await _create("asignaciones_destino", data, user)
     # Alimentar el módulo destino correspondiente (trazabilidad)
     linked = _build_linked_doc(created["destino"], created["cantidad_cestas"], created["cantidad_kg"], created["fecha"], created["_id"])
