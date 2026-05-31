@@ -251,7 +251,7 @@ export default function PlantacionDetail() {
 
           {tab === "aplicaciones" && <AplicacionesTab items={aplicLote} />}
           {tab === "labores"      && <LaboresTab items={activLote} />}
-          {tab === "cosechas"     && <CosechasTab items={cosLote} tipos={tipos} variedades={variedades} />}
+          {tab === "cosechas"     && <CosechasTab items={cosLote} tipos={tipos} variedades={variedades} plantasPorVar={plantasPorVar} />}
         </main>
 
         {/* RIGHT COLUMN */}
@@ -409,7 +409,7 @@ function LaboresTab({ items }) {
   );
 }
 
-function CosechasTab({ items, tipos, variedades }) {
+function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
   const [unidadVista, setUnidadVista] = useState("cestas");
   if (items.length === 0) return <div className="card empty-state">Sin cosechas registradas en este lote</div>;
   const labelTipo = (c) => c.tipo_fruta || tipos.find((t) => t._id === c.tipo_fruta_id)?.nombre || "—";
@@ -420,46 +420,93 @@ function CosechasTab({ items, tipos, variedades }) {
   const totalDe = (c) => (c.primera_calidad || 0) + (c.segunda_calidad || 0) + (c.tercera_calidad || 0) + (c.descarte || 0);
   const u = unidadVista === "kg" ? "kg" : "cestas";
   const totalGeneral = items.reduce((s, c) => s + totalDe(c) * multDe(c), 0);
+
+  // Rendimiento por planta: kg totales de cada (tipo de fruta + variedad) ÷ plantas registradas de esa variedad
+  const kgDe = (c) => (c.unidad === "kg") ? totalDe(c) : totalDe(c) * KG_POR_CESTA;
+  const grupos = {};
+  items.forEach((c) => {
+    const tipo = labelTipo(c);
+    const variedad = labelVar(c);
+    const key = `${tipo}||${variedad}`;
+    if (!grupos[key]) grupos[key] = { tipo, variedad, kg: 0 };
+    grupos[key].kg += kgDe(c);
+  });
+  const filasRend = Object.values(grupos).map((g) => {
+    const plantas = Number(plantasPorVar?.[g.variedad] || 0);
+    return { ...g, plantas, rendimiento: plantas > 0 ? g.kg / plantas : null };
+  });
+
   return (
-    <div className="card">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h3 style={{ margin: 0 }}>Cosechas · {items.length}</h3>
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <span style={{ color: "#dc2626", fontSize: 16, fontWeight: 700 }} data-testid="plant-cosecha-total">Total: {totalGeneral.toFixed(2)} {u}</span>
-          <div className="pill-group" style={{ display: "inline-flex", gap: 6 }}>
-            <button type="button" className={`pill ${unidadVista === "cestas" ? "active" : ""}`} onClick={() => setUnidadVista("cestas")} data-testid="plant-cosecha-unidad-cestas">Cestas</button>
-            <button type="button" className={`pill ${unidadVista === "kg" ? "active" : ""}`} onClick={() => setUnidadVista("kg")} data-testid="plant-cosecha-unidad-kg">kg</button>
+    <>
+      <div className="card">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <h3 style={{ margin: 0 }}>Cosechas · {items.length}</h3>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <span style={{ color: "#dc2626", fontSize: 16, fontWeight: 700 }} data-testid="plant-cosecha-total">Total: {totalGeneral.toFixed(2)} {u}</span>
+            <div className="pill-group" style={{ display: "inline-flex", gap: 6 }}>
+              <button type="button" className={`pill ${unidadVista === "cestas" ? "active" : ""}`} onClick={() => setUnidadVista("cestas")} data-testid="plant-cosecha-unidad-cestas">Cestas</button>
+              <button type="button" className={`pill ${unidadVista === "kg" ? "active" : ""}`} onClick={() => setUnidadVista("kg")} data-testid="plant-cosecha-unidad-kg">kg</button>
+            </div>
           </div>
         </div>
+        <p style={{ color: "#64748b", marginTop: 6, marginBottom: 14, fontSize: 12 }}>
+          Registros de cosecha de este lote (provenientes del módulo Cosecha). Cantidades mostradas en <b>{u}</b>.
+        </p>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Fecha</th><th>Tipo Fruta</th><th>Variedad</th>
+              <th>1ª ({u})</th><th>2ª ({u})</th><th>3ª ({u})</th><th>Descarte ({u})</th><th>Total ({u})</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((c) => {
+              const m = multDe(c);
+              return (
+                <tr key={c._id}>
+                  <td>{c.fecha_cosecha ? new Date(c.fecha_cosecha).toLocaleDateString() : "—"}</td>
+                  <td>{labelTipo(c)}</td>
+                  <td>{labelVar(c)}</td>
+                  <td style={{ color: "#16a34a", fontWeight: 600 }}>{((c.primera_calidad || 0) * m).toFixed(2)}</td>
+                  <td style={{ color: "#3b82f6" }}>{((c.segunda_calidad || 0) * m).toFixed(2)}</td>
+                  <td style={{ color: "#f59e0b" }}>{((c.tercera_calidad || 0) * m).toFixed(2)}</td>
+                  <td style={{ color: "#dc2626" }}>{((c.descarte || 0) * m).toFixed(2)}</td>
+                  <td style={{ fontWeight: 700 }}>{(totalDe(c) * m).toFixed(2)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
-      <p style={{ color: "#64748b", marginTop: 6, marginBottom: 14, fontSize: 12 }}>
-        Registros de cosecha de este lote (provenientes del módulo Cosecha). Cantidades mostradas en <b>{u}</b>.
-      </p>
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Fecha</th><th>Tipo Fruta</th><th>Variedad</th>
-            <th>1ª ({u})</th><th>2ª ({u})</th><th>3ª ({u})</th><th>Descarte ({u})</th><th>Total ({u})</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((c) => {
-            const m = multDe(c);
-            return (
-              <tr key={c._id}>
-                <td>{c.fecha_cosecha ? new Date(c.fecha_cosecha).toLocaleDateString() : "—"}</td>
-                <td>{labelTipo(c)}</td>
-                <td>{labelVar(c)}</td>
-                <td style={{ color: "#16a34a", fontWeight: 600 }}>{((c.primera_calidad || 0) * m).toFixed(2)}</td>
-                <td style={{ color: "#3b82f6" }}>{((c.segunda_calidad || 0) * m).toFixed(2)}</td>
-                <td style={{ color: "#f59e0b" }}>{((c.tercera_calidad || 0) * m).toFixed(2)}</td>
-                <td style={{ color: "#dc2626" }}>{((c.descarte || 0) * m).toFixed(2)}</td>
-                <td style={{ fontWeight: 700 }}>{(totalDe(c) * m).toFixed(2)}</td>
+
+      {/* Rendimiento por planta */}
+      <div className="card" style={{ marginTop: 18 }} data-testid="plant-rendimiento-card">
+        <h3 style={{ marginTop: 0, marginBottom: 2 }}>Rendimiento por planta</h3>
+        <p style={{ color: "#64748b", marginTop: 0, marginBottom: 14, fontSize: 12 }}>
+          Kg totales cosechados de cada variedad ÷ cantidad de plantas registradas de esa variedad.
+        </p>
+        <table className="table">
+          <thead>
+            <tr><th>Tipo de fruta</th><th>Variedad</th><th style={{ textAlign: "right" }}>Rendimiento por planta</th></tr>
+          </thead>
+          <tbody>
+            {filasRend.map((f, i) => (
+              <tr key={i} data-testid="plant-rendimiento-row">
+                <td>{f.tipo}</td>
+                <td><span className="badge badge-purple">{f.variedad}</span></td>
+                <td style={{ textAlign: "right" }}>
+                  {f.rendimiento != null
+                    ? <>
+                        <div style={{ fontWeight: 700, color: "#16a34a", fontSize: 15 }}>{f.rendimiento.toFixed(2)} kg/planta</div>
+                        <div style={{ fontSize: 11, color: "#94a3b8" }}>{f.kg.toFixed(2)} kg ÷ {f.plantas.toLocaleString("es-ES")} plantas</div>
+                      </>
+                    : <span style={{ color: "#94a3b8" }} title="Registra la cantidad de plantas de esta variedad en la plantación">Sin plantas registradas ({f.kg.toFixed(2)} kg)</span>}
+                </td>
               </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }

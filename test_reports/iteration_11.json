@@ -1,0 +1,33 @@
+{
+  "summary": "Frontend-only testing of new 'Rendimiento por planta' table in pestaña Cosechas (detalle de Plantación 'lote 1'). All cases verified: positive (kg/planta), negative (Sin plantas registradas), and independencia del toggle Cestas/kg.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "verified_scenarios": [
+    "Login admin OK, navegación a /dashboard/plantaciones/76fc64ae-dd52-475b-8c62-5c25f6b91508",
+    "Tab plant-tab-cosechas abre y muestra tabla de cosechas (2 registros, total 52.00 cestas)",
+    "plant-rendimiento-card renderiza con título 'Rendimiento por planta' y descripción correcta",
+    "2 filas plant-rendimiento-row: (Fresa/san andreas) y (Fresa/albion), agrupadas por tipo+variedad",
+    "Estado inicial (plantas registradas): san andreas 168 kg ÷ 500 = 0.34 kg/planta; albion 560 kg ÷ 600 = 0.93 kg/planta — cálculo correcto, kg derivado de cestas*14 (12 cestas san andreas, 40 cestas albion)",
+    "Sub-texto '168.00 kg ÷ 500 plantas' y '560.00 kg ÷ 600 plantas' presentes",
+    "Toggle Cestas/kg cambia tabla principal pero NO afecta tabla Rendimiento (sigue mostrando kg/planta)",
+    "Caso negativo: editado lote 1 poniendo san andreas a 0 plantas → muestra 'Sin plantas registradas (168.00 kg)' correctamente",
+    "Albion (que sigue con 600 plantas) sigue mostrando 0.93 kg/planta — comportamiento por variedad independiente",
+    "RESTAURADO: lote 1 vuelto a estado original (san andreas=500, albion=600) — verificado en último render"
+  ],
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "data-testid de inputs de cantidad usa el nombre de la variedad con espacios (ej. 'plant-form-variedad-cantidad-san andreas'). Funciona en Playwright pero podría ser frágil si una variedad contiene caracteres especiales — sugerir slug/encode si se ven nombres con comillas o caracteres CSS-sensitive en el futuro.",
+    "El cruce variedad↔plantas se hace por nombre exacto (case-sensitive). Si en alguna cosecha se guarda con mayúscula distinta a la registrada en plantas_por_variedad, no cruzaría. Aceptable para el alcance actual pero conviene documentar / normalizar (trim+lowercase) si surgen dudas."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "100%"},
+  "seed_data_creation": "Ninguna; solo se modificó temporalmente lote 1 y se restauró al final.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "lote 1 quedó restaurado: san andreas=500 plantas, albion=600 plantas. Total cosechas 52 cestas (12 san andreas + 40 albion). El feature 'Rendimiento por planta' funciona end-to-end."
+}
