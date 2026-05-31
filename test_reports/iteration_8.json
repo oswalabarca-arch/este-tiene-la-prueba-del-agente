@@ -1,0 +1,35 @@
+{
+  "summary": "Frontend-only testing of the new Periodo + Tipo filter bar in 'Historial de actividades' (page Registrar Actividad). All scenarios from the review request passed: pill visibility, month/year picker toggling, filtering by period, filtering by tipo, combined filters, and empty-state message.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "test_results_detail": {
+    "login": "OK (oswaldabarca@gmail.com)",
+    "navigation": "/dashboard/actividades/registrar loads, actividades-page testid present",
+    "pills_visible": "hoy, semana, mes, año, todo all visible",
+    "tipo_select_visible": true,
+    "mes_pill_shows_picker_mes": "picker-mes visible, picker-anio hidden",
+    "año_pill_shows_picker_anio": "picker-anio visible, picker-mes hidden",
+    "hoy_semana_todo_hide_pickers": "Confirmed for all three",
+    "period_filter_table": "TODO=7 rows, MES=2026-05=5 rows, MES=2000-01=0 rows (empty msg shown), AÑO=2026=7 rows, AÑO=2021=0 rows",
+    "tipo_filter_table": "Options=[Todos los tipos, cosechar, deshierbar, fertilizacion, fungicida]. Tipo=cosechar -> 2 rows; reset -> 7 rows",
+    "combined_filter": "Tipo=cosechar + MES=2000-01 -> 0 rows + 'Sin actividades para los filtros aplicados'",
+    "empty_state_message": "'Sin actividades para los filtros aplicados' shown correctly when filtered set is empty (with items present)"
+  },
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Minor: the count badge selector span:has-text('actividad') was ambiguous in tests because the sidebar item 'Actividades' matches; not a UX bug but consider adding a data-testid like 'actividades-historial-count' to the span 'X de Y actividad(es)' for easier QA.",
+    "Period 'semana' uses Sunday as week start (now.getDay()); fine for ES locales but worth confirming product intent (Monday-based weeks are more common in LatAm work contexts)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "100%"},
+  "test_credentials": "Admin oswaldabarca@gmail.com / 123456",
+  "seed_data_creation": "None — 7 existing actividades found, no creation needed.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "ActividadesRegistrar filter bar (PeriodPicker + Tipo) is fully working. data-testids used: actividades-page, actividades-filtro-periodo, actividades-periodo-{hoy|semana|mes|año|todo}, actividades-picker-mes, actividades-picker-anio, actividades-filtro-tipo. The count badge has no testid — consider adding one if re-tested."
+}

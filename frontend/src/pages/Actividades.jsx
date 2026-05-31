@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { catBadge, actBadge, actTile } from "../lib/categoryColors";
 import { todayLocal } from "../lib/dates";
+import { PeriodPicker, currentMonthStr, currentYearStr } from "../components/PeriodPicker";
 
 const TIPOS_REGISTRAR = [
   { key: "abonar",     label: "Abonar",          icon: Sprout },
@@ -24,6 +25,11 @@ function ActividadesBase({ filtro }) {
   const [aplicaciones, setAplicaciones] = useState([]);
   const [plantaciones, setPlantaciones] = useState([]);
   const [viewing, setViewing] = useState(null);
+  // Filtros del historial de actividades
+  const [period, setPeriod] = useState("todo");
+  const [mesSel, setMesSel] = useState(currentMonthStr);
+  const [anioSel, setAnioSel] = useState(currentYearStr);
+  const [filtroTipo, setFiltroTipo] = useState("");
 
   const load = async () => {
     const [a, ap, p] = await Promise.all([
@@ -45,6 +51,37 @@ function ActividadesBase({ filtro }) {
   const lotes = Array.from(new Set(plantaciones.map((p) => p.lote).filter(Boolean)));
   const pendientes = aplicaciones.filter((a) => a.estado !== "confirmada");
   const totalHorasHombre = items.reduce((s, a) => s + (a.horas_hombre || 0), 0);
+
+  // Filtro por período del historial
+  const inPeriodo = (fechaStr) => {
+    if (period === "todo") return true;
+    const f = new Date(fechaStr);
+    if (isNaN(f.getTime())) return false;
+    const now = new Date();
+    if (period === "hoy") return f.toDateString() === now.toDateString();
+    if (period === "semana") {
+      const start = new Date(now);
+      start.setDate(now.getDate() - now.getDay());
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 7);
+      return f >= start && f < end;
+    }
+    if (period === "mes") return f.getFullYear() === Number(mesSel.slice(0, 4)) && (f.getMonth() + 1) === Number(mesSel.slice(5, 7));
+    if (period === "año") return f.getFullYear() === Number(anioSel);
+    return true;
+  };
+
+  const tiposUnicos = Array.from(new Set(items.map((a) => a.tipo_personalizado || a.tipo).filter(Boolean))).sort();
+  const actYearSet = new Set(items.map((a) => { const d = new Date(a.fecha_actividad); return isNaN(d.getTime()) ? null : String(d.getFullYear()); }).filter(Boolean));
+  actYearSet.add(currentYearStr());
+  const actYears = [...actYearSet].sort((a, b) => b.localeCompare(a));
+
+  const itemsFiltrados = items.filter((a) => {
+    if (!inPeriodo(a.fecha_actividad)) return false;
+    if (filtroTipo && (a.tipo_personalizado || a.tipo) !== filtroTipo) return false;
+    return true;
+  });
 
   return (
     <div data-testid="actividades-page">
@@ -83,13 +120,37 @@ function ActividadesBase({ filtro }) {
         <>
           <RegistrarActividadForm plantaciones={plantaciones} onSaved={load} />
           <div className="card" style={{ marginTop: 18 }}>
-            <h3 style={{ marginTop: 0 }}>Historial de actividades</h3>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
+              <h3 style={{ margin: 0 }}>Historial de actividades</h3>
+              <span style={{ color: "#64748b", fontSize: 13 }}>{itemsFiltrados.length} de {items.length} actividad(es)</span>
+            </div>
+
+            {/* Filtros: período + tipo */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-end", marginBottom: 14, padding: 12, background: "#f8fafc", borderRadius: 8 }}>
+              <div style={{ flex: "1 1 280px" }}>
+                <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 600, marginBottom: 6 }}>Periodo</div>
+                <div className="pill-group" data-testid="actividades-filtro-periodo" style={{ display: "inline-flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                  {[["hoy", "Hoy"], ["semana", "Semana"], ["mes", "Mes"], ["año", "Año"], ["todo", "Todo"]].map(([k, l]) => (
+                    <button key={k} type="button" className={`pill ${period === k ? "active" : ""}`} onClick={() => setPeriod(k)} data-testid={`actividades-periodo-${k}`}>{l}</button>
+                  ))}
+                  <PeriodPicker isMonth={period === "mes"} isYear={period === "año"} mes={mesSel} setMes={setMesSel} anio={anioSel} setAnio={setAnioSel} years={actYears} testidPrefix="actividades" />
+                </div>
+              </div>
+              <div style={{ flex: "1 1 200px" }}>
+                <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 600, marginBottom: 6 }}>Tipo</div>
+                <select className="select" value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)} data-testid="actividades-filtro-tipo">
+                  <option value="">Todos los tipos</option>
+                  {tiposUnicos.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+            </div>
+
             <table className="table">
               <thead>
                 <tr><th>Fecha</th><th>Tipo</th><th>Lote</th><th>Trabajadores</th><th>Horas</th><th>Precio/hr</th><th>Horas-H</th><th>Costo</th><th>Origen</th><th>Acciones</th></tr>
               </thead>
               <tbody>
-                {items.map((a) => (
+                {itemsFiltrados.map((a) => (
                   <tr key={a._id}>
                     <td>{new Date(a.fecha_actividad).toLocaleDateString()}</td>
                     <td><span className="badge" style={actBadge(a.tipo_personalizado || a.tipo)}>{a.tipo_personalizado || a.tipo}</span></td>
@@ -105,7 +166,7 @@ function ActividadesBase({ filtro }) {
                 ))}
               </tbody>
             </table>
-            {items.length === 0 && <div className="empty-state">Sin actividades registradas</div>}
+            {itemsFiltrados.length === 0 && <div className="empty-state">{items.length === 0 ? "Sin actividades registradas" : "Sin actividades para los filtros aplicados"}</div>}
           </div>
         </>
       )}
