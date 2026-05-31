@@ -6,14 +6,7 @@ import { Droplets, Plus, Trash2, BookOpen, X, CheckCircle, Clock, Eye, Pencil } 
 import { catBadge, catPill } from "../lib/categoryColors";
 
 const TIPOS = ["fertilizacion", "fungicida", "plaguicida", "herbicida", "tratamiento"];
-const UNIDADES = ["Gramos", "CC", "ml", "Kg", "Lt"];
-const UNIDAD_LABEL = {
-  Gramos: "Gr (gramos)",
-  CC: "CC (centímetros cúbicos)",
-  ml: "ml (mililitros)",
-  Kg: "Kg (kilogramos)",
-  Lt: "Lt (litros)",
-};
+const UNIDAD = "Unidades";
 
 export default function Aplicaciones() {
   const toast = useToast();
@@ -271,8 +264,8 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
     observaciones: initial?.observaciones || "",
   });
   const initRows = initial?.insumos && initial.insumos.length > 0 && initial.subtipo !== "receta"
-    ? initial.insumos.slice(0, 3).map((i) => ({ nombre_producto: i.nombre_producto, cantidad: i.cantidad, unidad: i.unidad }))
-    : [{ nombre_producto: "", cantidad: 0, unidad: "Gramos" }];
+    ? initial.insumos.slice(0, 3).map((i) => ({ nombre_producto: i.nombre_producto, cantidad: i.cantidad, unidad: UNIDAD }))
+    : [{ nombre_producto: "", cantidad: 0, unidad: UNIDAD }];
   const [productoRows, setProductoRows] = useState(initRows);
   const [loteInput, setLoteInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -288,7 +281,7 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
   };
   const addRow = () => {
     if (productoRows.length >= 3) return;
-    setProductoRows([...productoRows, { nombre_producto: "", cantidad: 0, unidad: "Gramos" }]);
+    setProductoRows([...productoRows, { nombre_producto: "", cantidad: 0, unidad: UNIDAD }]);
   };
   const removeRow = (i) => setProductoRows(productoRows.filter((_, idx) => idx !== i));
 
@@ -384,21 +377,17 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
           <div style={{ marginTop: 18 }}>
             <label style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>Productos (máx. 3)</label>
             {productoRows.map((row, i) => (
-              <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 8, marginTop: 8, alignItems: "center" }}>
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 8, marginTop: 8, alignItems: "center" }}>
                 <select className="select" value={row.nombre_producto} onChange={(e) => {
                   const nombre = e.target.value;
-                  const inv = inventario.find((x) => x.nombre_producto === nombre);
                   const rows = [...productoRows];
-                  rows[i] = { ...rows[i], nombre_producto: nombre, unidad: inv?.unidad || rows[i].unidad };
+                  rows[i] = { ...rows[i], nombre_producto: nombre, unidad: UNIDAD };
                   setProductoRows(rows);
                 }}>
                   <option value="">Producto</option>
-                  {inventario.filter((x) => x.existencia).map((p, idx) => <option key={idx} value={p.nombre_producto}>{p.nombre_producto} ({p.total_disponible} {p.unidad})</option>)}
+                  {inventario.filter((x) => x.existencia).map((p, idx) => <option key={idx} value={p.nombre_producto}>{p.nombre_producto} ({p.total_disponible} {UNIDAD})</option>)}
                 </select>
-                <input type="number" className="input" placeholder="Cantidad" value={row.cantidad || ""} onChange={(e) => updateRow(i, "cantidad", e.target.value)} />
-                <select className="select" value={row.unidad} onChange={(e) => updateRow(i, "unidad", e.target.value)} title="La unidad se hereda del producto del inventario">
-                  {UNIDADES.map((u) => <option key={u} value={u}>{u}</option>)}
-                </select>
+                <input type="number" className="input" placeholder={`Cantidad (${UNIDAD})`} value={row.cantidad || ""} onChange={(e) => updateRow(i, "cantidad", e.target.value)} />
                 {i === productoRows.length - 1 && productoRows.length < 3 ? (
                   <button type="button" className="btn btn-primary" onClick={addRow} style={{ padding: "8px 14px" }}><Plus size={16} /></button>
                 ) : (
@@ -504,7 +493,7 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
 function RecetaForm({ inventario, onClose, onSaved }) {
   const toast = useToast();
   const [form, setForm] = useState({ nombre: "", cantidad_agua: "", observaciones: "" });
-  const [productoRows, setProductoRows] = useState([{ nombre_producto: "", cantidad: "", unidad: "Gramos" }]);
+  const [productoRows, setProductoRows] = useState([{ nombre_producto: "", cantidad: "", unidad: UNIDAD }]);
   const [busy, setBusy] = useState(false);
 
   const updateRow = (i, key, val) => {
@@ -512,7 +501,7 @@ function RecetaForm({ inventario, onClose, onSaved }) {
     rows[i] = { ...rows[i], [key]: val };
     setProductoRows(rows);
   };
-  const addRow = () => setProductoRows([...productoRows, { nombre_producto: "", cantidad: "", unidad: "Gramos" }]);
+  const addRow = () => setProductoRows([...productoRows, { nombre_producto: "", cantidad: "", unidad: UNIDAD }]);
   const removeRow = (i) => setProductoRows(productoRows.filter((_, idx) => idx !== i));
 
   const guardar = async (e) => {
@@ -558,17 +547,14 @@ function RecetaForm({ inventario, onClose, onSaved }) {
 
         <div style={{ marginTop: 18 }}>
           <label style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>Productos de la receta *</label>
-          <div style={{ color: "#64748b", fontSize: 12, marginBottom: 8 }}>Agrega los productos con su cantidad y unidad (CC, Gr, ml, Kg, Lt)</div>
+          <div style={{ color: "#64748b", fontSize: 12, marginBottom: 8 }}>Agrega los productos con su cantidad en {UNIDAD.toLowerCase()}.</div>
           {productoRows.map((row, i) => (
-            <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1.2fr auto", gap: 8, marginBottom: 8, alignItems: "center" }}>
+            <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 8, marginBottom: 8, alignItems: "center" }}>
               <select className="select" value={row.nombre_producto} onChange={(e) => updateRow(i, "nombre_producto", e.target.value)} data-testid={`receta-row-${i}-producto`}>
                 <option value="">Producto</option>
-                {inventario.filter((x) => x.existencia).map((p, idx) => <option key={idx} value={p.nombre_producto}>{p.nombre_producto} ({p.total_disponible} {p.unidad})</option>)}
+                {inventario.filter((x) => x.existencia).map((p, idx) => <option key={idx} value={p.nombre_producto}>{p.nombre_producto} ({p.total_disponible} {UNIDAD})</option>)}
               </select>
-              <input type="number" step="0.01" className="input" placeholder="Cantidad" value={row.cantidad} onChange={(e) => updateRow(i, "cantidad", e.target.value)} data-testid={`receta-row-${i}-cantidad`} />
-              <select className="select" value={row.unidad} onChange={(e) => updateRow(i, "unidad", e.target.value)} data-testid={`receta-row-${i}-unidad`}>
-                {UNIDADES.map((u) => <option key={u} value={u}>{UNIDAD_LABEL[u]}</option>)}
-              </select>
+              <input type="number" step="0.01" className="input" placeholder={`Cantidad (${UNIDAD})`} value={row.cantidad} onChange={(e) => updateRow(i, "cantidad", e.target.value)} data-testid={`receta-row-${i}-cantidad`} />
               {i === productoRows.length - 1 ? (
                 <button type="button" className="btn btn-primary" onClick={addRow} style={{ padding: "8px 14px" }} data-testid="receta-add-row"><Plus size={16} /></button>
               ) : (

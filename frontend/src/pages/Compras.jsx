@@ -6,7 +6,7 @@ import { ShoppingCart, Plus, Pencil, Trash2, Car, Fuel, Wrench, Users as UsersIc
 import { catBadge } from "../lib/categoryColors";
 
 const CATEGORIAS = ["fertilizantes", "plaguicidas", "fungicidas", "herbicidas", "tratamiento", "semillas", "otros"];
-const UNIDADES = ["CC", "Gr"];
+const UNIDAD = "Unidades";
 
 const CATS_GASTO_VEH = [
   { key: "gasolina", label: "Gasolina", icon: Fuel, color: "#dc2626", bg: "#fee2e2" },
@@ -177,7 +177,7 @@ function CompraModal({ initial, onClose, onSaved }) {
     nombre_producto: "",
     precio: 0,
     cantidad: 0,
-    unidad: "CC",
+    unidad: "Unidades",
     descripcion: "",
     fecha_compra: today,
     es_equipo: false,
@@ -238,9 +238,7 @@ function CompraModal({ initial, onClose, onSaved }) {
           </div>
           <div className="field">
             <label>Unidad</label>
-            <select className="select" value={form.unidad} onChange={(e) => setForm({ ...form, unidad: e.target.value })}>
-              {UNIDADES.map((u) => <option key={u} value={u}>{u}</option>)}
-            </select>
+            <input className="input" value={UNIDAD} disabled style={{ background: "#f1f5f9", color: "#64748b" }} />
           </div>
           <div className="field">
             <label>Precio total ($)</label>
