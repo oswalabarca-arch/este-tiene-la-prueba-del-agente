@@ -1,0 +1,37 @@
+{
+  "summary": "Testing completo del submenú Donaciones (/dashboard/ventas/donaciones). Backend: 5/5 PASS (CRUD ventas-donaciones - POST/GET/PUT/DELETE). Frontend: layout replica Venta en finca/Envío a ciudad SIN ningún campo de dinero. Panel 'Acumulado de hoy' con 3 cards (Asignado hoy, Donado hoy, Disponible). Formulario inline con todos los testids (nv-beneficiario, nv-telefono, nv-cestas, nv-fecha, nv-obs, nv-registrar). Tabla columnas: Beneficiario, Teléfono, Cestas, kg, Fecha, Observaciones, Acciones (sin Precio/Total/Saldo/Estado). Modal 'Editar donación' SIN venta-form-precio/total/abono/saldo. Filtros buscar y período (hoy/semana/mes/año) funcionan. NO se observan filtros de estado de pago ni de deudores.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST/PUT /api/ventas-donaciones", "issue": "El backend acepta y persiste precio_unitario/total/abono_inicial >0 si el cliente los envía (no fuerza 0 en server-side para tipo=donaciones). La UI siempre envía 0, así que no es visible para el usuario, pero conviene hacer enforcement defensivo en server.py para evitar inconsistencias futuras vía API externa."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Donaciones - panel Acumulado de hoy", "issues": ["Al igual que en Ventas, cuando 'Disponible' es negativo (porque hay donaciones sin asignación previa desde Asignación de destino), aparece en rojo correctamente (#dc2626). Comportamiento OK."]},
+      {"screen": "Donaciones - panel header", "issues": ["El subtítulo del panel verde dice 'Saldo inicial proveniente de Asignación de destino > Distribución del día, se descuenta al registrar cada donación.' La palabra 'Saldo' aquí se refiere a saldo de cestas (no dinero); está semánticamente correcta pero podría confundir. Considerar 'Disponibilidad inicial' o 'Stock asignado'."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_ventas_donaciones.py",
+    "/app/test_reports/pytest/pytest_ventas_donaciones.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Ventas.jsx ya ~700+ líneas con 4 branches (frio, esIngreso, esDonacion, default). A futuro extraer DonacionesView / VentaView / FrioView a archivos separados o un sub-componente por tipo.",
+    "Backend /api/ventas-donaciones POST/PUT no normaliza a 0 los campos de dinero cuando la colección es 'ventas_donaciones'. Como el _ventas_router('donaciones') es genérico, podría enforcement: if collection=='ventas_donaciones' set precio_unitario=total=abono_inicial=0 antes del insert/update.",
+    "Botones edit/delete en filas (donacion-row) no tienen data-testid propios (ej. 'donacion-edit-{id}', 'donacion-delete-{id}'). Recomendado agregarlos para testing E2E más estable; actualmente hay que buscarlos por índice de <button> dentro de la fila."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_ventas_donaciones.py"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Admin: oswaldabarca@gmail.com / 123456",
+  "seed_data_creation": "Tests crean y limpian datos prefijados 'TEST_' en /api/ventas-donaciones. Tras la corrida quedó 0 datos residuales (verificado con DELETE manual de TEST_Fundacion UI que dejó el script Playwright).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Revalidar con `pytest /app/backend/tests/test_ventas_donaciones.py -v`. Cubre CRUD completo (POST/GET/PUT/DELETE) de /api/ventas-donaciones con admin token. Cleanup automático al final. Frontend: visitar /dashboard/ventas/donaciones — formulario inline tiene testids nv-beneficiario/telefono/cestas/fecha/obs/registrar; tabla muestra rows con data-testid='donacion-row' y columnas SIN dinero; modal de edit tiene título 'Editar donación' SIN campos venta-form-precio/total/abono/saldo. Filtros: filtro-periodo-{hoy,semana,mes,año}, filtro-buscar. Endpoint GET devuelve {ventas:[...]} no una lista plana — recordar para futuros tests.",
+  "rca of the issue": "N/A — no se encontraron bugs. P0 implementado correctamente: el módulo Donaciones replica el layout de Ventas (Venta en finca / Envío a ciudad) sin ningún campo, columna, card ni filtro de dinero, y el backend persiste/recupera correctamente."
+}

@@ -352,6 +352,75 @@ function Ventas({ tipo }) {
             {rows.length === 0 && <div className="empty-state">Sin ventas en el registro. Registrá una arriba.</div>}
           </div>
         </>
+      ) : esDonacion ? (
+        <>
+          {/* Registrar nueva donación (inline) */}
+          <div className="card" style={{ background: "#fdf2f8", borderColor: "#fbcfe8", marginBottom: 16 }} data-testid="registrar-donacion-card">
+            <h3 style={{ margin: 0, color: "#be185d", display: "flex", alignItems: "center", gap: 8 }}><Plus size={18} /> Registrar nueva donación</h3>
+            <div style={{ color: "#64748b", fontSize: 13, margin: "4px 0 16px" }}>Completá los campos y pulsá "Registrar". La donación se agrega al registro de abajo (sin valor de venta).</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
+              <div className="field"><label>Beneficiario *</label><input className="input" placeholder="Ej: Comedor San José" value={nv.cliente} onChange={(e) => setNv({ ...nv, cliente: e.target.value })} data-testid="nv-beneficiario" /></div>
+              <div className="field"><label>Teléfono</label><input className="input" placeholder="Ej: 0414-1234567" value={nv.telefono} onChange={(e) => setNv({ ...nv, telefono: e.target.value })} data-testid="nv-telefono" /></div>
+              <div className="field"><label>Cantidad de cestas *</label><input type="number" step="0.01" min="0" className="input" placeholder="0" value={numv(nv.cantidad_cestas)} onChange={(e) => setNv({ ...nv, cantidad_cestas: e.target.value })} data-testid="nv-cestas" /></div>
+              <div className="field"><label>Fecha</label><input type="date" className="input" value={nv.fecha} onChange={(e) => setNv({ ...nv, fecha: e.target.value })} data-testid="nv-fecha" /></div>
+            </div>
+            <div className="field" style={{ marginTop: 12 }}><label>Observaciones</label><input className="input" placeholder="Notas opcionales..." value={nv.observaciones} onChange={(e) => setNv({ ...nv, observaciones: e.target.value })} data-testid="nv-obs" /></div>
+            <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+              <button className="btn" onClick={() => setNv(emptyNv)} data-testid="nv-limpiar">Limpiar</button>
+              <button className="btn btn-primary" onClick={registrarVenta} data-testid="nv-registrar"><Plus size={16} /> Registrar</button>
+            </div>
+          </div>
+
+          {/* Filtros del registro */}
+          <div className="card" style={{ marginBottom: 16 }}>
+            <h3 style={{ margin: 0, display: "flex", alignItems: "center", gap: 8 }}><Filter size={16} /> Filtros del registro</h3>
+            <div style={{ color: "#64748b", fontSize: 13, margin: "4px 0 14px" }}>Acotá la lista por beneficiario o período.</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+              {[["todo", "Todo"], ["hoy", "Hoy"], ["semana", "Esta semana"], ["mes", "Este mes"], ["año", "Este año"]].map(([val, lbl]) => (
+                <button key={val} type="button" className="btn btn-sm" onClick={() => setPeriod(val)}
+                  data-testid={`filtro-periodo-${val}`}
+                  style={{ background: period === val ? "#16a34a" : "#fff", color: period === val ? "#fff" : "#334155", borderColor: period === val ? "#16a34a" : "var(--border)" }}>
+                  {lbl}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, alignItems: "end" }}>
+              <div className="field" style={{ margin: 0 }}><label>Buscar (beneficiario o teléfono)</label>
+                <div style={{ position: "relative" }}>
+                  <Search size={15} style={{ position: "absolute", left: 10, top: 11, color: "#94a3b8" }} />
+                  <input className="input" style={{ paddingLeft: 32 }} placeholder="Ej: Comedor o 0414..." value={search} onChange={(e) => setSearch(e.target.value)} data-testid="filtro-buscar" />
+                </div>
+              </div>
+              <button className="btn" onClick={limpiarFiltros} data-testid="filtro-limpiar"><X size={15} /> Limpiar</button>
+            </div>
+          </div>
+
+          {/* Registro de Donaciones */}
+          <div className="card">
+            <h3 style={{ marginTop: 0, marginBottom: 2 }}>Registro de Donaciones</h3>
+            <div style={{ color: "#64748b", fontSize: 13, marginBottom: 14 }}>{ventasFiltradas.length} donación(es)</div>
+            <table className="table">
+              <thead><tr><th>Beneficiario</th><th>Teléfono</th><th>Cestas</th><th>kg</th><th>Fecha</th><th>Observaciones</th><th style={{ textAlign: "right" }}>Acciones</th></tr></thead>
+              <tbody>
+                {rows.map((v) => (
+                  <tr key={v._id} data-testid="donacion-row">
+                    <td><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><User size={14} style={{ color: "#94a3b8" }} /> {v.cliente || "—"}</span></td>
+                    <td>{v.telefono ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Phone size={13} style={{ color: "#94a3b8" }} /> {v.telefono}</span> : "—"}</td>
+                    <td>{v.cantidad_cestas}</td>
+                    <td>{v.cantidad_kg}</td>
+                    <td>{(v.fecha || "").slice(0, 10)}</td>
+                    <td>{v.observaciones || "—"}</td>
+                    <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                      {canEdit("ventas") && <button className="btn-icon" style={{ color: "#f59e0b" }} title="Editar" onClick={() => setEditing(v)}><Pencil size={16} /></button>}
+                      {canDelete("ventas") && <button className="btn-icon" style={{ color: "#dc2626" }} title="Eliminar" onClick={() => remove(v)}><Trash2 size={16} /></button>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {rows.length === 0 && <div className="empty-state">Sin donaciones en el registro. Registrá una arriba.</div>}
+          </div>
+        </>
       ) : (
         <div className="card">
           <h3 style={{ marginTop: 0 }}>Registros</h3>
@@ -406,6 +475,7 @@ function AbonoModal({ venta, onClose, onConfirm }) {
 function VentaForm({ tipo, initial = {}, onClose, onSaved }) {
   const toast = useToast();
   const isEdit = !!initial._id;
+  const esDon = tipo === "donaciones";
   const [form, setForm] = useState({
     fecha: (initial.fecha || todayLocal()).slice(0, 10),
     cantidad_cestas: initial.cantidad_cestas ?? 0,
@@ -438,9 +508,9 @@ function VentaForm({ tipo, initial = {}, onClose, onSaved }) {
         fecha: form.fecha + "T12:00:00.000Z",
         cantidad_cestas: Number(form.cantidad_cestas),
         cantidad_kg: Number(form.cantidad_kg),
-        precio_unitario: Number(form.precio_unitario),
-        total: Number(form.total),
-        abono_inicial: Number(form.abono_inicial),
+        precio_unitario: esDon ? 0 : Number(form.precio_unitario),
+        total: esDon ? 0 : Number(form.total),
+        abono_inicial: esDon ? 0 : Number(form.abono_inicial),
       };
       if (isEdit) await api.put(`/ventas-${tipo}/${initial._id}`, payload);
       else await api.post(`/ventas-${tipo}`, payload);
@@ -453,16 +523,16 @@ function VentaForm({ tipo, initial = {}, onClose, onSaved }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <form className="modal" style={{ maxWidth: 640 }} onClick={(e) => e.stopPropagation()} onSubmit={submit} data-testid="venta-modal">
-        <h2 className="modal-title">{isEdit ? "Editar registro de venta" : "Nuevo registro de venta"}</h2>
+        <h2 className="modal-title">{isEdit ? (esDon ? "Editar donación" : "Editar registro de venta") : (esDon ? "Nueva donación" : "Nuevo registro de venta")}</h2>
         <div className="form-grid">
-          <div className="field"><label>Nombre del cliente</label><input className="input" value={form.cliente} onChange={(e) => setForm({ ...form, cliente: e.target.value })} data-testid="venta-form-cliente" /></div>
+          <div className="field"><label>{esDon ? "Beneficiario" : "Nombre del cliente"}</label><input className="input" value={form.cliente} onChange={(e) => setForm({ ...form, cliente: e.target.value })} data-testid="venta-form-cliente" /></div>
           <div className="field"><label>Teléfono</label><input className="input" value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} placeholder="Ej: 0414-1234567" data-testid="venta-form-telefono" /></div>
           <div className="field"><label>Cantidad de cestas</label><input type="number" step="0.01" min="0" className="input" value={num(form.cantidad_cestas)} placeholder="0" onChange={(e) => onCestasChange(e.target.value)} required data-testid="venta-form-cestas" /></div>
-          <div className="field"><label>Precio por cesta ($)</label><input type="number" step="0.01" min="0" className="input" value={num(form.precio_unitario)} placeholder="0" onChange={(e) => onPrecioChange(e.target.value)} required data-testid="venta-form-precio" /></div>
+          {!esDon && <div className="field"><label>Precio por cesta ($)</label><input type="number" step="0.01" min="0" className="input" value={num(form.precio_unitario)} placeholder="0" onChange={(e) => onPrecioChange(e.target.value)} required data-testid="venta-form-precio" /></div>}
           <div className="field"><label>kg (auto)</label><input className="input" value={form.cantidad_kg} readOnly /></div>
-          <div className="field"><label>Total (auto)</label><input className="input" value={`$${form.total}`} readOnly data-testid="venta-form-total" /></div>
-          <div className="field"><label>Abono inicial ($)</label><input type="number" step="0.01" min="0" className="input" value={num(form.abono_inicial)} placeholder="0" onChange={(e) => setForm({ ...form, abono_inicial: e.target.value })} data-testid="venta-form-abono" /></div>
-          <div className="field"><label>Saldo pendiente (auto)</label><input className="input" value={`$${saldo.toFixed(2)}`} readOnly style={{ color: saldo > 0 ? "#dc2626" : "#16a34a", fontWeight: 600 }} data-testid="venta-form-saldo" /></div>
+          {!esDon && <div className="field"><label>Total (auto)</label><input className="input" value={`$${form.total}`} readOnly data-testid="venta-form-total" /></div>}
+          {!esDon && <div className="field"><label>Abono inicial ($)</label><input type="number" step="0.01" min="0" className="input" value={num(form.abono_inicial)} placeholder="0" onChange={(e) => setForm({ ...form, abono_inicial: e.target.value })} data-testid="venta-form-abono" /></div>}
+          {!esDon && <div className="field"><label>Saldo pendiente (auto)</label><input className="input" value={`$${saldo.toFixed(2)}`} readOnly style={{ color: saldo > 0 ? "#dc2626" : "#16a34a", fontWeight: 600 }} data-testid="venta-form-saldo" /></div>}
           <div className="field"><label>Fecha</label><input type="date" className="input" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} required data-testid="venta-form-fecha" /></div>
         </div>
         <div className="field" style={{ marginTop: 14 }}>
