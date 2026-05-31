@@ -67,6 +67,17 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - Las sugerencias provienen de los **cultivos** y **variedades** registrados en el módulo Plantaciones. Si se selecciona un lote, se filtran a los de esa plantación; si no, se muestran todos.
 - Backend `CosechaIn`: ahora guarda `tipo_fruta`/`variedad` como strings (campos `tipo_fruta_id`/`variedad_id` quedan opcionales por compatibilidad). Display y filtros con fallback a registros legacy.
 
+## Implementado (Asignación de destino · trazabilidad — 31/05/2026)
+- **Rediseño de "Asignación de destino"** según modelo del usuario: tarjeta "Fruta total cosechada (hoy)" con desglose de calidades en cestas (sin %), número grande "Disponible" (Cosecha − Asignado), y tabla "Distribución del día" con 7 destinos (Venta en finca, Enviar a ciudad, Enviar a otra ciudad, Refrigerar, Congelar, Descarte, Donaciones), cada uno con cantidad + unidad + botón Agregar y columna "Acumulado hoy".
+- **Trazabilidad automática**: al asignar cestas a un destino, el backend crea un registro vinculado en el módulo correspondiente:
+  - Refrigerar/Congelar → módulo **Frío** (`frio_registros`, con `tipo_conservacion` refrigerado/congelado).
+  - Venta en finca → `ventas_finca`; Enviar a ciudad / Enviar a otra ciudad → `ventas_ciudad`; Descarte → `ventas_descarte`; Donaciones → `ventas_donaciones`.
+  - Cada registro vinculado lleva `origen="asignacion_destino"` y `asignacion_id`.
+- **Cascade delete**: al eliminar una asignación se borra su registro vinculado (`delete_many` por `asignacion_id`).
+- **Ventas editable**: nuevo `PUT /api/ventas-{tipo}/{id}` (preserva `origen`/`asignacion_id`). Las ventas recibidas llegan con precio $0 y se pueden editar (botón lápiz) para fijar precio; total se recalcula. Badge "Asignación" vs "Manual" en Ventas y Frío.
+- Validación UX: confirma si se intenta asignar más cestas que las disponibles del día.
+- Testing: 11/11 pytest backend + flujos UI verdes (`/app/backend/tests/test_asignacion_destino.py`).
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.

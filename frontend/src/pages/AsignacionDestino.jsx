@@ -71,11 +71,19 @@ export default function AsignacionDestino() {
     const inp = inputs[key] || {};
     const cantidad = Number(inp.cantidad);
     if (!cantidad || cantidad <= 0) { toast.show("Ingresa una cantidad válida", "error"); return; }
+    const unidad = inp.unidad || "cestas";
+    const cestas = unidad === "kg" ? cantidad / KG : cantidad;
+    if (cestas > disponible + 0.001) {
+      const ok = window.confirm(
+        `Estás asignando ${cestas.toFixed(2)} cestas pero solo hay ${disponible.toFixed(2)} disponibles hoy. ¿Asignar de todas formas?`
+      );
+      if (!ok) return;
+    }
     setBusy(key);
     try {
       await api.post("/asignaciones-destino", {
         destino: key,
-        unidad_ingreso: inp.unidad || "cestas",
+        unidad_ingreso: unidad,
         cantidad_ingresada: cantidad,
         fecha: today + "T12:00:00.000Z",
         observaciones: "",
