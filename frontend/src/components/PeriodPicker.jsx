@@ -4,6 +4,11 @@
 export function PeriodPicker({ isMonth, isYear, mes, setMes, anio, setAnio, years, testidPrefix = "period" }) {
   if (!isMonth && !isYear) return null;
   const ctrlStyle = { height: 36, padding: "4px 10px" };
+  // Siempre ofrecer un rango razonable de años (actual-5 .. actual+1) + los que existan en los datos
+  const cy = new Date().getFullYear();
+  const range = [];
+  for (let y = cy + 1; y >= cy - 5; y--) range.push(String(y));
+  const allYears = [...new Set([...(years || []), ...range])].sort((a, b) => b.localeCompare(a));
   return (
     <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }} data-testid={`${testidPrefix}-picker`}>
       {isMonth && (
@@ -24,7 +29,7 @@ export function PeriodPicker({ isMonth, isYear, mes, setMes, anio, setAnio, year
           onChange={(e) => setAnio(e.target.value)}
           data-testid={`${testidPrefix}-picker-anio`}
         >
-          {years.map((y) => (
+          {allYears.map((y) => (
             <option key={y} value={String(y)}>{y}</option>
           ))}
         </select>
