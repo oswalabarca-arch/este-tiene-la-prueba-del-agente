@@ -1,0 +1,26 @@
+{
+  "summary": "Frontend-only validation of nueva tarjeta 'Producción de cestas en el tiempo' en pestaña Cosechas de PlantacionDetail (lote 1: 76fc64ae-...). Todo funciona correctamente: orden DOM, toggle de granularidad, agrupamiento, consistencia de totales (52 cestas) y unidad cestas.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Cosechas → Producción de cestas en el tiempo", "issues": ["Warning benigno de Recharts en mount inicial: 'The width(-1) and height(-1) of chart should be greater than 0' — aparece durante el primer frame antes de que ResponsiveContainer mida el contenedor. No afecta el render final (los gráficos se ven correctamente) pero genera ruido en consola. Se podría mitigar añadiendo minWidth/minHeight o renderizando el chart solo cuando width>0."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Opcional: silenciar warning de recharts (width/height -1) añadiendo minWidth a ResponsiveContainer o esperando layout (no bloqueante)."
+  ],
+  "critical_code_review_comments": [
+    "PlantacionDetail.jsx tiene 797 líneas — considerar dividir en subcomponentes (CosechasTab, AplicacionesTab, etc.) para mejorar mantenibilidad.",
+    "cestasDe usa kg/KG_POR_CESTA (14) — bien implementado, pero confirmar que KG_POR_CESTA sea una constante de negocio configurable globalmente.",
+    "El gráfico ignora correctamente filtros de período/variedad del registro (usa items completos), conforme al requerimiento."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "100%"},
+  "seed_data_creation": "Ninguno (se usaron datos existentes del lote 1).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Verificaciones realizadas en lote 1 (76fc64ae-...): (1) tarjeta plant-cosecha-serie se renderiza DEBAJO de plant-cosecha-consolidado en el DOM; (2) toggle con 3 botones cosecha-serie-{semana,mes,año}, default activo='mes'; (3) BarChart de recharts renderiza correctamente; (4) suma de cestas idéntica entre granularidades = 52.00 (igual al Total general del consolidado: albion 40 + san andreas 12); (5) granularidad Año: 1 barra '2026' con 52 cestas; (6) granularidad Mes: barras 'abr 2026' (40) y 'may 2026' (12); (7) granularidad Semana: barras 19/04/26 (40) y 31/05/26 (12); (8) valores en CESTAS independientes del toggle Cestas/kg del registro inferior; (9) no se evaluó el estado 'Sin datos de cosecha para graficar' (requeriría un lote sin cosechas)."
+}

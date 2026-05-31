@@ -8,7 +8,7 @@ import {
   Droplets, Users as UsersIcon, Apple, Sprout,
 } from "lucide-react";
 import { catBadge, actBadge } from "../lib/categoryColors";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { PeriodPicker, currentMonthStr, currentYearStr } from "../components/PeriodPicker";
 
 const TABS = [
@@ -21,6 +21,7 @@ const TABS = [
 const PALE_BG = "#f1f8f1";
 const KG_POR_CESTA = 14;
 const CAL_COLORS = { primera: "#16a34a", segunda: "#3b82f6", tercera: "#f59e0b", descarte: "#dc2626" };
+const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 const CAL_DEFS = [
   { key: "primera", name: "Primera", field: "primera_calidad" },
   { key: "segunda", name: "Segunda", field: "segunda_calidad" },
@@ -438,6 +439,7 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
   const [mesSel, setMesSel] = useState(currentMonthStr);
   const [anioSel, setAnioSel] = useState(currentYearStr);
   const [filtroVariedad, setFiltroVariedad] = useState("");
+  const [granularidad, setGranularidad] = useState("mes"); // semana | mes | año (serie de tiempo)
   const labelTipo = (c) => c.tipo_fruta || tipos.find((t) => t._id === c.tipo_fruta_id)?.nombre || "—";
   const labelVar = (c) => c.variedad || variedades.find((v) => v._id === c.variedad_id)?.nombre || "—";
 
@@ -525,6 +527,32 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
   const consolidadoRows = Object.values(consolidado).sort((a, b) => b.total - a.total);
   const consolidadoTotal = consolidadoRows.reduce((s, r) => s + r.total, 0);
 
+  // Serie de tiempo: total de CESTAS por período (semana/mes/año), usando todos los registros
+  const cestasDe = (c) => (c.unidad === "kg" ? totalDe(c) / KG_POR_CESTA : totalDe(c));
+  const serieMap = {};
+  items.forEach((c) => {
+    const d = new Date(c.fecha_cosecha);
+    if (isNaN(d.getTime())) return;
+    let key, label, sortVal;
+    if (granularidad === "año") {
+      key = String(d.getFullYear());
+      label = key;
+      sortVal = d.getFullYear();
+    } else if (granularidad === "semana") {
+      const s = new Date(d); s.setDate(d.getDate() - d.getDay()); s.setHours(0, 0, 0, 0);
+      key = s.toISOString().slice(0, 10);
+      label = `${String(s.getDate()).padStart(2, "0")}/${String(s.getMonth() + 1).padStart(2, "0")}/${String(s.getFullYear()).slice(2)}`;
+      sortVal = s.getTime();
+    } else {
+      key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      label = `${MESES_CORTOS[d.getMonth()]} ${d.getFullYear()}`;
+      sortVal = d.getFullYear() * 100 + (d.getMonth() + 1);
+    }
+    if (!serieMap[key]) serieMap[key] = { key, label, sortVal, cestas: 0 };
+    serieMap[key].cestas += cestasDe(c);
+  });
+  const serie = Object.values(serieMap).sort((a, b) => a.sortVal - b.sortVal).map((s) => ({ label: s.label, cestas: Number(s.cestas.toFixed(2)) }));
+
   return (
     <>
       {/* Totales por variedad (todas las fechas, sin importar filtros) */}
@@ -560,6 +588,36 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
             </tr>
           </tfoot>
         </table>
+      </div>
+
+      {/* Producción de cestas en el tiempo (eje X tiempo, eje Y cestas) */}
+      <div className="card" style={{ marginTop: 18 }} data-testid="plant-cosecha-serie">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
+          <h3 style={{ margin: 0 }}>Producción de cestas en el tiempo</h3>
+          <div className="pill-group" style={{ display: "inline-flex", gap: 6 }} data-testid="cosecha-serie-granularidad">
+            {[["semana", "Semana"], ["mes", "Mes"], ["año", "Año"]].map(([k, l]) => (
+              <button key={k} type="button" className={`pill ${granularidad === k ? "active" : ""}`} onClick={() => setGranularidad(k)} data-testid={`cosecha-serie-${k}`}>{l}</button>
+            ))}
+          </div>
+        </div>
+        <p style={{ color: "#64748b", marginTop: 4, marginBottom: 12, fontSize: 12 }}>
+          Total de cestas cosechadas por {granularidad === "año" ? "año" : granularidad === "semana" ? "semana" : "mes"} (datos del registro de cosecha de este lote).
+        </p>
+        {serie.length > 0 ? (
+          <div style={{ width: "100%", height: 300 }} data-testid="cosecha-serie-chart">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={serie} margin={{ top: 10, right: 20, bottom: 10, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" vertical={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#64748b" }} />
+                <YAxis tick={{ fontSize: 12, fill: "#64748b" }} allowDecimals={false} label={{ value: "Cestas", angle: -90, position: "insideLeft", fontSize: 12, fill: "#64748b" }} />
+                <Tooltip formatter={(val) => [`${Number(val).toFixed(2)} cestas`, "Cestas"]} cursor={{ fill: "rgba(22,163,74,0.06)" }} />
+                <Bar dataKey="cestas" fill="#16a34a" radius={[4, 4, 0, 0]} maxBarSize={64} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="empty-state">Sin datos de cosecha para graficar</div>
+        )}
       </div>
 
       {/* Fila: Calidades del lote (mitad) + Rendimiento por planta (mitad) */}
