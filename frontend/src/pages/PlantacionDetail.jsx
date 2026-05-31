@@ -535,6 +535,18 @@ function LaboresTab({ items }) {
   if (items.length === 0) return <div className="card empty-state">Sin labores registradas en este lote</div>;
   const totalHH = items.reduce((s, a) => s + (a.horas_hombre || 0), 0);
   const totalCosto = items.reduce((s, a) => s + (a.costo_total || 0), 0);
+
+  // Totales por tipo de labor (tipo_personalizado || tipo)
+  const porTipo = {};
+  items.forEach((a) => {
+    const tipo = a.tipo_personalizado || a.tipo || "—";
+    if (!porTipo[tipo]) porTipo[tipo] = { tipo, count: 0, hh: 0, costo: 0 };
+    porTipo[tipo].count += 1;
+    porTipo[tipo].hh += (a.horas_hombre || 0);
+    porTipo[tipo].costo += (a.costo_total || 0);
+  });
+  const tipoRows = Object.values(porTipo).sort((a, b) => b.costo - a.costo);
+
   return (
     <>
       <div className="kpi-grid" style={{ marginBottom: 14 }}>
@@ -542,6 +554,43 @@ function LaboresTab({ items }) {
         <div className="card kpi-card"><div className="kpi-label">Horas-hombre acumuladas</div><div className="kpi-value" style={{ color: "#8b5cf6" }}>{totalHH.toFixed(2)}</div></div>
         <div className="card kpi-card"><div className="kpi-label">Costo mano de obra</div><div className="kpi-value" style={{ color: "#16a34a" }}>${totalCosto.toFixed(2)}</div></div>
       </div>
+
+      {/* Totales por tipo — arriba de los registros */}
+      <div className="card" style={{ marginBottom: 14 }} data-testid="plant-labores-totales-tipo">
+        <h3 style={{ marginTop: 0, marginBottom: 2 }}>Totales por tipo</h3>
+        <p style={{ color: "#64748b", marginTop: 0, marginBottom: 14, fontSize: 12 }}>
+          Suma de labores, horas-hombre y costo de mano de obra agrupados por tipo de labor.
+        </p>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Tipo</th>
+              <th style={{ textAlign: "right" }}>Labores</th>
+              <th style={{ textAlign: "right" }}>Horas-hombre</th>
+              <th style={{ textAlign: "right" }}>Costo</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tipoRows.map((r) => (
+              <tr key={r.tipo} data-testid="plant-labores-tipo-row">
+                <td><span className="badge" style={actBadge(r.tipo)}>{r.tipo}</span></td>
+                <td style={{ textAlign: "right", fontWeight: 600 }}>{r.count}</td>
+                <td style={{ textAlign: "right", fontWeight: 600, color: "#8b5cf6" }}>{r.hh.toFixed(2)}</td>
+                <td style={{ textAlign: "right", fontWeight: 700, color: "#16a34a" }}>${r.costo.toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 800 }}>
+              <td>Total general</td>
+              <td style={{ textAlign: "right" }}>{items.length}</td>
+              <td style={{ textAlign: "right", color: "#8b5cf6" }}>{totalHH.toFixed(2)}</td>
+              <td style={{ textAlign: "right", color: "#16a34a" }}>${totalCosto.toFixed(2)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
       <div className="card">
         <table className="table">
           <thead><tr><th>Fecha</th><th>Tipo</th><th>Trabajadores</th><th>Horas</th><th>Precio/hr</th><th>Horas-H</th><th>Costo</th><th>Origen</th></tr></thead>

@@ -1,0 +1,48 @@
+{
+  "summary": "Pruebas de UI (frontend-only) para la nueva tarjeta 'Totales por tipo' en la pestaña 'Labores de personal' del detalle de Plantación 'ana' (Lote L2). Todos los criterios pasaron.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_results": {
+    "tab_labores_abre_sin_crash": true,
+    "tarjeta_totales_por_tipo_presente": true,
+    "data_testid_totales": "plant-labores-totales-tipo",
+    "ubicacion_arriba_de_la_tabla": true,
+    "orden_dom": "kpi-grid -> totales-por-tipo -> tabla de registros (verificado vía compareDocumentPosition)",
+    "filas_tipo_count": 6,
+    "filas_tipo": [
+      "visita de especialista | 1 | 1.33 | $66.67",
+      "cosechar | 1 | 10.67 | $13.33",
+      "fertilizacion | 2 | 10.00 | $12.50 (agrupado correctamente x2)",
+      "deshierbar | 1 | 4.00 | $5.00",
+      "herbicida | 1 | 2.00 | $2.50",
+      "riego | 1 | 1.33 | $1.67"
+    ],
+    "data_testid_filas": "plant-labores-tipo-row (presente en cada fila)",
+    "total_general_tfoot": "7 | 29.33 | $101.67",
+    "kpi_labores_value": "7",
+    "kpi_horas_hombre": "29.33",
+    "kpi_costo_mano_obra": "$101.67",
+    "coherencia_total_vs_kpi": "OK — Total general (7 / 29.33 / $101.67) coincide exactamente con los 3 KPIs superiores",
+    "tabla_detallada_registros_count": 7,
+    "regresion_tabla_detallada_intacta": "OK — columnas Fecha/Tipo/Trabajadores/Horas/Precio/hr/Horas-H/Costo/Origen visibles y datos correctos",
+    "regresion_3_kpis_superiores_intactos": "OK"
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Implementación correcta y aditiva en PlantacionDetail.jsx (LaboresTab). La agrupación usa (tipo_personalizado || tipo) consistente con la tabla detallada y con actBadge. El sort por costo desc es razonable.",
+    "Nota menor (no bloqueante): el archivo PlantacionDetail.jsx supera 1100 líneas; considerar dividirlo por tabs (LaboresTab, AplicacionesTab, CosechasTab) en archivos separados para mantenibilidad."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped)", "frontend": "100%"},
+  "test_credentials": "oswaldabarca@gmail.com / 123456",
+  "seed_data_creation": "Ninguno (se usó la plantación 'ana' / Lote L2 existente con 7 labores)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Cambio 100% frontend, aditivo. Tarjeta 'Totales por tipo' verificada visualmente y por DOM. KPIs y tabla de registros sin regresión.",
+  "rca of the issue": "N/A — feature funciona como se especificó"
+}
