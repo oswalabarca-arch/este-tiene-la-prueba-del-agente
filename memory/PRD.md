@@ -221,6 +221,13 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - Regresión OK: la tabla de aplicaciones y el "Costo total (PEPS)" se mantienen debajo; estado vacío sin crash.
 - Cambio 100% frontend (`PlantacionDetail.jsx` → `AplicacionesTab`). Lint OK. Testing frontend **100%** (iteration_19.json): ana/L2 (fertilizacion 67% + herbicida 33%, 2 segmentos), oswald/L1 y tafy/L3 (1 segmento), tabla intacta, y regresión de Cosechas OK.
 
+## Ajuste visual (Plantación · Cosechas · gráficos circulares modernos sin % — 01/02/2026)
+- Se rediseñaron **solo visualmente** los dos gráficos circulares de la pestaña **Cosechas** para igualarlos al estilo del donut de "Aplicaciones por tipo": **header con gradiente azul→verde + ícono**, **donut** con `cornerRadius`/`paddingAngle`/borde blanco y **total en kg al centro**.
+  - **"Calidades del lote"** (`plant-calidades-chart`): leyenda moderna con **barras de progreso** mostrando el valor en **kg** por calidad (`plant-calidad-legend-<key>`). Se **quitaron los porcentajes**.
+  - **"Calidades por variedad"** (`plant-calidades-variedad-chart`): cada variedad es un **mini-donut** (`plant-variedad-chart-<variedad>`) con su total en kg al centro; se **eliminaron las etiquetas de % dentro de las porciones** (función `renderPctLabel` removida) y los % del tooltip/subtítulo.
+- Nuevo componente reutilizable `ChartHeader` (header con gradiente + ícono). Cambio 100% frontend y **solo visual** (sin cambios de lógica/datos). Lint OK.
+- Testing frontend **100%** (iteration_20.json): ambos gráficos con estilo moderno, **sin ningún '%'**, y regresiones OK (toggle Cestas/kg, tabla, consolidado, rendimiento por planta, gráfico de áreas).
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.
