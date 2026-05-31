@@ -106,6 +106,9 @@ export default function PlantacionDetail() {
 
   const cultivos    = plantacion.cultivos?.length    ? plantacion.cultivos    : (plantacion.cultivo  ? [plantacion.cultivo]  : []);
   const variedadesP = plantacion.variedades?.length  ? plantacion.variedades  : (plantacion.variedad ? [plantacion.variedad] : []);
+  const plantasPorVar = plantacion.plantas_por_variedad || {};
+  const variedadesConPlantas = Object.entries(plantasPorVar).filter(([, c]) => Number(c) > 0);
+  const totalPlantasInv = Number(plantacion.total_plantas || plantacion.inventario_plantas || 0);
   const fechaAlta = plantacion.created_at || plantacion.fecha_inicio;
 
   return (
@@ -215,7 +218,20 @@ export default function PlantacionDetail() {
                 <FieldGrid>
                   <Field label="Cultivo" value={cultivos.length > 0 ? cultivos.join(", ") : null} />
                   <Field label="Variedad" value={variedadesP.length > 0 ? variedadesP.join(", ") : null} />
-                  <Field label="Inventario (plantas)" value={plantacion.inventario_plantas ?? 0} />
+                  <Field label="Inventario (plantas)" value={
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }} data-testid="plant-detail-inventario-plantas">
+                      <span style={{ fontSize: 16, fontWeight: 600 }}>{totalPlantasInv.toLocaleString("es-ES")}</span>
+                      {variedadesConPlantas.length > 0 && (
+                        <span style={{ display: "inline-flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                          {variedadesConPlantas.map(([nombre, cant]) => (
+                            <span key={nombre} className="badge badge-purple" style={{ fontSize: 11 }} data-testid={`plant-detail-plantas-${nombre}`}>
+                              {nombre}: {Number(cant).toLocaleString("es-ES")}
+                            </span>
+                          ))}
+                        </span>
+                      )}
+                    </div>
+                  } />
                   <Field label="Cobertura" value={plantacion.cobertura} />
                   <Field label="Sistema de riego" value={plantacion.sistema_riego} />
                   <Field label="Tipo de plantación" value={plantacion.tipo_plantacion ? <b style={{ textTransform: "uppercase" }}>{plantacion.tipo_plantacion}</b> : null} />

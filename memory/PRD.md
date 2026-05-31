@@ -149,6 +149,10 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - Backend: `PlantacionIn` ahora tiene `plantas_por_variedad: Dict[str,float]` y `total_plantas: float`. El form también setea `inventario_plantas = total` (con fallback al valor previo si el total es 0). POST/PUT `/api/plantaciones`.
 - Testing 100% backend (persistencia) + frontend (iteration_9.json): total condicional, actualización en vivo, quitar variedad, y persistencia al reabrir en Editar.
 
+## Implementado (Plantación · detalle muestra plantas por variedad — 31/05/2026)
+- En la ficha **Plantación – Detalles**, pestaña **General**, sección "OTRA INFORMACIÓN", el campo **"Inventario (plantas)"** ahora muestra al lado el desglose de **cuántas plantas se registraron de cada variedad** (badges "Variedad: cantidad"), tomado de `plantas_por_variedad`.
+- Solo lectura, sin backend. Reutiliza el campo persistido en POST/PUT plantaciones (testids `plant-detail-inventario-plantas`, `plant-detail-plantas-<variedad>`).
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.
