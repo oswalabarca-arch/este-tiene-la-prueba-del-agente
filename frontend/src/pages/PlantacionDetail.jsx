@@ -423,6 +423,9 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
 
   // Rendimiento por planta: kg totales de cada (tipo de fruta + variedad) ÷ plantas registradas de esa variedad
   const kgDe = (c) => (c.unidad === "kg") ? totalDe(c) : totalDe(c) * KG_POR_CESTA;
+  // Mapa normalizado (trim + minúsculas) para cruzar variedad↔plantas sin fallar por mayúsculas/espacios
+  const plantasNorm = {};
+  Object.entries(plantasPorVar || {}).forEach(([k, v]) => { plantasNorm[k.trim().toLowerCase()] = Number(v) || 0; });
   const grupos = {};
   items.forEach((c) => {
     const tipo = labelTipo(c);
@@ -432,7 +435,7 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
     grupos[key].kg += kgDe(c);
   });
   const filasRend = Object.values(grupos).map((g) => {
-    const plantas = Number(plantasPorVar?.[g.variedad] || 0);
+    const plantas = plantasNorm[g.variedad.trim().toLowerCase()] || 0;
     return { ...g, plantas, rendimiento: plantas > 0 ? g.kg / plantas : null };
   });
 
@@ -487,13 +490,14 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
         </p>
         <table className="table">
           <thead>
-            <tr><th>Tipo de fruta</th><th>Variedad</th><th style={{ textAlign: "right" }}>Rendimiento por planta</th></tr>
+            <tr><th>Tipo de fruta</th><th>Variedad</th><th style={{ textAlign: "right" }}>Cantidad de plantas</th><th style={{ textAlign: "right" }}>Rendimiento por planta</th></tr>
           </thead>
           <tbody>
             {filasRend.map((f, i) => (
               <tr key={i} data-testid="plant-rendimiento-row">
                 <td>{f.tipo}</td>
                 <td><span className="badge badge-purple">{f.variedad}</span></td>
+                <td style={{ textAlign: "right", fontWeight: 600 }} data-testid="plant-rendimiento-plantas">{f.plantas > 0 ? f.plantas.toLocaleString("es-ES") : "—"}</td>
                 <td style={{ textAlign: "right" }}>
                   {f.rendimiento != null
                     ? <>

@@ -160,6 +160,15 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - En la pestaña **Cosechas** del detalle de plantación, se agregaron dos botones (pills) **Cestas / kg** arriba a la derecha (como el módulo Cosecha). Al cambiar, todas las cantidades (1ª, 2ª, 3ª, Descarte, Total por fila y Total general) se convierten (1 cesta = 14 kg) según la unidad en que se guardó cada cosecha. Encabezados de columna muestran la unidad activa. Se eliminó la columna "Unidad" por fila.
 - Cambio 100% frontend (`PlantacionDetail.jsx` → `CosechasTab`). Testing frontend 100% (iteration_10.json): Total 52 cestas ↔ 728 kg (×14), filas convertidas correctamente. Testids `plant-cosecha-unidad-cestas/kg`, `plant-cosecha-total`.
 
+## Implementado (Plantación · tabla "Rendimiento por planta" — 31/05/2026)
+- En la pestaña **Cosechas** del detalle de plantación, se agregó la tarjeta **"Rendimiento por planta"** (`plant-rendimiento-card`) con tabla de columnas **Tipo de fruta | Variedad | Rendimiento por planta**.
+- Rendimiento = **kg totales cosechados de esa variedad ÷ plantas registradas de esa variedad** (kg = total en cestas × 14). Agrupa por tipo+variedad; muestra subtexto "X kg ÷ Y plantas". Si la variedad no tiene plantas registradas → "Sin plantas registradas (X kg)". No depende del toggle Cestas/kg.
+- El cruce variedad↔plantas se normaliza (trim + minúsculas) para tolerar diferencias de mayúsculas/espacios.
+- Testing frontend 100% (iteration_11.json): caso positivo (168/500=0.34, 560/600=0.93), negativo, independencia del toggle, agrupación y reversión de datos.
+
+## Implementado (Plantación · columna "Cantidad de plantas" en Rendimiento — 31/05/2026)
+- En la tabla **"Rendimiento por planta"** (pestaña Cosechas del detalle de plantación) se agregó la columna **"Cantidad de plantas"** entre Variedad y Rendimiento, mostrando las plantas registradas de esa variedad (`f.plantas`). Testid `plant-rendimiento-plantas`. Solo frontend, lint OK.
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.
