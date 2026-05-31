@@ -250,6 +250,11 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - Agrupa por tipo de labor (`tipo_personalizado || tipo`) con columnas **Tipo · Labores (conteo) · Horas-hombre · Costo** (filas `plant-labores-tipo-row`) + fila **Total general**. Usa `actBadge` para el color del tipo.
 - Cambio 100% frontend, aditivo. Lint OK. Testing frontend **100%** (iteration_24.json): 6 tipos agrupados, Total general (7 / 29.33 / $101.67) coincide con los KPIs, ubicación y regresión OK.
 
+## Ajuste (Plantación · Labores · totales a media columna + gráfica circular — 01/02/2026)
+- En **"Totales por tipo"** (Labores de personal): se **quitó la columna "Labores"** (quedan Tipo · Horas-hombre · Costo + Total general), el cuadro se **redujo a media columna** y al lado, en la misma fila, se agregó una **gráfica circular** "Distribución por tipo" (`plant-labores-tipo-chart`).
+- La gráfica tiene un **toggle de métrica** (`plant-labores-metric` → `horas` / `costo` / `pct`): en Horas-H pondera por horas-hombre (centro = total horas), en Costo $ por costo (centro = costo total $), en % muestra el porcentaje del costo por tipo. Leyenda con barras de progreso (`plant-labores-legend-<tipo>`), colores por `actColor`.
+- Cambio 100% frontend. Lint OK. Testing frontend **100%** (iteration_25.json): tabla 3 columnas, layout media columna + gráfica en la misma fila, 3 modos coherentes (29.33 h / $101.67 / % suma 100), sin regresiones.
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.
