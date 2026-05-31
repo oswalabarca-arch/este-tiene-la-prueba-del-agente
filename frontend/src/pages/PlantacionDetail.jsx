@@ -527,72 +527,6 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
 
   return (
     <>
-      <div className="card">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <h3 style={{ margin: 0 }}>Cosechas · {itemsF.length}{itemsF.length !== items.length ? ` de ${items.length}` : ""}</h3>
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <span style={{ color: "#dc2626", fontSize: 16, fontWeight: 700 }} data-testid="plant-cosecha-total">Total: {totalGeneral.toFixed(2)} {u}</span>
-            <div className="pill-group" style={{ display: "inline-flex", gap: 6 }}>
-              <button type="button" className={`pill ${unidadVista === "cestas" ? "active" : ""}`} onClick={() => setUnidadVista("cestas")} data-testid="plant-cosecha-unidad-cestas">Cestas</button>
-              <button type="button" className={`pill ${unidadVista === "kg" ? "active" : ""}`} onClick={() => setUnidadVista("kg")} data-testid="plant-cosecha-unidad-kg">kg</button>
-            </div>
-          </div>
-        </div>
-        <p style={{ color: "#64748b", marginTop: 6, marginBottom: 14, fontSize: 12 }}>
-          Registros de cosecha de este lote (provenientes del módulo Cosecha). Cantidades mostradas en <b>{u}</b>.
-        </p>
-
-        {/* Filtros: período + variedad */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-end", marginBottom: 14, padding: 12, background: "#f8fafc", borderRadius: 8 }}>
-          <div>
-            <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 600, marginBottom: 6 }}>Periodo</div>
-            <div className="pill-group" data-testid="cosecha-filtro-periodo" style={{ display: "inline-flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
-              {[["hoy", "Hoy"], ["semana", "Semana"], ["mes", "Mes"], ["año", "Año"], ["todo", "Todo"]].map(([k, l]) => (
-                <button key={k} type="button" className={`pill ${period === k ? "active" : ""}`} onClick={() => setPeriod(k)} data-testid={`cosecha-filtro-periodo-${k}`}>{l}</button>
-              ))}
-              <PeriodPicker isMonth={period === "mes"} isYear={period === "año"} mes={mesSel} setMes={setMesSel} anio={anioSel} setAnio={setAnioSel} years={years} testidPrefix="cosecha-filtro" />
-            </div>
-          </div>
-          <div>
-            <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 600, marginBottom: 6 }}>Variedad</div>
-            <select className="select" value={filtroVariedad} onChange={(e) => setFiltroVariedad(e.target.value)} data-testid="cosecha-filtro-variedad" style={{ minWidth: 180 }}>
-              <option value="">Todas las variedades</option>
-              {variedadesDisponibles.map((v) => <option key={v} value={v}>{v}</option>)}
-            </select>
-          </div>
-          {(period !== "todo" || filtroVariedad) && (
-            <button type="button" className="btn btn-sm" onClick={limpiarFiltros} data-testid="cosecha-filtro-limpiar">Limpiar filtros</button>
-          )}
-        </div>
-
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Fecha</th><th>Tipo Fruta</th><th>Variedad</th>
-              <th>1ª ({u})</th><th>2ª ({u})</th><th>3ª ({u})</th><th>Descarte ({u})</th><th>Total ({u})</th>
-            </tr>
-          </thead>
-          <tbody>
-            {itemsF.map((c) => {
-              const m = multDe(c);
-              return (
-                <tr key={c._id} data-testid="cosecha-row">
-                  <td>{c.fecha_cosecha ? new Date(c.fecha_cosecha).toLocaleDateString() : "—"}</td>
-                  <td>{labelTipo(c)}</td>
-                  <td>{labelVar(c)}</td>
-                  <td style={{ color: "#16a34a", fontWeight: 600 }}>{((c.primera_calidad || 0) * m).toFixed(2)}</td>
-                  <td style={{ color: "#3b82f6" }}>{((c.segunda_calidad || 0) * m).toFixed(2)}</td>
-                  <td style={{ color: "#f59e0b" }}>{((c.tercera_calidad || 0) * m).toFixed(2)}</td>
-                  <td style={{ color: "#dc2626" }}>{((c.descarte || 0) * m).toFixed(2)}</td>
-                  <td style={{ fontWeight: 700 }}>{(totalDe(c) * m).toFixed(2)}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        {itemsF.length === 0 && <div className="empty-state">Sin cosechas para los filtros aplicados</div>}
-      </div>
-
       {/* Totales por variedad (todas las fechas, sin importar filtros) */}
       <div className="card" style={{ marginTop: 18 }} data-testid="plant-cosecha-consolidado">
         <h3 style={{ marginTop: 0, marginBottom: 2 }}>Totales por variedad (todas las fechas)</h3>
@@ -732,6 +666,73 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
           </div>
         </div>
       )}
+
+      {/* Registro de cosecha — movido al final, debajo de Calidades por variedad */}
+      <div className="card" style={{ marginTop: 18 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <h3 style={{ margin: 0 }}>Registro de cosecha · {itemsF.length}{itemsF.length !== items.length ? ` de ${items.length}` : ""}</h3>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <span style={{ color: "#dc2626", fontSize: 16, fontWeight: 700 }} data-testid="plant-cosecha-total">Total: {totalGeneral.toFixed(2)} {u}</span>
+            <div className="pill-group" style={{ display: "inline-flex", gap: 6 }}>
+              <button type="button" className={`pill ${unidadVista === "cestas" ? "active" : ""}`} onClick={() => setUnidadVista("cestas")} data-testid="plant-cosecha-unidad-cestas">Cestas</button>
+              <button type="button" className={`pill ${unidadVista === "kg" ? "active" : ""}`} onClick={() => setUnidadVista("kg")} data-testid="plant-cosecha-unidad-kg">kg</button>
+            </div>
+          </div>
+        </div>
+        <p style={{ color: "#64748b", marginTop: 6, marginBottom: 14, fontSize: 12 }}>
+          Registros de cosecha de este lote (provenientes del módulo Cosecha). Cantidades mostradas en <b>{u}</b>.
+        </p>
+
+        {/* Filtros: período + variedad */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-end", marginBottom: 14, padding: 12, background: "#f8fafc", borderRadius: 8 }}>
+          <div>
+            <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 600, marginBottom: 6 }}>Periodo</div>
+            <div className="pill-group" data-testid="cosecha-filtro-periodo" style={{ display: "inline-flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+              {[["hoy", "Hoy"], ["semana", "Semana"], ["mes", "Mes"], ["año", "Año"], ["todo", "Todo"]].map(([k, l]) => (
+                <button key={k} type="button" className={`pill ${period === k ? "active" : ""}`} onClick={() => setPeriod(k)} data-testid={`cosecha-filtro-periodo-${k}`}>{l}</button>
+              ))}
+              <PeriodPicker isMonth={period === "mes"} isYear={period === "año"} mes={mesSel} setMes={setMesSel} anio={anioSel} setAnio={setAnioSel} years={years} testidPrefix="cosecha-filtro" />
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 600, marginBottom: 6 }}>Variedad</div>
+            <select className="select" value={filtroVariedad} onChange={(e) => setFiltroVariedad(e.target.value)} data-testid="cosecha-filtro-variedad" style={{ minWidth: 180 }}>
+              <option value="">Todas las variedades</option>
+              {variedadesDisponibles.map((v) => <option key={v} value={v}>{v}</option>)}
+            </select>
+          </div>
+          {(period !== "todo" || filtroVariedad) && (
+            <button type="button" className="btn btn-sm" onClick={limpiarFiltros} data-testid="cosecha-filtro-limpiar">Limpiar filtros</button>
+          )}
+        </div>
+
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Fecha</th><th>Tipo Fruta</th><th>Variedad</th>
+              <th>1ª ({u})</th><th>2ª ({u})</th><th>3ª ({u})</th><th>Descarte ({u})</th><th>Total ({u})</th>
+            </tr>
+          </thead>
+          <tbody>
+            {itemsF.map((c) => {
+              const m = multDe(c);
+              return (
+                <tr key={c._id} data-testid="cosecha-row">
+                  <td>{c.fecha_cosecha ? new Date(c.fecha_cosecha).toLocaleDateString() : "—"}</td>
+                  <td>{labelTipo(c)}</td>
+                  <td>{labelVar(c)}</td>
+                  <td style={{ color: "#16a34a", fontWeight: 600 }}>{((c.primera_calidad || 0) * m).toFixed(2)}</td>
+                  <td style={{ color: "#3b82f6" }}>{((c.segunda_calidad || 0) * m).toFixed(2)}</td>
+                  <td style={{ color: "#f59e0b" }}>{((c.tercera_calidad || 0) * m).toFixed(2)}</td>
+                  <td style={{ color: "#dc2626" }}>{((c.descarte || 0) * m).toFixed(2)}</td>
+                  <td style={{ fontWeight: 700 }}>{(totalDe(c) * m).toFixed(2)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        {itemsF.length === 0 && <div className="empty-state">Sin cosechas para los filtros aplicados</div>}
+      </div>
     </>
   );
 }

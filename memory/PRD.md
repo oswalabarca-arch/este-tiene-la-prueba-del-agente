@@ -198,6 +198,10 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - Testing frontend 100% (iteration_16.json): totales (albion 40, san andreas 12, total 52 cestas), independencia de filtros, conversión kg (×14), y **suma entre fechas** verificada (albion 40→47 al agregar cosecha en otra fecha, luego restaurado).
 - Adicional: se eliminó el warning recurrente de recharts en "Calidades del lote" usando `<PieChart width={190} height={190}>` fijo (su contenedor ya era de tamaño fijo).
 
+## Ajuste (Plantación · Cosechas · orden — 31/05/2026)
+- Se movió la tarjeta **"Registro de cosecha"** (con sus filtros período/variedad, toggle Cestas/kg y tabla) al **final** de la pestaña, debajo de "Calidades por variedad". Nuevo orden: Totales por variedad → [Calidades del lote | Rendimiento por planta] → Calidades por variedad → Registro de cosecha.
+- Reordenamiento puro (sin cambio de lógica). Lint OK, sin testids duplicados, orden verificado.
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.
