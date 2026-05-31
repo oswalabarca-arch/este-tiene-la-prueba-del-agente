@@ -527,6 +527,80 @@ async def delete_compra(cid: str, _: dict = Depends(get_current_user)):
     return await _delete("compras", cid)
 
 
+async def _compute_peps_remaining_per_product() -> Dict[str, Dict[str, Any]]:
+    """
+    Calcula los lotes PEPS (FIFO) que quedan en stock por producto, después de aplicar
+    todos los consumos de las aplicaciones confirmadas en orden cronológico.
+
+    Retorna: { nombre_producto.lower(): {
+                 "lotes_remanentes": [{"cantidad","precio_unitario","fecha_compra"}],
+                 "cantidad_remanente": float,
+                 "valor_remanente": float,
+                 "precio_unitario_promedio": float } }
+    """
+    # 1. Compras ordenadas asc
+    compras = await db.compras.find({"es_equipo": {"$ne": True}}).to_list(20000)
+    compras.sort(key=lambda c: (c.get("fecha_compra") or "9999-12-31"))
+
+    # 2. Aplicaciones CONFIRMADAS ordenadas asc (solo confirmadas consumen real stock)
+    aplicaciones = await db.aplicaciones.find({"estado": "confirmada"}).to_list(20000)
+    aplicaciones.sort(key=lambda a: (a.get("fecha") or "9999-12-31"))
+
+    # 3. Eventos en orden cronológico (compras antes que aplicaciones en la misma fecha)
+    eventos: List[Dict[str, Any]] = []
+    for c in compras:
+        eventos.append({"kind": "compra", "fecha": c.get("fecha_compra") or "9999-12-31", "data": c})
+    for a in aplicaciones:
+        eventos.append({"kind": "aplicacion", "fecha": a.get("fecha") or "9999-12-31", "data": a})
+    eventos.sort(key=lambda e: (e["fecha"], 0 if e["kind"] == "compra" else 1))
+
+    # 4. Procesar
+    lotes: Dict[str, List[Dict[str, Any]]] = {}
+    for ev in eventos:
+        if ev["kind"] == "compra":
+            c = ev["data"]
+            nombre = (c.get("nombre_producto") or "").strip().lower()
+            cantidad = float(c.get("cantidad") or 0)
+            precio = float(c.get("precio") or 0)
+            if cantidad <= 0 or not nombre:
+                continue
+            lotes.setdefault(nombre, []).append({
+                "cantidad": cantidad,
+                "precio_unitario": precio / cantidad if cantidad else 0,
+                "fecha_compra": c.get("fecha_compra"),
+            })
+        else:
+            a = ev["data"]
+            for ins in (a.get("insumos") or []):
+                nombre = (ins.get("nombre_producto") or "").strip().lower()
+                qty_needed = float(ins.get("cantidad") or 0)
+                queue = lotes.get(nombre, [])
+                while qty_needed > 0 and queue:
+                    lot = queue[0]
+                    take = min(lot["cantidad"], qty_needed)
+                    lot["cantidad"] -= take
+                    qty_needed -= take
+                    if lot["cantidad"] <= 1e-9:
+                        queue.pop(0)
+
+    # 5. Empaquetar resultado
+    out: Dict[str, Dict[str, Any]] = {}
+    for nombre, qs in lotes.items():
+        remanentes = [{"cantidad": round(q["cantidad"], 4),
+                       "precio_unitario": round(q["precio_unitario"], 4),
+                       "fecha_compra": q.get("fecha_compra")}
+                      for q in qs if q["cantidad"] > 1e-9]
+        cant_r = sum(q["cantidad"] for q in remanentes)
+        valor_r = sum(q["cantidad"] * q["precio_unitario"] for q in remanentes)
+        out[nombre] = {
+            "lotes_remanentes": remanentes,
+            "cantidad_remanente": round(cant_r, 4),
+            "valor_remanente": round(valor_r, 2),
+            "precio_unitario_promedio": round(valor_r / cant_r, 4) if cant_r else 0,
+        }
+    return out
+
+
 @api.get("/inventario")
 async def get_inventario(_: dict = Depends(get_current_user)):
     # Construye inventario en tiempo real:
@@ -537,14 +611,13 @@ async def get_inventario(_: dict = Depends(get_current_user)):
         {"$group": {
             "_id": {"categoria": "$categoria", "nombre_producto": "$nombre_producto", "unidad": "$unidad"},
             "total_comprado": {"$sum": "$cantidad"},
+            "total_invertido": {"$sum": "$precio"},
         }},
     ]
     compras_agg = await db.compras.aggregate(pipeline_compras).to_list(5000)
 
     # Consumos en aplicaciones (subarray insumos: nombre, cantidad, unidad)
     # Solo se descuenta cuando la aplicación está confirmada (ejecutada en campo).
-    # Match por nombre de producto (case-insensitive), ignorando la unidad,
-    # para que pequeñas diferencias de formato no bloqueen el descuento.
     pipeline_aplicaciones = [
         {"$match": {"estado": "confirmada"}},
         {"$unwind": {"path": "$insumos", "preserveNullAndEmptyArrays": False}},
@@ -556,21 +629,31 @@ async def get_inventario(_: dict = Depends(get_current_user)):
     apl_agg = await db.aplicaciones.aggregate(pipeline_aplicaciones).to_list(5000)
     enviado_map = {a["_id"]: a["total_enviado"] for a in apl_agg}
 
+    # Stock remanente por método PEPS (FIFO) — sabemos qué unidades y a qué precio
+    peps = await _compute_peps_remaining_per_product()
+
     inventario = []
     for c in compras_agg:
         nombre = c["_id"]["nombre_producto"]
         unidad = c["_id"]["unidad"]
         comprado = c["total_comprado"]
+        invertido = c.get("total_invertido", 0)
         enviado = enviado_map.get(nombre.lower() if nombre else "", 0)
         disponible = comprado - enviado
+        info_peps = peps.get((nombre or "").lower(), {})
         inventario.append({
             "categoria": c["_id"]["categoria"],
             "nombre_producto": nombre,
             "unidad": unidad,
             "total_comprado": comprado,
+            "total_invertido": round(invertido, 2),
             "total_enviado": enviado,
             "total_disponible": disponible,
             "existencia": disponible > 0,
+            # Datos PEPS del stock remanente
+            "lotes_remanentes": info_peps.get("lotes_remanentes", []),
+            "valor_remanente": info_peps.get("valor_remanente", 0),
+            "precio_unitario_promedio": info_peps.get("precio_unitario_promedio", 0),
         })
     return {"inventario": inventario}
 

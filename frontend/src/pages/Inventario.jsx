@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, Fragment } from "react";
 import { api } from "../lib/api";
 import { Boxes, Search } from "lucide-react";
 import { catBadge } from "../lib/categoryColors";
@@ -48,22 +48,54 @@ export default function Inventario() {
       <div className="card">
         <table className="table">
           <thead>
-            <tr><th>Categoría</th><th>Producto</th><th>Estado</th><th>Disponible</th><th>Usado</th><th>Comprado</th></tr>
+            <tr>
+              <th>Categoría</th>
+              <th>Producto</th>
+              <th>Estado</th>
+              <th>Disponible</th>
+              <th>Valor stock</th>
+              <th>Precio prom.</th>
+              <th>Usado</th>
+              <th>Comprado</th>
+            </tr>
           </thead>
           <tbody>
-            {filtered.map((i, idx) => (
-              <tr key={idx} data-testid={`inv-row-${idx}`}>
-                <td><span className="badge" style={catBadge(i.categoria)}>{i.categoria}</span></td>
-                <td style={{ fontWeight: 600 }}>{i.nombre_producto}</td>
-                <td>{i.existencia ? <span className="badge badge-primary">Disponible</span> : <span className="badge badge-rose">Agotado</span>}</td>
-                <td style={{ color: "#16a34a", fontWeight: 700 }}>{i.total_disponible}</td>
-                <td style={{ color: "#dc2626" }}>{i.total_enviado}</td>
-                <td>{i.total_comprado}</td>
-              </tr>
-            ))}
+            {filtered.map((i, idx) => {
+              const tieneVariosLotes = (i.lotes_remanentes || []).length > 1;
+              return (
+                <Fragment key={idx}>
+                  <tr data-testid={`inv-row-${idx}`}>
+                    <td><span className="badge" style={catBadge(i.categoria)}>{i.categoria}</span></td>
+                    <td style={{ fontWeight: 600 }}>{i.nombre_producto}</td>
+                    <td>{i.existencia ? <span className="badge badge-primary">Disponible</span> : <span className="badge badge-rose">Agotado</span>}</td>
+                    <td style={{ color: "#16a34a", fontWeight: 700 }}>{i.total_disponible}</td>
+                    <td style={{ color: "#16a34a", fontWeight: 600 }}>${Number(i.valor_remanente || 0).toFixed(2)}</td>
+                    <td>${Number(i.precio_unitario_promedio || 0).toFixed(4)}</td>
+                    <td style={{ color: "#dc2626" }}>{i.total_enviado}</td>
+                    <td>{i.total_comprado}</td>
+                  </tr>
+                  {tieneVariosLotes && (
+                    <tr>
+                      <td colSpan="8" style={{ background: "#f8fafc", padding: "8px 14px", fontSize: 12, color: "#475569" }}>
+                        <b style={{ color: "#0f172a" }}>Lotes PEPS:</b>{" "}
+                        {i.lotes_remanentes.map((l, li) => (
+                          <span key={li} style={{ marginRight: 14 }}>
+                            {l.cantidad} {i.unidad || "u."} @ <b>${l.precio_unitario.toFixed(4)}</b>
+                            {l.fecha_compra && <span style={{ color: "#94a3b8" }}> ({String(l.fecha_compra).slice(0, 10)})</span>}
+                          </span>
+                        ))}
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
           </tbody>
         </table>
         {filtered.length === 0 && <div className="empty-state">Sin productos. Registra compras para alimentar el inventario.</div>}
+        <div style={{ fontSize: 12, color: "#64748b", marginTop: 12 }}>
+          Valor del stock calculado por método PEPS: primero entra → primero sale.
+        </div>
       </div>
     </div>
   );
