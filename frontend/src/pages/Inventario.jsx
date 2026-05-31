@@ -48,18 +48,17 @@ export default function Inventario() {
       <div className="card">
         <table className="table">
           <thead>
-            <tr><th>Categoría</th><th>Producto</th><th>Comprado</th><th>Enviado</th><th>Disponible</th><th>Unidad</th><th>Estado</th></tr>
+            <tr><th>Categoría</th><th>Producto</th><th>Estado</th><th>Disponible</th><th>Usado</th><th>Comprado</th></tr>
           </thead>
           <tbody>
             {filtered.map((i, idx) => (
               <tr key={idx} data-testid={`inv-row-${idx}`}>
                 <td><span className="badge" style={catBadge(i.categoria)}>{i.categoria}</span></td>
                 <td style={{ fontWeight: 600 }}>{i.nombre_producto}</td>
-                <td>{i.total_comprado}</td>
-                <td style={{ color: "#dc2626" }}>{i.total_enviado}</td>
-                <td style={{ color: "#16a34a", fontWeight: 700 }}>{i.total_disponible}</td>
-                <td>{i.unidad}</td>
                 <td>{i.existencia ? <span className="badge badge-primary">Disponible</span> : <span className="badge badge-rose">Agotado</span>}</td>
+                <td style={{ color: "#16a34a", fontWeight: 700 }}>{i.total_disponible}</td>
+                <td style={{ color: "#dc2626" }}>{i.total_enviado}</td>
+                <td>{i.total_comprado}</td>
               </tr>
             ))}
           </tbody>
