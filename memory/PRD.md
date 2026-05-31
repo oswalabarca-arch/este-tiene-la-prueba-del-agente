@@ -177,6 +177,12 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - Implementado con **recharts** (primer uso en el proyecto, ya instalado). Cálculos en kg (cestas × 14). Cambio 100% frontend (`PlantacionDetail.jsx`).
 - Testing frontend 100% (iteration_12.json). Nota: recharts emite un warning benigno de ResponsiveContainer en el primer render (no es error; los gráficos renderizan bien).
 
+## Ajustes (Plantación · Cosechas · 31/05/2026 — v2)
+- Ficha **"Rendimiento por planta"** aún más compacta (`maxWidth: 440`), confirmada como última tarjeta (debajo de "Calidades por variedad").
+- Gráficos **"Calidades por variedad"**: los porcentajes ahora se muestran **dentro de cada porción** (texto blanco, `renderPctLabel`), contenedor más grande (180px, outerRadius 72) — ya no se cortan por el recuadro.
+- Bug corregido (por testing agent): el instrumentador del visual-editor envolvía la expresión JSX en un `<span>` dentro del `<text>` SVG (los `<span>` HTML no renderizan dentro de SVG), mostrando solo "%". Fix: usar un único template literal `{\`${...}%\`}` en el `<text>`. (Regla: dentro de `<text>` SVG NO mezclar `{expr}` + texto literal; usar template literal o `<tspan>`.)
+- Testing frontend 100% (iteration_13.json), con screenshots de verificación.
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.
