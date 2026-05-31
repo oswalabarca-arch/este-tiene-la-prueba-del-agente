@@ -89,7 +89,7 @@ export default function Inventario() {
             {filtered.map((i, idx) => {
               const tieneVariosLotes = (i.lotes_remanentes || []).length > 1;
               return (
-                <Fragment key={idx}>
+                <Fragment key={`${i.categoria}-${i.nombre_producto}` || idx}>
                   <tr data-testid={`inv-row-${idx}`}>
                     <td><span className="badge" style={catBadge(i.categoria)}>{i.categoria}</span></td>
                     <td style={{ fontWeight: 600 }}>{i.nombre_producto}</td>

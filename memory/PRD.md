@@ -289,6 +289,13 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - **Fix (CSS global, `index.css`):** `.modal-footer` ahora es **`position: sticky; bottom: 0`** (fondo blanco + borde) → Cancelar/Guardar **siempre visibles** sin scrollear, en TODOS los modales. Además `.modal` usa `max-height: 90dvh` (vía `@supports`) para respetar la barra del navegador móvil; en ≤640px se reduce padding del modal, `form-grid` pasa a 1 columna y se ajustan los márgenes del footer.
 - Verificado en vivo (tablet 820×700, alto corto): Guardar visible sin scroll y PUT `/api/users` → **200**, modal cierra. Cambio 100% frontend, lint OK. Nota: para verlo en producción hay que **re-desplegar**.
 
+## Code Review · fixes seguros aplicados (31/05/2026)
+- **Linter backend:** eliminado import sin usar `Query` (server.py) y 2 sentencias con `;` (test_ventas_descarte_auto.py). `ruff` limpio salvo E402 intencional (patrón `load_dotenv()` antes de imports — necesario, no se toca).
+- **Secrets en tests:** las credenciales admin (`ADMIN_EMAIL`/`ADMIN_PASSWORD`) ahora se leen de `os.environ.get(...)` con fallback, en los 6 archivos de test (ya no hardcodeadas).
+- **React keys:** las 2 filas de tabla de nivel superior con `key={index}` pasaron a clave estable (`Analiticas` cxc-row → `c.cliente`; `Inventario` inv-row → `categoria-nombre`).
+- **Verificado:** `ruff` + `eslint` OK; pytest backend **28/30** (los 2 fallos son el problema ambiental preexistente de stock de cosecha en asignaciones, no regresión; PEPS y auth verdes).
+- **DIFERIDO (alto riesgo en app ya desplegada, requiere esfuerzo dedicado + redeploy):** (1) Auth localStorage→httpOnly — requiere playbook de auth y verificación cookie-only; riesgo de bloquear el login en producción. (2) 28 deps faltantes en useEffect/useMemo — fixes ingenuos causan loops infinitos (ej. agregar `load` sin `useCallback`); requiere análisis caso por caso. (3) Refactor de `_compute_peps_remaining_per_product`/`_compute_fifo_costs_per_aplicacion` (lógica frágil y testeada) y de componentes grandes (Aplicaciones/Actividades/Ventas/PlantacionDetail) — P3. (4) Las `key={index}` restantes son filas de formulario append-only sin id estable (índice es apropiado). Los hallazgos de "operador `is` incorrecto" en server.py:214/258 eran **falsos positivos** (`v is not None` es el idioma correcto).
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.

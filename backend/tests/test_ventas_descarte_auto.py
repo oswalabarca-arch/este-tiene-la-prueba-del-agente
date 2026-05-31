@@ -17,8 +17,8 @@ load_dotenv(Path(__file__).resolve().parents[2] / "frontend" / ".env")
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL").rstrip("/")
 API = f"{BASE_URL}/api"
 
-ADMIN_EMAIL = "oswaldabarca@gmail.com"
-ADMIN_PASSWORD = "123456"
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "oswaldabarca@gmail.com")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "123456")
 KG_POR_CESTA = 14
 
 TODAY_DATE = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -244,9 +244,11 @@ class TestAsignacionAVentaFinca:
         _cleanup_today_cosechas(client)
         # Cosecha de 10 cestas
         r = client.post(f"{API}/tipos-fruta", json={"nombre": f"TEST_AsigVF_{datetime.now().timestamp()}"})
-        tid = r.json()["_id"]; created["tipos"].append(tid)
+        tid = r.json()["_id"]
+        created["tipos"].append(tid)
         r = client.post(f"{API}/variedades-fruta", json={"tipo_fruta_id": tid, "nombre": "TEST_V"})
-        vid = r.json()["_id"]; created["vars"].append(vid)
+        vid = r.json()["_id"]
+        created["vars"].append(vid)
         r = client.post(f"{API}/cosechas", json={
             "tipo_fruta_id": tid, "variedad_id": vid,
             "primera_calidad": 10, "segunda_calidad": 0, "tercera_calidad": 0, "descarte": 0,

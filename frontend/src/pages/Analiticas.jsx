@@ -83,7 +83,7 @@ export default function Analiticas() {
             </thead>
             <tbody>
               {cuentas.map((c, i) => (
-                <tr key={i} data-testid="cxc-row">
+                <tr key={c.cliente || i} data-testid="cxc-row">
                   <td><span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 600 }}><User size={14} style={{ color: "#94a3b8" }} /> {c.cliente}</span></td>
                   <td>{c.telefono ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Phone size={13} style={{ color: "#94a3b8" }} /> {c.telefono}</span> : "—"}</td>
                   <td>{c.modulos.map((m) => <span key={m} className="badge" style={{ background: "#ede9fe", color: "#7c3aed", marginRight: 4 }}>{m}</span>)}</td>
