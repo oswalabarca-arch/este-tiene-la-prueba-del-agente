@@ -153,6 +153,9 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - En la ficha **Plantación – Detalles**, pestaña **General**, sección "OTRA INFORMACIÓN", el campo **"Inventario (plantas)"** ahora muestra al lado el desglose de **cuántas plantas se registraron de cada variedad** (badges "Variedad: cantidad"), tomado de `plantas_por_variedad`.
 - Solo lectura, sin backend. Reutiliza el campo persistido en POST/PUT plantaciones (testids `plant-detail-inventario-plantas`, `plant-detail-plantas-<variedad>`).
 
+## Implementado (Plantaciones · total de plantas en la tarjeta — 31/05/2026)
+- En el **listado de Plantaciones**, cada tarjeta ahora muestra el **total de plantas** del lote (badge verde con ícono, ej. "2.000 plantas") cuando hay un total registrado. Lee `total_plantas || inventario_plantas`. Testid `plantacion-total-plantas-<id>`. Solo lectura, sin backend.
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.

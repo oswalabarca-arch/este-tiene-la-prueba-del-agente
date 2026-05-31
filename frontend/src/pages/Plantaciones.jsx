@@ -70,6 +70,7 @@ export default function Plantaciones() {
         {filtered.map((p) => {
           const cultivos = cultivosOf(p);
           const variedades = variedadesOf(p);
+          const totalPlantas = Number(p.total_plantas || p.inventario_plantas || 0);
           return (
             <div key={p._id} className="plant-card" data-testid={`plantacion-card-${p._id}`} onClick={() => navigate(`/dashboard/plantaciones/${p._id}`)}>
               <div className="plant-card-lote">Lote {p.lote}</div>
@@ -90,6 +91,11 @@ export default function Plantaciones() {
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, color: "#64748b", fontSize: 12 }}>
                   <MapPin size={12} /> {p.superficie_geometrica ? `${p.superficie_geometrica} m²` : (p.recinto_agronomico || "—")}
                 </div>
+                {totalPlantas > 0 && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, color: "#16a34a", fontSize: 12, fontWeight: 600 }} data-testid={`plantacion-total-plantas-${p._id}`}>
+                    <Sprout size={12} /> {totalPlantas.toLocaleString("es-ES")} plantas
+                  </div>
+                )}
                 <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <span className="badge badge-primary" style={{ fontSize: 11 }}>{p.tipo_plantacion}</span>
                   <div>
