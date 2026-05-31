@@ -214,6 +214,13 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - Cambio 100% frontend (`PlantacionDetail.jsx`). Lint OK. Testing frontend **100%** (iteration_18.json): no-crash, render del area chart, selector de año (vacío en 2024), toggles semana/mes, filtro variedad, toggles de calidad, 4 tarjetas (l1: PICO Abr·560, MIN May·168, PROM 364, TOTAL 728 kg) y regresiones (cestas/kg, tabla, consolidado, calidades del lote, rendimiento por planta).
 - Nota: datos de cosecha sólo existen para **2026**. `PlantacionDetail.jsx` ya tiene ~877 líneas → candidato a refactor (dividir tabs en archivos).
 
+## Implementado (Plantación · Aplicaciones · gráfica circular por tipo — 01/02/2026)
+- En el detalle de Plantación, pestaña **Aplicaciones**, se agregó una **gráfica de dona (donut) moderna** "Aplicaciones por tipo" (`plant-aplicaciones-tipo-chart`) **arriba de la tabla**.
+- Agrupa las aplicaciones del lote por su campo `tipo`; donut recharts coloreado con la paleta existente `catColor(tipo).color` (coherente con los badges de la tabla). Centro del donut = total de aplicaciones.
+- Diseño moderno: header con gradiente suave (azul→verde) e ícono, donut con `cornerRadius`/`paddingAngle`, y **leyenda con barras de progreso animadas**, conteo y % por tipo (`plant-aplicaciones-tipo-row-<tipo>`).
+- Regresión OK: la tabla de aplicaciones y el "Costo total (PEPS)" se mantienen debajo; estado vacío sin crash.
+- Cambio 100% frontend (`PlantacionDetail.jsx` → `AplicacionesTab`). Lint OK. Testing frontend **100%** (iteration_19.json): ana/L2 (fertilizacion 67% + herbicida 33%, 2 segmentos), oswald/L1 y tafy/L3 (1 segmento), tabla intacta, y regresión de Cosechas OK.
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.
