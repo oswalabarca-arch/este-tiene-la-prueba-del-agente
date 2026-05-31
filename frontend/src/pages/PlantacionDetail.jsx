@@ -4,15 +4,14 @@ import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
 import {
-  ArrowLeft, Pencil, Trash2, ImageOff, ImagePlus,
-  Droplets, Users as UsersIcon, Apple, Sprout, Activity,
+  ArrowLeft, Pencil, Trash2, ImagePlus,
+  Droplets, Users as UsersIcon, Apple, Sprout,
 } from "lucide-react";
 import { catBadge, actBadge } from "../lib/categoryColors";
 
 const TABS = [
   { key: "general",      label: "General",            icon: Sprout,    color: "#16a34a" },
   { key: "aplicaciones", label: "Aplicaciones",        icon: Droplets,  color: "#3b82f6" },
-  { key: "actividades",  label: "Actividades",         icon: Activity,  color: "#0ea5e9" },
   { key: "labores",      label: "Labores de personal", icon: UsersIcon, color: "#8b5cf6" },
   { key: "cosechas",     label: "Cosechas",            icon: Apple,     color: "#dc2626" },
 ];
@@ -122,8 +121,7 @@ export default function PlantacionDetail() {
             {TABS.map((t) => {
               const Icon = t.icon;
               const counts = t.key === "aplicaciones" ? aplicLote.length
-                : t.key === "labores" ? activLote.filter((a) => a.origen === "aplicacion").length
-                : t.key === "actividades" ? activLote.filter((a) => a.origen !== "aplicacion").length
+                : t.key === "labores" ? activLote.length
                 : t.key === "cosechas" ? cosLote.length : null;
               const active = tab === t.key;
               return (
@@ -202,7 +200,6 @@ export default function PlantacionDetail() {
           )}
 
           {tab === "aplicaciones" && <AplicacionesTab items={aplicLote} />}
-          {tab === "actividades"  && <ActividadesTab items={activLote.filter((a) => a.origen !== "aplicacion")} />}
           {tab === "labores"      && <LaboresTab items={activLote} />}
           {tab === "cosechas"     && <CosechasTab items={cosLote} tipos={tipos} variedades={variedades} />}
         </main>
@@ -290,30 +287,6 @@ function AplicacionesTab({ items }) {
               <td><span className="badge" style={catBadge(a.tipo)}>{a.tipo}</span></td>
               <td style={{ fontSize: 13, color: "#64748b" }}>{a.insumos?.map((i) => `${i.nombre_producto} ${i.cantidad}${i.unidad}`).join(", ") || "—"}</td>
               <td>{a.estado === "confirmada" ? <span className="badge badge-primary">Confirmada</span> : <span className="badge badge-warn">Pendiente</span>}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function ActividadesTab({ items }) {
-  if (items.length === 0) return <div className="card empty-state">Sin actividades manuales en este lote</div>;
-  const totalCosto = items.reduce((s, a) => s + (a.costo_total || 0), 0);
-  return (
-    <div className="card">
-      <h3 style={{ marginTop: 0 }}>Actividades manuales · {items.length} · Costo total: ${totalCosto.toFixed(2)}</h3>
-      <table className="table">
-        <thead><tr><th>Fecha</th><th>Tipo</th><th>Trabajadores</th><th>Horas</th><th>Costo</th></tr></thead>
-        <tbody>
-          {items.map((a) => (
-            <tr key={a._id}>
-              <td>{new Date(a.fecha_actividad).toLocaleDateString()}</td>
-              <td><span className="badge" style={actBadge(a.tipo_personalizado || a.tipo)}>{a.tipo_personalizado || a.tipo}</span></td>
-              <td>{Number(a.cantidad_trabajadores || 0).toFixed(2)}</td>
-              <td>{a.horas_trabajo}</td>
-              <td style={{ fontWeight: 700, color: "#16a34a" }}>${Number(a.costo_total || 0).toFixed(2)}</td>
             </tr>
           ))}
         </tbody>
