@@ -100,6 +100,9 @@ function TrabajadorModal({ initial, onClose, onSaved }) {
 export function Nomina() {
   const [trabajadores, setTrabajadores] = useState([]);
   const [actividades, setActividades] = useState([]);
+  const [filtroTipo, setFiltroTipo] = useState("");
+  const [filtroLote, setFiltroLote] = useState("");
+  const [filtroPeriodo, setFiltroPeriodo] = useState("todos");
 
   useEffect(() => {
     Promise.all([api.get("/trabajadores"), api.get("/actividades")]).then(([t, a]) => {
@@ -108,13 +111,43 @@ export function Nomina() {
     });
   }, []);
 
-  // Resumen general
-  const horasTotales = actividades.reduce((s, a) => s + (a.horas_hombre || 0), 0);
-  const costoTotal = actividades.reduce((s, a) => s + (a.costo_total || 0), 0);
+  // Filtro por periodo
+  const inPeriodo = (fechaStr) => {
+    if (filtroPeriodo === "todos") return true;
+    const f = new Date(fechaStr);
+    if (isNaN(f.getTime())) return false;
+    const now = new Date();
+    if (filtroPeriodo === "hoy") return f.toDateString() === now.toDateString();
+    if (filtroPeriodo === "semana") {
+      const start = new Date(now);
+      start.setDate(now.getDate() - now.getDay());
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 7);
+      return f >= start && f < end;
+    }
+    if (filtroPeriodo === "mes") return f.getMonth() === now.getMonth() && f.getFullYear() === now.getFullYear();
+    if (filtroPeriodo === "ano") return f.getFullYear() === now.getFullYear();
+    return true;
+  };
+
+  const tiposUnicos = Array.from(new Set(actividades.map((a) => a.tipo_personalizado || a.tipo).filter(Boolean))).sort();
+  const lotesUnicos = Array.from(new Set(actividades.map((a) => a.lote).filter(Boolean))).sort();
+
+  const actividadesFiltradas = actividades.filter((a) => {
+    if (!inPeriodo(a.fecha_actividad)) return false;
+    if (filtroTipo && (a.tipo_personalizado || a.tipo) !== filtroTipo) return false;
+    if (filtroLote && a.lote !== filtroLote) return false;
+    return true;
+  });
+
+  // Resumen general (sobre datos filtrados, así KPIs reflejan los filtros activos)
+  const horasTotales = actividadesFiltradas.reduce((s, a) => s + (a.horas_hombre || 0), 0);
+  const costoTotal = actividadesFiltradas.reduce((s, a) => s + (a.costo_total || 0), 0);
   const trabajadoresActivos = trabajadores.filter((t) => t.activo);
 
   // Agrupar costos por origen
-  const costoPorOrigen = actividades.reduce((acc, a) => {
+  const costoPorOrigen = actividadesFiltradas.reduce((acc, a) => {
     const k = a.origen || "registro_manual";
     if (!acc[k]) acc[k] = { horas: 0, costo: 0, count: 0 };
     acc[k].horas += (a.horas_hombre || 0);
@@ -124,7 +157,7 @@ export function Nomina() {
   }, {});
 
   // Agrupar por lote (para visibilidad rápida del gasto de mano de obra por lote)
-  const costoPorLote = actividades.reduce((acc, a) => {
+  const costoPorLote = actividadesFiltradas.reduce((acc, a) => {
     const k = a.lote || "Sin lote";
     if (!acc[k]) acc[k] = { horas: 0, costo: 0, count: 0 };
     acc[k].horas += (a.horas_hombre || 0);
@@ -133,6 +166,9 @@ export function Nomina() {
     return acc;
   }, {});
 
+  const limpiarFiltros = () => { setFiltroTipo(""); setFiltroLote(""); setFiltroPeriodo("todos"); };
+  const filtrosActivos = filtroTipo || filtroLote || filtroPeriodo !== "todos";
+
   return (
     <div data-testid="nomina-page">
       <h1 className="page-title"><DollarSign size={24} style={{ verticalAlign: "middle", color: "#16a34a" }} /> Nómina</h1>
@@ -140,9 +176,9 @@ export function Nomina() {
 
       <div className="kpi-grid" style={{ marginBottom: 18 }}>
         <div className="card kpi-card"><div className="kpi-label">Trabajadores activos</div><div className="kpi-value">{trabajadoresActivos.length}</div></div>
-        <div className="card kpi-card"><div className="kpi-label">Horas-hombre acumuladas</div><div className="kpi-value">{horasTotales.toFixed(1)} h</div></div>
-        <div className="card kpi-card"><div className="kpi-label">Costo total mano de obra</div><div className="kpi-value" style={{ color: "#16a34a" }}>${costoTotal.toFixed(2)}</div></div>
-        <div className="card kpi-card"><div className="kpi-label">Actividades registradas</div><div className="kpi-value">{actividades.length}</div></div>
+        <div className="card kpi-card"><div className="kpi-label">Horas-hombre {filtrosActivos ? "(filtradas)" : "acumuladas"}</div><div className="kpi-value">{horasTotales.toFixed(1)} h</div></div>
+        <div className="card kpi-card"><div className="kpi-label">Costo {filtrosActivos ? "(filtrado)" : "total"} mano de obra</div><div className="kpi-value" style={{ color: "#16a34a" }}>${costoTotal.toFixed(2)}</div></div>
+        <div className="card kpi-card"><div className="kpi-label">Actividades {filtrosActivos ? "(filtradas)" : "registradas"}</div><div className="kpi-value">{actividadesFiltradas.length}</div></div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 18 }}>
@@ -186,10 +222,46 @@ export function Nomina() {
       <div className="card">
         <h3 style={{ marginTop: 0 }}>Detalle de actividades</h3>
         <p style={{ color: "#64748b", marginTop: -8, fontSize: 13 }}>Cada actividad confirmada desde Aplicaciones aparece aquí, junto con las actividades registradas manualmente.</p>
+
+        {/* Filtros */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-end", marginBottom: 14, padding: 12, background: "#f8fafc", borderRadius: 8 }}>
+          <div style={{ flex: "1 1 220px" }}>
+            <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 600, marginBottom: 6 }}>Periodo</div>
+            <div className="pill-group" data-testid="nomina-filtro-periodo">
+              {[
+                { k: "hoy", label: "Hoy" },
+                { k: "semana", label: "Semana" },
+                { k: "mes", label: "Mes" },
+                { k: "ano", label: "Año" },
+                { k: "todos", label: "Todos" },
+              ].map((p) => (
+                <button key={p.k} type="button" className={`pill ${filtroPeriodo === p.k ? "active" : ""}`} onClick={() => setFiltroPeriodo(p.k)} data-testid={`nomina-periodo-${p.k}`}>{p.label}</button>
+              ))}
+            </div>
+          </div>
+          <div style={{ flex: "1 1 180px" }}>
+            <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 600, marginBottom: 6 }}>Tipo</div>
+            <select className="select" value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)} data-testid="nomina-filtro-tipo">
+              <option value="">Todos los tipos</option>
+              {tiposUnicos.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <div style={{ flex: "1 1 180px" }}>
+            <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 600, marginBottom: 6 }}>Lote</div>
+            <select className="select" value={filtroLote} onChange={(e) => setFiltroLote(e.target.value)} data-testid="nomina-filtro-lote">
+              <option value="">Todos los lotes</option>
+              {lotesUnicos.map((l) => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </div>
+          {filtrosActivos && (
+            <button type="button" className="btn" onClick={limpiarFiltros} data-testid="nomina-limpiar-filtros">Limpiar filtros</button>
+          )}
+        </div>
+
         <table className="table">
           <thead><tr><th>Fecha</th><th>Tipo</th><th>Lote</th><th>Trabajadores</th><th>Horas</th><th>Precio/hr</th><th>Horas-H</th><th>Costo</th><th>Origen</th></tr></thead>
           <tbody>
-            {actividades.map((a) => (
+            {actividadesFiltradas.map((a) => (
               <tr key={a._id}>
                 <td>{new Date(a.fecha_actividad).toLocaleDateString()}</td>
                 <td><span className="badge" style={actBadge(a.tipo_personalizado || a.tipo)}>{a.tipo_personalizado || a.tipo}</span></td>
@@ -204,7 +276,13 @@ export function Nomina() {
             ))}
           </tbody>
         </table>
-        {actividades.length === 0 && <div className="empty-state">Sin actividades registradas todavía.</div>}
+        {actividadesFiltradas.length === 0 && (
+          <div className="empty-state">
+            {actividades.length === 0
+              ? "Sin actividades registradas todavía."
+              : "No hay actividades que coincidan con los filtros seleccionados."}
+          </div>
+        )}
       </div>
 
       <div className="card" style={{ marginTop: 18 }}>
