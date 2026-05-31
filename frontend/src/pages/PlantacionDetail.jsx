@@ -4,17 +4,20 @@ import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
 import {
-  ArrowLeft, Pencil, Trash2, MapPin, Calendar, Droplet, Sprout, ImageOff,
-  Droplets, Users as UsersIcon, Apple, Info,
+  ArrowLeft, Pencil, Trash2, ImageOff, ImagePlus,
+  Droplets, Users as UsersIcon, Apple, Sprout, Activity,
 } from "lucide-react";
 import { catBadge, actBadge } from "../lib/categoryColors";
 
 const TABS = [
-  { key: "general", label: "Información general", icon: Info, color: "#16a34a" },
-  { key: "aplicaciones", label: "Aplicaciones", icon: Droplets, color: "#3b82f6" },
-  { key: "labores", label: "Labores de personal", icon: UsersIcon, color: "#8b5cf6" },
-  { key: "cosechas", label: "Cosechas", icon: Apple, color: "#dc2626" },
+  { key: "general",      label: "General",            icon: Sprout,    color: "#16a34a" },
+  { key: "aplicaciones", label: "Aplicaciones",        icon: Droplets,  color: "#3b82f6" },
+  { key: "actividades",  label: "Actividades",         icon: Activity,  color: "#0ea5e9" },
+  { key: "labores",      label: "Labores de personal", icon: UsersIcon, color: "#8b5cf6" },
+  { key: "cosechas",     label: "Cosechas",            icon: Apple,     color: "#dc2626" },
 ];
+
+const PALE_BG = "#f1f8f1";
 
 export default function PlantacionDetail() {
   const { id } = useParams();
@@ -51,11 +54,11 @@ export default function PlantacionDetail() {
   const lote = plantacion?.lote;
   const aplicLote = useMemo(() => aplicaciones.filter((a) => a.lote === lote), [aplicaciones, lote]);
   const activLote = useMemo(() => actividades.filter((a) => a.lote === lote), [actividades, lote]);
-  const cosLote = useMemo(() => cosechas.filter((c) => c.lote === lote), [cosechas, lote]);
+  const cosLote   = useMemo(() => cosechas.filter((c) => c.lote === lote), [cosechas, lote]);
 
   if (!plantacion) {
     return (
-      <div>
+      <div style={{ background: PALE_BG, minHeight: "100%", padding: 24 }}>
         <button className="btn" onClick={() => navigate("/dashboard/plantaciones")}><ArrowLeft size={16} /> Volver</button>
         <div className="empty-state card" style={{ marginTop: 18 }}>Plantación no encontrada</div>
       </div>
@@ -69,144 +72,206 @@ export default function PlantacionDetail() {
     navigate("/dashboard/plantaciones");
   };
 
-  const cultivos = plantacion.cultivos?.length ? plantacion.cultivos : (plantacion.cultivo ? [plantacion.cultivo] : []);
-  const variedadesP = plantacion.variedades?.length ? plantacion.variedades : (plantacion.variedad ? [plantacion.variedad] : []);
+  const cultivos    = plantacion.cultivos?.length    ? plantacion.cultivos    : (plantacion.cultivo  ? [plantacion.cultivo]  : []);
+  const variedadesP = plantacion.variedades?.length  ? plantacion.variedades  : (plantacion.variedad ? [plantacion.variedad] : []);
+  const fechaAlta = plantacion.created_at || plantacion.fecha_inicio;
 
   return (
-    <div data-testid="plantacion-detail-page">
-      <button className="btn" onClick={() => navigate("/dashboard/plantaciones")} style={{ marginBottom: 18 }} data-testid="plant-detail-back"><ArrowLeft size={16} /> Volver a plantaciones</button>
+    <div style={{ background: PALE_BG, margin: -24, padding: 24, minHeight: "calc(100vh - 0px)" }} data-testid="plantacion-detail-page">
+      <button
+        onClick={() => navigate("/dashboard/plantaciones")}
+        style={{ background: "transparent", border: "none", color: "#475569", cursor: "pointer", fontSize: 15, fontWeight: 500, display: "inline-flex", alignItems: "center", gap: 6, marginBottom: 18, padding: 4 }}
+        data-testid="plant-detail-back"
+      >
+        <ArrowLeft size={18} /> Volver al listado
+      </button>
 
-      {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18, gap: 16 }}>
-        <div>
-          <h1 className="page-title"><Sprout size={26} style={{ verticalAlign: "middle", color: "#16a34a" }} /> {plantacion.nombre}</h1>
-          <p className="page-subtitle">
-            <MapPin size={14} style={{ verticalAlign: "middle" }} /> Lote <b>{plantacion.lote}</b> · {plantacion.superficie_geometrica || 0} m² · {plantacion.tipo_plantacion}
-          </p>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          {canEdit("plantaciones") && <button className="btn" onClick={() => navigate("/dashboard/plantaciones", { state: { edit: plantacion._id } })} data-testid="plant-detail-edit"><Pencil size={14} /> Editar</button>}
-          {canDelete("plantaciones") && <button className="btn btn-danger" onClick={remove} data-testid="plant-detail-delete"><Trash2 size={14} /> Eliminar</button>}
-        </div>
+      {/* 3-column grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "280px 1fr 300px", gap: 18, alignItems: "start" }}>
+        {/* LEFT COLUMN */}
+        <aside style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          {/* Foto principal */}
+          <div className="card" style={{ padding: 16 }}>
+            <PhotoUpload value={plantacion.foto_principal} label="Subir foto" />
+            <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+              {canEdit("plantaciones") && (
+                <button className="btn" style={{ flex: 1 }} onClick={() => navigate("/dashboard/plantaciones", { state: { edit: plantacion._id } })} data-testid="plant-detail-edit">
+                  <Pencil size={14} /> Editar
+                </button>
+              )}
+              {canDelete("plantaciones") && (
+                <button className="btn" style={{ flex: 1, color: "#dc2626", borderColor: "#fecaca" }} onClick={remove} data-testid="plant-detail-delete">
+                  <Trash2 size={14} /> Eliminar
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Plantación card */}
+          <div className="card" style={{ padding: 16 }}>
+            <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 600, letterSpacing: 0.5 }}>Plantación</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: "#0f172a", marginTop: 4 }}>{plantacion.nombre}</div>
+            <hr style={{ border: 0, borderTop: "1px solid #e2e8f0", margin: "12px 0" }} />
+            <MetaRow label="ID" value={<span style={{ fontFamily: "monospace", fontSize: 12 }}>{plantacion._id?.slice(0, 8)}…</span>} />
+            <MetaRow label="Lote" value={<span className="badge badge-primary">{plantacion.lote}</span>} />
+            <MetaRow label="Fecha alta" value={fechaAlta ? new Date(fechaAlta).toLocaleDateString() : "—"} />
+          </div>
+
+          {/* Navegación */}
+          <div className="card" style={{ padding: 8 }}>
+            {TABS.map((t) => {
+              const Icon = t.icon;
+              const counts = t.key === "aplicaciones" ? aplicLote.length
+                : t.key === "labores" ? activLote.filter((a) => a.origen === "aplicacion").length
+                : t.key === "actividades" ? activLote.filter((a) => a.origen !== "aplicacion").length
+                : t.key === "cosechas" ? cosLote.length : null;
+              const active = tab === t.key;
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setTab(t.key)}
+                  data-testid={`plant-tab-${t.key}`}
+                  style={{
+                    width: "100%", display: "flex", alignItems: "center", gap: 10,
+                    padding: "10px 12px", border: "none", cursor: "pointer", borderRadius: 8,
+                    background: active ? "#dcfce7" : "transparent",
+                    color: active ? "#15803d" : "#475569",
+                    fontWeight: active ? 700 : 500, fontSize: 14, textAlign: "left",
+                  }}
+                >
+                  <Icon size={16} /> <span style={{ flex: 1 }}>{t.label}</span>
+                  {counts !== null && counts > 0 && (
+                    <span className="badge" style={{ background: active ? "#bbf7d0" : "#f1f5f9", color: active ? "#15803d" : "#64748b", fontSize: 11 }}>{counts}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </aside>
+
+        {/* CENTER COLUMN */}
+        <main>
+          {tab === "general" && (
+            <div className="card" style={{ padding: 28 }}>
+              <h1 style={{ margin: 0, fontSize: 26, color: "#0f172a", fontWeight: 700 }}>Plantación ({plantacion.nombre}) — Detalles</h1>
+              <p style={{ color: "#64748b", marginTop: 4, marginBottom: 24 }}>Información general de la plantación.</p>
+
+              <Section title="DATOS GENERALES">
+                <FieldGrid>
+                  <Field label="Nombre" value={plantacion.nombre} />
+                  <Field label="Identificador de lote" value={plantacion.lote} />
+                  <Field label="Recinto agronómico" value={plantacion.recinto_agronomico} />
+                  <Field label="Huerta (UHC)" value={plantacion.huerta_uhc} />
+                  <Field label="Código externo" value={plantacion.codigo_externo} />
+                </FieldGrid>
+              </Section>
+
+              <Section title="SUPERFICIE">
+                <FieldGrid>
+                  <Field label="Superficie geométrica (ha)" value={plantacion.superficie_geometrica ?? 0} />
+                  <Field label="Superficie declarada (ha)" value={plantacion.superficie_declarada ?? 0} />
+                </FieldGrid>
+              </Section>
+
+              <Section title="ESTADO ACTUAL">
+                <FieldGrid>
+                  <Field label="Fecha de inicio" value={plantacion.fecha_inicio ? new Date(plantacion.fecha_inicio).toLocaleDateString() : null} />
+                  <Field label="Fecha de finalización" value={plantacion.fecha_finalizacion ? new Date(plantacion.fecha_finalizacion).toLocaleDateString() : null} />
+                </FieldGrid>
+              </Section>
+
+              <Section title="OTRA INFORMACIÓN">
+                <FieldGrid>
+                  <Field label="Cultivo" value={cultivos.length > 0 ? cultivos.join(", ") : null} />
+                  <Field label="Variedad" value={variedadesP.length > 0 ? variedadesP.join(", ") : null} />
+                  <Field label="Inventario (plantas)" value={plantacion.inventario_plantas ?? 0} />
+                  <Field label="Cobertura" value={plantacion.cobertura} />
+                  <Field label="Sistema de riego" value={plantacion.sistema_riego} />
+                  <Field label="Tipo de plantación" value={plantacion.tipo_plantacion ? <b style={{ textTransform: "uppercase" }}>{plantacion.tipo_plantacion}</b> : null} />
+                  <Field label="Distancia entre plantas (m)" value={plantacion.distancia_plantas ?? 0} />
+                  <Field label="Distancia entre filas (m)" value={plantacion.distancia_filas ?? 0} />
+                </FieldGrid>
+              </Section>
+
+              <Section title="OBSERVACIONES" last>
+                <div style={{ color: "#0f172a", whiteSpace: "pre-wrap", fontSize: 15 }}>
+                  {plantacion.observaciones || <span style={{ color: "#94a3b8" }}>—</span>}
+                </div>
+              </Section>
+            </div>
+          )}
+
+          {tab === "aplicaciones" && <AplicacionesTab items={aplicLote} />}
+          {tab === "actividades"  && <ActividadesTab items={activLote.filter((a) => a.origen !== "aplicacion")} />}
+          {tab === "labores"      && <LaboresTab items={activLote} />}
+          {tab === "cosechas"     && <CosechasTab items={cosLote} tipos={tipos} variedades={variedades} />}
+        </main>
+
+        {/* RIGHT COLUMN */}
+        <aside>
+          <div className="card" style={{ padding: 16 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Foto secundaria</div>
+            <div style={{ fontSize: 13, color: "#64748b", marginTop: 2, marginBottom: 12 }}>Mapa, vista aérea, etc.</div>
+            <PhotoUpload value={plantacion.foto_secundaria} label="Click para subir" />
+            <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 10 }}>Máx 800KB</div>
+          </div>
+        </aside>
       </div>
-
-      {/* Tabs */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 18, borderBottom: "1px solid #e2e8f0", paddingBottom: 0 }}>
-        {TABS.map((t) => {
-          const Icon = t.icon;
-          const counts = t.key === "aplicaciones" ? aplicLote.length : t.key === "labores" ? activLote.length : t.key === "cosechas" ? cosLote.length : null;
-          const active = tab === t.key;
-          return (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              style={{
-                background: "transparent", border: "none", padding: "10px 16px", cursor: "pointer",
-                color: active ? t.color : "#64748b", fontWeight: active ? 700 : 500,
-                borderBottom: active ? `3px solid ${t.color}` : "3px solid transparent",
-                display: "inline-flex", alignItems: "center", gap: 8, fontSize: 14, marginBottom: -1,
-              }}
-              data-testid={`plant-tab-${t.key}`}
-            >
-              <Icon size={16} /> {t.label}
-              {counts !== null && <span className="badge" style={{ background: t.color + "22", color: t.color, fontSize: 11 }}>{counts}</span>}
-            </button>
-          );
-        })}
-      </div>
-
-      {tab === "general" && (
-        <GeneralTab plantacion={plantacion} cultivos={cultivos} variedadesP={variedadesP} />
-      )}
-      {tab === "aplicaciones" && <AplicacionesTab items={aplicLote} />}
-      {tab === "labores" && <LaboresTab items={activLote} />}
-      {tab === "cosechas" && <CosechasTab items={cosLote} tipos={tipos} variedades={variedades} />}
     </div>
   );
 }
 
-function GeneralTab({ plantacion, cultivos, variedadesP }) {
+function MetaRow({ label, value }) {
   return (
-    <>
-      <div className="kpi-grid" style={{ marginBottom: 18 }}>
-        <div className="card kpi-card">
-          <div className="kpi-head"><div className="kpi-label">Superficie</div><div className="kpi-icon-box" style={{ background: "#dcfce7", color: "#16a34a" }}><MapPin size={18} /></div></div>
-          <div className="kpi-value">{plantacion.superficie_geometrica || 0}</div>
-          <div style={{ color: "#64748b", fontSize: 13 }}>m²</div>
-        </div>
-        <div className="card kpi-card">
-          <div className="kpi-head"><div className="kpi-label">Fecha siembra</div><div className="kpi-icon-box" style={{ background: "#dbeafe", color: "#3b82f6" }}><Calendar size={18} /></div></div>
-          <div className="kpi-value" style={{ fontSize: 18 }}>{plantacion.fecha_inicio ? new Date(plantacion.fecha_inicio).toLocaleDateString() : "—"}</div>
-        </div>
-        <div className="card kpi-card">
-          <div className="kpi-head"><div className="kpi-label">Fecha finalización</div><div className="kpi-icon-box" style={{ background: "#fef3c7", color: "#f59e0b" }}><Calendar size={18} /></div></div>
-          <div className="kpi-value" style={{ fontSize: 18 }}>{plantacion.fecha_finalizacion ? new Date(plantacion.fecha_finalizacion).toLocaleDateString() : "—"}</div>
-        </div>
-        <div className="card kpi-card">
-          <div className="kpi-head"><div className="kpi-label">Sistema de riego</div><div className="kpi-icon-box" style={{ background: "#e0f2fe", color: "#0ea5e9" }}><Droplet size={18} /></div></div>
-          <div className="kpi-value" style={{ fontSize: 18 }}>{plantacion.sistema_riego || "—"}</div>
-        </div>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16, marginBottom: 18 }}>
-        <div className="card">
-          <h3 style={{ marginTop: 0 }}>Cultivos y variedades</h3>
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 13, color: "#64748b", marginBottom: 6 }}>Tipos de cultivo</div>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {cultivos.length > 0 ? cultivos.map((c) => <span key={c} className="badge badge-primary">{c}</span>) : <span style={{ color: "#94a3b8", fontSize: 13 }}>Sin cultivos</span>}
-            </div>
-          </div>
-          <div>
-            <div style={{ fontSize: 13, color: "#64748b", marginBottom: 6 }}>Variedades</div>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {variedadesP.length > 0 ? variedadesP.map((v) => <span key={v} className="badge badge-purple">{v}</span>) : <span style={{ color: "#94a3b8", fontSize: 13 }}>Sin variedades</span>}
-            </div>
-          </div>
-        </div>
-        <div className="card">
-          <h3 style={{ marginTop: 0 }}>Identificación</h3>
-          <Row label="Lote" value={plantacion.lote} />
-          <Row label="Tipo" value={plantacion.tipo_plantacion} />
-          {plantacion.recinto_agronomico && <Row label="Recinto" value={plantacion.recinto_agronomico} />}
-        </div>
-      </div>
-
-      {/* Fotos */}
-      <div className="card" style={{ marginBottom: 18 }}>
-        <h3 style={{ marginTop: 0 }}>Fotos del lote</h3>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-          <PhotoBox value={plantacion.foto_principal} label="Foto principal" />
-          <PhotoBox value={plantacion.foto_secundaria} label="Foto secundaria" />
-        </div>
-      </div>
-
-      {plantacion.observaciones && (
-        <div className="card">
-          <h3 style={{ marginTop: 0 }}>Observaciones</h3>
-          <p style={{ color: "#334155", whiteSpace: "pre-wrap", margin: 0 }}>{plantacion.observaciones}</p>
-        </div>
-      )}
-    </>
-  );
-}
-
-function Row({ label, value }) {
-  return (
-    <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid #f1f5f9" }}>
-      <span style={{ color: "#64748b", fontSize: 14 }}>{label}</span>
-      <span style={{ fontWeight: 600, fontSize: 14 }}>{value}</span>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", fontSize: 13 }}>
+      <span style={{ color: "#64748b" }}>{label}</span>
+      <span style={{ color: "#0f172a", fontWeight: 500 }}>{value}</span>
     </div>
   );
 }
 
-function PhotoBox({ value, label }) {
+function Section({ title, children, last }) {
+  return (
+    <div style={{ marginBottom: last ? 0 : 28 }}>
+      <div style={{ fontSize: 11, color: "#94a3b8", letterSpacing: 1.2, fontWeight: 700, textTransform: "uppercase", marginBottom: 14 }}>{title}</div>
+      {children}
+    </div>
+  );
+}
+
+function FieldGrid({ children }) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "18px 32px" }}>{children}</div>
+  );
+}
+
+function Field({ label, value }) {
+  const empty = value === null || value === undefined || value === "";
   return (
     <div>
       <div style={{ fontSize: 13, color: "#64748b", marginBottom: 6 }}>{label}</div>
-      <div style={{ height: 220, borderRadius: 10, background: "#f8fafc", border: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-        {value ? <img src={value} alt={label} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <ImageOff size={40} color="#cbd5e1" />}
+      <div style={{ fontSize: 16, fontWeight: 600, color: empty ? "#94a3b8" : "#0f172a" }}>
+        {empty ? "—" : value}
       </div>
+    </div>
+  );
+}
+
+function PhotoUpload({ value, label }) {
+  return (
+    <div style={{
+      height: 220, borderRadius: 10,
+      background: value ? "#fff" : "#eef2eb",
+      border: value ? "1px solid #e2e8f0" : "2px dashed #cbd5cb",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      flexDirection: "column", color: "#94a3b8", overflow: "hidden", cursor: "pointer",
+    }}>
+      {value
+        ? <img src={value} alt={label} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        : <>
+            <ImagePlus size={42} strokeWidth={1.5} />
+            <div style={{ marginTop: 8, fontSize: 14 }}>{label}</div>
+          </>}
     </div>
   );
 }
@@ -225,6 +290,30 @@ function AplicacionesTab({ items }) {
               <td><span className="badge" style={catBadge(a.tipo)}>{a.tipo}</span></td>
               <td style={{ fontSize: 13, color: "#64748b" }}>{a.insumos?.map((i) => `${i.nombre_producto} ${i.cantidad}${i.unidad}`).join(", ") || "—"}</td>
               <td>{a.estado === "confirmada" ? <span className="badge badge-primary">Confirmada</span> : <span className="badge badge-warn">Pendiente</span>}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ActividadesTab({ items }) {
+  if (items.length === 0) return <div className="card empty-state">Sin actividades manuales en este lote</div>;
+  const totalCosto = items.reduce((s, a) => s + (a.costo_total || 0), 0);
+  return (
+    <div className="card">
+      <h3 style={{ marginTop: 0 }}>Actividades manuales · {items.length} · Costo total: ${totalCosto.toFixed(2)}</h3>
+      <table className="table">
+        <thead><tr><th>Fecha</th><th>Tipo</th><th>Trabajadores</th><th>Horas</th><th>Costo</th></tr></thead>
+        <tbody>
+          {items.map((a) => (
+            <tr key={a._id}>
+              <td>{new Date(a.fecha_actividad).toLocaleDateString()}</td>
+              <td><span className="badge" style={actBadge(a.tipo_personalizado || a.tipo)}>{a.tipo_personalizado || a.tipo}</span></td>
+              <td>{Number(a.cantidad_trabajadores || 0).toFixed(2)}</td>
+              <td>{a.horas_trabajo}</td>
+              <td style={{ fontWeight: 700, color: "#16a34a" }}>${Number(a.costo_total || 0).toFixed(2)}</td>
             </tr>
           ))}
         </tbody>
@@ -269,38 +358,25 @@ function LaboresTab({ items }) {
 
 function CosechasTab({ items, tipos, variedades }) {
   if (items.length === 0) return <div className="card empty-state">Sin cosechas registradas en este lote</div>;
-  const total = items.reduce((s, c) => s + (c.primera_calidad + c.segunda_calidad + c.tercera_calidad + c.descarte), 0);
-  const primera = items.reduce((s, c) => s + c.primera_calidad, 0);
+  const labelTipo = (id) => tipos.find((t) => t._id === id)?.nombre || id;
+  const labelVar = (id) => variedades.find((v) => v._id === id)?.nombre || id;
   return (
-    <>
-      <div className="kpi-grid" style={{ marginBottom: 14 }}>
-        <div className="card kpi-card"><div className="kpi-label">Cosechas</div><div className="kpi-value">{items.length}</div></div>
-        <div className="card kpi-card"><div className="kpi-label">Volumen total</div><div className="kpi-value" style={{ color: "#16a34a" }}>{total.toFixed(2)}</div></div>
-        <div className="card kpi-card"><div className="kpi-label">1ª calidad</div><div className="kpi-value" style={{ color: "#16a34a" }}>{primera.toFixed(2)}</div></div>
-      </div>
-      <div className="card">
-        <table className="table">
-          <thead><tr><th>Fecha</th><th>Tipo Fruta</th><th>Variedad</th><th>1ª</th><th>2ª</th><th>3ª</th><th>Descarte</th><th>Unidad</th></tr></thead>
-          <tbody>
-            {items.map((c) => {
-              const t = tipos.find((x) => x._id === c.tipo_fruta_id);
-              const v = variedades.find((x) => x._id === c.variedad_id);
-              return (
-                <tr key={c._id}>
-                  <td>{new Date(c.fecha_cosecha).toLocaleDateString()}</td>
-                  <td>{t?.nombre || "—"}</td>
-                  <td>{v?.nombre || "—"}</td>
-                  <td style={{ color: "#16a34a", fontWeight: 600 }}>{c.primera_calidad}</td>
-                  <td style={{ color: "#3b82f6" }}>{c.segunda_calidad}</td>
-                  <td style={{ color: "#f59e0b" }}>{c.tercera_calidad}</td>
-                  <td style={{ color: "#dc2626" }}>{c.descarte}</td>
-                  <td>{c.unidad}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </>
+    <div className="card">
+      <h3 style={{ marginTop: 0 }}>Cosechas · {items.length}</h3>
+      <table className="table">
+        <thead><tr><th>Fecha</th><th>Tipo</th><th>Variedad</th><th>Cestas</th><th>Peso (Kg)</th></tr></thead>
+        <tbody>
+          {items.map((c) => (
+            <tr key={c._id}>
+              <td>{new Date(c.fecha).toLocaleDateString()}</td>
+              <td>{labelTipo(c.tipo_fruta_id)}</td>
+              <td>{labelVar(c.variedad_id)}</td>
+              <td>{c.cantidad_cestas}</td>
+              <td>{c.peso_kg}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
