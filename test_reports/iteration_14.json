@@ -1,0 +1,26 @@
+{
+  "summary": "Validated new flex-row layout in CosechasTab (PlantacionDetail) at viewport 1920. 'Calidades del lote' and 'Rendimiento por planta' render side-by-side at ~half width each in the same row; 'Calidades por variedad' renders below at full width. Donut, legends, rendimiento table and variety pies all rendered with correct data. No runtime errors and no duplicated test ids.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Cosechas tab — PlantacionDetail", "issues": ["Recharts console warnings 'width(-1) height(-1)' emitted on initial render of the variety pies (cosmetic only; charts render correctly on next tick). Could be silenced by giving the grid items an explicit min-width or initial height, but does not affect UX."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Layout meets the spec exactly (flex row, gap 18, flexWrap, two cards with flex 1 1 320px side-by-side, variedad full-width below).",
+    "Donut reduced to 190x190 (outerRadius 84) as requested; central kg text still visible.",
+    "Recharts ResponsiveContainer occasionally logs width/height(-1) warnings at mount inside the grid cells of 'Calidades por variedad'; functionally harmless but worth wrapping the chart wrapper with a small minHeight/minWidth=0 to silence."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "n/a", "frontend": "100%" },
+  "test_credentials": "Admin oswaldabarca@gmail.com / 123456 (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "None — used existing plantación 76fc64ae-dd52-475b-8c62-5c25f6b91508 (lote 1).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Measured rects at 1920 viewport: calidades-chart x=590 w=479 top=355; rendimiento-card x=1087 w=479 top=355 (same row, both ~half of 976 wrap); variedad-chart top=659 w=976 (full width below). Donut center shows '728 kg'; 4 legends (Primera 48.1%, Segunda 26.9%, Tercera 13.5%, Descarte 11.5%). Rendimiento table has 2 rows (Fresa/san andreas 0.34 kg/planta; Fresa/albion 0.93 kg/planta). All testids unique (count=1).",
+  "rca of the issue": "N/A — layout change verified working."
+}

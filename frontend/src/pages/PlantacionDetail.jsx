@@ -523,45 +523,77 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
         </table>
       </div>
 
-      {/* Gráfico principal: calidades del lote */}
-      {loteTotalKg > 0 && (
-        <div className="card" style={{ marginTop: 18 }} data-testid="plant-calidades-chart">
-          <h3 style={{ marginTop: 0, marginBottom: 2 }}>Calidades del lote</h3>
-          <p style={{ color: "#64748b", marginTop: 0, marginBottom: 10, fontSize: 12 }}>
-            Distribución de calidades del lote en porcentaje. Rendimiento total: <b style={{ color: "#16a34a" }}>{loteTotalKg.toFixed(2)} kg</b>.
-          </p>
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 28 }}>
-            <div style={{ width: 240, height: 240, position: "relative", flexShrink: 0 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={mainData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={66} outerRadius={104} paddingAngle={2} stroke="none">
-                    {mainData.map((d) => <Cell key={d.key} fill={CAL_COLORS[d.key]} />)}
-                  </Pie>
-                  <Tooltip formatter={(val) => [`${Number(val).toFixed(2)} kg (${((Number(val) / loteTotalKg) * 100).toFixed(1)}%)`, ""]} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", textAlign: "center", pointerEvents: "none" }}>
-                <div style={{ fontSize: 11, color: "#64748b" }}>Rendimiento</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: "#16a34a" }}>{loteTotalKg.toFixed(0)}</div>
-                <div style={{ fontSize: 11, color: "#64748b" }}>kg</div>
+      {/* Fila: Calidades del lote (mitad) + Rendimiento por planta (mitad) */}
+      <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginTop: 18, alignItems: "stretch" }}>
+        {loteTotalKg > 0 && (
+          <div className="card" style={{ flex: "1 1 320px", minWidth: 0, marginTop: 0 }} data-testid="plant-calidades-chart">
+            <h3 style={{ marginTop: 0, marginBottom: 2 }}>Calidades del lote</h3>
+            <p style={{ color: "#64748b", marginTop: 0, marginBottom: 10, fontSize: 12 }}>
+              Distribución de calidades en porcentaje. Rendimiento total: <b style={{ color: "#16a34a" }}>{loteTotalKg.toFixed(2)} kg</b>.
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 18 }}>
+              <div style={{ width: 190, height: 190, position: "relative", flexShrink: 0 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={mainData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={52} outerRadius={84} paddingAngle={2} stroke="none">
+                      {mainData.map((d) => <Cell key={d.key} fill={CAL_COLORS[d.key]} />)}
+                    </Pie>
+                    <Tooltip formatter={(val) => [`${Number(val).toFixed(2)} kg (${((Number(val) / loteTotalKg) * 100).toFixed(1)}%)`, ""]} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", textAlign: "center", pointerEvents: "none" }}>
+                  <div style={{ fontSize: 10, color: "#64748b" }}>Rendimiento</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: "#16a34a" }}>{loteTotalKg.toFixed(0)}</div>
+                  <div style={{ fontSize: 10, color: "#64748b" }}>kg</div>
+                </div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 160, flex: 1 }}>
+                {mainData.map((d) => {
+                  const pct = loteTotalKg > 0 ? (d.value / loteTotalKg) * 100 : 0;
+                  return (
+                    <div key={d.key} style={{ display: "flex", alignItems: "center", gap: 8 }} data-testid={`plant-calidad-legend-${d.key}`}>
+                      <span style={{ width: 12, height: 12, borderRadius: 3, background: CAL_COLORS[d.key], flexShrink: 0 }} />
+                      <span style={{ fontWeight: 600, fontSize: 13 }}>{d.name}</span>
+                      <span style={{ marginLeft: "auto", color: "#475569", fontWeight: 600, fontSize: 13 }}>{pct.toFixed(1)}%</span>
+                      <span style={{ color: "#94a3b8", minWidth: 66, textAlign: "right", fontSize: 12 }}>{d.value.toFixed(2)} kg</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 220, flex: 1 }}>
-              {mainData.map((d) => {
-                const pct = loteTotalKg > 0 ? (d.value / loteTotalKg) * 100 : 0;
-                return (
-                  <div key={d.key} style={{ display: "flex", alignItems: "center", gap: 10 }} data-testid={`plant-calidad-legend-${d.key}`}>
-                    <span style={{ width: 14, height: 14, borderRadius: 4, background: CAL_COLORS[d.key], flexShrink: 0 }} />
-                    <span style={{ fontWeight: 600 }}>{d.name}</span>
-                    <span style={{ marginLeft: "auto", color: "#475569", fontWeight: 600 }}>{pct.toFixed(1)}%</span>
-                    <span style={{ color: "#94a3b8", minWidth: 90, textAlign: "right" }}>{d.value.toFixed(2)} kg</span>
-                  </div>
-                );
-              })}
-            </div>
           </div>
+        )}
+
+        {/* Rendimiento por planta — al lado de Calidades del lote */}
+        <div className="card" style={{ flex: "1 1 320px", minWidth: 0, marginTop: 0 }} data-testid="plant-rendimiento-card">
+          <h3 style={{ marginTop: 0, marginBottom: 2, fontSize: 15 }}>Rendimiento por planta</h3>
+          <p style={{ color: "#64748b", marginTop: 0, marginBottom: 14, fontSize: 12 }}>
+            Kg totales cosechados de cada variedad ÷ cantidad de plantas registradas.
+          </p>
+          <table className="table">
+            <thead>
+              <tr><th>Tipo de fruta</th><th>Variedad</th><th style={{ textAlign: "right" }}>Plantas</th><th style={{ textAlign: "right" }}>Rend./planta</th></tr>
+            </thead>
+            <tbody>
+              {filasRend.map((f, i) => (
+                <tr key={i} data-testid="plant-rendimiento-row">
+                  <td>{f.tipo}</td>
+                  <td><span className="badge badge-purple">{f.variedad}</span></td>
+                  <td style={{ textAlign: "right", fontWeight: 600 }} data-testid="plant-rendimiento-plantas">{f.plantas > 0 ? f.plantas.toLocaleString("es-ES") : "—"}</td>
+                  <td style={{ textAlign: "right" }}>
+                    {f.rendimiento != null
+                      ? <>
+                          <div style={{ fontWeight: 700, color: "#16a34a", fontSize: 14 }}>{f.rendimiento.toFixed(2)} kg/planta</div>
+                          <div style={{ fontSize: 11, color: "#94a3b8" }}>{f.kg.toFixed(2)} kg ÷ {f.plantas.toLocaleString("es-ES")}</div>
+                        </>
+                      : <span style={{ color: "#94a3b8" }} title="Registra la cantidad de plantas de esta variedad en la plantación">Sin plantas ({f.kg.toFixed(2)} kg)</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      )}
+      </div>
 
       {/* Gráficos secundarios: calidades por variedad */}
       {variedadCharts.some((v) => v.total > 0) && (
@@ -597,36 +629,6 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
           </div>
         </div>
       )}
-
-      {/* Rendimiento por planta — al final (debajo de las gráficas por variedad) y compacto */}
-      <div className="card" style={{ marginTop: 18, maxWidth: 440 }} data-testid="plant-rendimiento-card">
-        <h3 style={{ marginTop: 0, marginBottom: 2, fontSize: 15 }}>Rendimiento por planta</h3>
-        <p style={{ color: "#64748b", marginTop: 0, marginBottom: 14, fontSize: 12 }}>
-          Kg totales cosechados de cada variedad ÷ cantidad de plantas registradas de esa variedad.
-        </p>
-        <table className="table">
-          <thead>
-            <tr><th>Tipo de fruta</th><th>Variedad</th><th style={{ textAlign: "right" }}>Cantidad de plantas</th><th style={{ textAlign: "right" }}>Rendimiento por planta</th></tr>
-          </thead>
-          <tbody>
-            {filasRend.map((f, i) => (
-              <tr key={i} data-testid="plant-rendimiento-row">
-                <td>{f.tipo}</td>
-                <td><span className="badge badge-purple">{f.variedad}</span></td>
-                <td style={{ textAlign: "right", fontWeight: 600 }} data-testid="plant-rendimiento-plantas">{f.plantas > 0 ? f.plantas.toLocaleString("es-ES") : "—"}</td>
-                <td style={{ textAlign: "right" }}>
-                  {f.rendimiento != null
-                    ? <>
-                        <div style={{ fontWeight: 700, color: "#16a34a", fontSize: 15 }}>{f.rendimiento.toFixed(2)} kg/planta</div>
-                        <div style={{ fontSize: 11, color: "#94a3b8" }}>{f.kg.toFixed(2)} kg ÷ {f.plantas.toLocaleString("es-ES")} plantas</div>
-                      </>
-                    : <span style={{ color: "#94a3b8" }} title="Registra la cantidad de plantas de esta variedad en la plantación">Sin plantas registradas ({f.kg.toFixed(2)} kg)</span>}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
     </>
   );
 }
