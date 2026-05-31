@@ -4,6 +4,7 @@ import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
 import { Plus, Pencil, Trash2, Eye, Award, TrendingUp, TrendingDown, AlertCircle, Apple, Filter } from "lucide-react";
 import { todayLocal, toLocalDateStr } from "../lib/dates";
+import { PeriodPicker, currentMonthStr, currentYearStr } from "../components/PeriodPicker";
 
 const KG_POR_CESTA = 14;
 
@@ -16,6 +17,8 @@ export default function Cosecha() {
   const [plantaciones, setPlantaciones] = useState([]);
   const [editing, setEditing] = useState(null);
   const [period, setPeriod] = useState("todo");  // hoy | semana | mes | año | todo
+  const [mesSel, setMesSel] = useState(currentMonthStr);
+  const [anioSel, setAnioSel] = useState(currentYearStr);
   const [unidadVista, setUnidadVista] = useState("cestas");
   const [filtroTipo, setFiltroTipo] = useState("");
   const [filtroVariedad, setFiltroVariedad] = useState("");
@@ -50,8 +53,8 @@ export default function Cosecha() {
       const d = new Date(c.fecha_cosecha);
       if (period === "hoy") { if (toLocalDateStr(d) !== today) return false; }
       else if (period === "semana") { const diff = (now - d) / 86400000; if (diff > 7) return false; }
-      else if (period === "mes") { const diff = (now - d) / 86400000; if (diff > 31) return false; }
-      else if (period === "año") { if (d.getFullYear() !== now.getFullYear()) return false; }
+      else if (period === "mes") { if (toLocalDateStr(d).slice(0, 7) !== mesSel) return false; }
+      else if (period === "año") { if (toLocalDateStr(d).slice(0, 4) !== anioSel) return false; }
       if (filtroTipo && tipoName(c) !== filtroTipo) return false;
       if (filtroVariedad && varName(c) !== filtroVariedad) return false;
       if (filtroLote && c.lote !== filtroLote) return false;
@@ -60,7 +63,12 @@ export default function Cosecha() {
       }
       return true;
     });
-  }, [cosechas, period, today, filtroTipo, filtroVariedad, filtroLote, search, tipos, variedades]);
+  }, [cosechas, period, mesSel, anioSel, today, filtroTipo, filtroVariedad, filtroLote, search, tipos, variedades]);
+
+  // Años disponibles para el selector (derivados de los datos + año actual)
+  const cosYearSet = new Set(cosechas.map((c) => toLocalDateStr(new Date(c.fecha_cosecha)).slice(0, 4)).filter(Boolean));
+  cosYearSet.add(currentYearStr());
+  const years = [...cosYearSet].sort((a, b) => b.localeCompare(a));
 
   const todayCosechas = cosechas.filter((c) => c.fecha_cosecha?.slice(0, 10) === today);
 
@@ -123,6 +131,7 @@ export default function Cosecha() {
               {p === "hoy" ? "Hoy" : p === "semana" ? "Esta Semana" : p === "mes" ? "Este Mes" : p === "año" ? "Este Año" : "Todo"}
             </button>
           ))}
+          <PeriodPicker isMonth={period === "mes"} isYear={period === "año"} mes={mesSel} setMes={setMesSel} anio={anioSel} setAnio={setAnioSel} years={years} testidPrefix="cosecha" />
         </div>
       </div>
 

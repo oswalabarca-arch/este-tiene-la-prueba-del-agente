@@ -1,0 +1,33 @@
+{
+  "summary": "Frontend-only E2E testing of new PeriodPicker (selector de Mes/Año) across Ventas (finca/ciudad/donaciones), Cosecha, Aplicaciones, and RRHH→Nómina. All 4 modules behave correctly: picker hidden by default; clicking the 'Mes' pill reveals <input type=month> with current month pre-loaded; clicking the 'Año' pill reveals a <select> of years; switching pills mutually hides the other picker; clicking other pills (Todo/Todos/Hoy/Semana) hides both pickers. Filter reactivity verified on Cosecha (1 row → 0 rows when mes=2020-01 → 1 row back when mes=current).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Inconsistent pill testid naming across modules: Ventas/Cosecha use the Spanish character 'año' in testids (filtro-periodo-año, cosecha-periodo-año), while Aplicaciones/RRHH use ASCII 'ano' (aplic-periodo-ano, nomina-periodo-ano). For automated testing this is brittle. Suggest unifying to 'anio' across all modules (matches the picker testid suffix '-picker-anio').",
+    "Inconsistent 'all' pill testid: Ventas/Cosecha use '...periodo-todo'; Aplicaciones/RRHH use '...periodo-todos'. Suggest unifying.",
+    "Year <select> only shows years present in the dataset + the current year. When data only exists for 2026 (current), the user sees just one option, which makes the 'Año' picker feel inert. Consider populating with a small range (e.g. currentYear-5 .. currentYear+1) so users can pick a past/future year even with no data.",
+    "PeriodPicker.jsx: when isYear is true but `years` is empty (theoretical), the <select> would render with no options. Defensive default years={[currentYearStr()]} would be safer."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only request)", "frontend": "100%"},
+  "test_credentials": "Admin oswaldabarca@gmail.com / 123456 (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "None. Existing data (1 cosecha registered for 2026-05) was used for filter reactivity check; no TEST_* records created.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Pill testids per module: Ventas -> filtro-periodo-{todo|hoy|semana|mes|año}; Cosecha -> cosecha-periodo-{todo|hoy|semana|mes|año}; Aplicaciones -> aplic-periodo-{todos|hoy|semana|mes|ano}; Nómina -> nomina-periodo-{todos|hoy|semana|mes|ano}. PeriodPicker testids: {prefix}-picker-mes (input type=month) and {prefix}-picker-anio (select). Routes used: /dashboard/ventas/{finca,ciudad,donaciones}, /dashboard/cosecha, /dashboard/aplicaciones, /dashboard/rrhh/nomina.",
+  "test_cases_executed": [
+    "Login admin OK",
+    "Ventas Finca: Mes pill shows ventas-picker-mes (default 2026-05), fill to 2020-01 OK; Año pill shows ventas-picker-anio (mes hidden); Todo hides both OK",
+    "Ventas Ciudad: same behavior OK",
+    "Ventas Donaciones: same behavior OK",
+    "Cosecha: pickers behave correctly; data filtering verified (Todo=1 row, mes=2020-01=0 rows, mes=2026-05=1 row)",
+    "Aplicaciones: aplic-picker-mes / aplic-picker-anio work; 'Todos' pill (not 'Todo') hides them",
+    "RRHH Nómina (/dashboard/rrhh/nomina): nomina-picker-mes / nomina-picker-anio work; Todos hides them; KPIs (Horas-hombre 96.0 h, Costo $120.00, 7 actividades) rendered, page loads correctly"
+  ]
+}

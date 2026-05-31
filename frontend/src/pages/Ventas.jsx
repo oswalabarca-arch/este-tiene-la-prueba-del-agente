@@ -4,6 +4,7 @@ import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
 import { Plus, Pencil, Trash2, Home, Truck, DollarSign, Snowflake, AlertCircle, Heart, TrendingUp, Wallet, AlertTriangle, Filter, Search, X, CreditCard, User, Phone } from "lucide-react";
 import { todayLocal } from "../lib/dates";
+import { PeriodPicker, currentMonthStr, currentYearStr } from "../components/PeriodPicker";
 
 const TIPO_META = {
   finca: { label: "Venta en finca", icon: Home, color: "#16a34a" },
@@ -52,6 +53,8 @@ function Ventas({ tipo }) {
   const [unidad, setUnidad] = useState("cestas");
   // Filtros del registro
   const [period, setPeriod] = useState("todo");
+  const [mesSel, setMesSel] = useState(currentMonthStr);
+  const [anioSel, setAnioSel] = useState(currentYearStr);
   const [search, setSearch] = useState("");
   const [estadoPago, setEstadoPago] = useState("todos");
   const [diasMin, setDiasMin] = useState("");
@@ -107,14 +110,19 @@ function Ventas({ tipo }) {
     return Math.max(0, d);
   };
 
+  // Años disponibles para el selector (derivados de los datos + año actual)
+  const yearSet = new Set(items.map((v) => (v.fecha || "").slice(0, 4)).filter(Boolean));
+  yearSet.add(currentYearStr());
+  const years = [...yearSet].sort((a, b) => b.localeCompare(a));
+
   // Aplicar filtros del registro
   const ventasFiltradas = ventas.filter((v) => {
     const f = new Date(v.fecha);
     const now = new Date();
     if (period === "hoy" && (v.fecha || "").slice(0, 10) !== realToday) return false;
     if (period === "semana" && (now - f) / 86400000 > 7) return false;
-    if (period === "mes" && (now - f) / 86400000 > 31) return false;
-    if (period === "año" && f.getFullYear() !== now.getFullYear()) return false;
+    if (period === "mes" && (v.fecha || "").slice(0, 7) !== mesSel) return false;
+    if (period === "año" && (v.fecha || "").slice(0, 4) !== anioSel) return false;
     if (search && !`${v.cliente || ""} ${v.telefono || ""}`.toLowerCase().includes(search.toLowerCase())) return false;
     if (estadoPago !== "todos" && estadoDe(v) !== estadoPago) return false;
     if (diasMin && diasEndeudado(v) < Number(diasMin)) return false;
@@ -296,6 +304,7 @@ function Ventas({ tipo }) {
                   {lbl}
                 </button>
               ))}
+              <PeriodPicker isMonth={period === "mes"} isYear={period === "año"} mes={mesSel} setMes={setMesSel} anio={anioSel} setAnio={setAnioSel} years={years} testidPrefix="ventas" />
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, alignItems: "end" }}>
               <div className="field" style={{ margin: 0 }}><label>Buscar (nombre o teléfono)</label>
@@ -394,6 +403,7 @@ function Ventas({ tipo }) {
                   {lbl}
                 </button>
               ))}
+              <PeriodPicker isMonth={period === "mes"} isYear={period === "año"} mes={mesSel} setMes={setMesSel} anio={anioSel} setAnio={setAnioSel} years={years} testidPrefix="ventas" />
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, alignItems: "end" }}>
               <div className="field" style={{ margin: 0 }}><label>Buscar (beneficiario o teléfono)</label>

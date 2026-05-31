@@ -5,6 +5,7 @@ import { useAuth } from "../lib/auth";
 import { Droplets, Plus, Trash2, BookOpen, X, CheckCircle, Clock, Eye, Pencil } from "lucide-react";
 import { catBadge, catPill } from "../lib/categoryColors";
 import { todayLocal, toLocalDateStr } from "../lib/dates";
+import { PeriodPicker, currentMonthStr, currentYearStr } from "../components/PeriodPicker";
 
 const TIPOS = ["fertilizacion", "fungicida", "plaguicida", "herbicida", "tratamiento"];
 const UNIDAD = "Unidades";
@@ -24,6 +25,8 @@ export default function Aplicaciones() {
   const [editAplic, setEditAplic] = useState(null);
   const [filtroTipo, setFiltroTipo] = useState("");
   const [filtroPeriodo, setFiltroPeriodo] = useState("todos");
+  const [mesSel, setMesSel] = useState(currentMonthStr);
+  const [anioSel, setAnioSel] = useState(currentYearStr);
 
   const load = async () => {
     const [a, r, i, p] = await Promise.all([
@@ -68,15 +71,18 @@ export default function Aplicaciones() {
       return f >= start && f < end;
     }
     if (filtroPeriodo === "mes") {
-      return f.getMonth() === now.getMonth() && f.getFullYear() === now.getFullYear();
+      return f.getFullYear() === Number(mesSel.slice(0, 4)) && (f.getMonth() + 1) === Number(mesSel.slice(5, 7));
     }
     if (filtroPeriodo === "ano") {
-      return f.getFullYear() === now.getFullYear();
+      return f.getFullYear() === Number(anioSel);
     }
     return true;
   };
 
   const filtered = items.filter((a) => (filtroTipo ? a.tipo === filtroTipo : true) && inPeriodo(a.fecha));
+  const aplicYearSet = new Set(items.map((a) => { const d = new Date(a.fecha); return isNaN(d.getTime()) ? null : String(d.getFullYear()); }).filter(Boolean));
+  aplicYearSet.add(currentYearStr());
+  const aplicYears = [...aplicYearSet].sort((a, b) => b.localeCompare(a));
   const confirmadas = items.filter((a) => a.estado === "confirmada").length;
   const pendientes = items.filter((a) => a.estado !== "confirmada").length;
 
@@ -143,6 +149,7 @@ export default function Aplicaciones() {
                   ].map((p) => (
                     <button key={p.k} className={`pill ${filtroPeriodo === p.k ? "active" : ""}`} onClick={() => setFiltroPeriodo(p.k)} data-testid={`aplic-periodo-${p.k}`}>{p.label}</button>
                   ))}
+                  <PeriodPicker isMonth={filtroPeriodo === "mes"} isYear={filtroPeriodo === "ano"} mes={mesSel} setMes={setMesSel} anio={anioSel} setAnio={setAnioSel} years={aplicYears} testidPrefix="aplic" />
                 </div>
               </div>
               <div style={{ width: 1, height: 36, background: "#e2e8f0" }} />

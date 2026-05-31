@@ -4,6 +4,7 @@ import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
 import { Briefcase, Plus, Pencil, Trash2, DollarSign } from "lucide-react";
 import { actBadge } from "../lib/categoryColors";
+import { PeriodPicker, currentMonthStr, currentYearStr } from "../components/PeriodPicker";
 
 export function Trabajadores() {
   const toast = useToast();
@@ -103,6 +104,8 @@ export function Nomina() {
   const [filtroTipo, setFiltroTipo] = useState("");
   const [filtroLote, setFiltroLote] = useState("");
   const [filtroPeriodo, setFiltroPeriodo] = useState("todos");
+  const [mesSel, setMesSel] = useState(currentMonthStr);
+  const [anioSel, setAnioSel] = useState(currentYearStr);
 
   useEffect(() => {
     Promise.all([api.get("/actividades"), api.get("/plantaciones")]).then(([a, p]) => {
@@ -126,13 +129,16 @@ export function Nomina() {
       end.setDate(start.getDate() + 7);
       return f >= start && f < end;
     }
-    if (filtroPeriodo === "mes") return f.getMonth() === now.getMonth() && f.getFullYear() === now.getFullYear();
-    if (filtroPeriodo === "ano") return f.getFullYear() === now.getFullYear();
+    if (filtroPeriodo === "mes") return f.getFullYear() === Number(mesSel.slice(0, 4)) && (f.getMonth() + 1) === Number(mesSel.slice(5, 7));
+    if (filtroPeriodo === "ano") return f.getFullYear() === Number(anioSel);
     return true;
   };
 
   const tiposUnicos = Array.from(new Set(actividades.map((a) => a.tipo_personalizado || a.tipo).filter(Boolean))).sort();
   const lotesUnicos = Array.from(new Set(actividades.map((a) => a.lote).filter(Boolean))).sort();
+  const nominaYearSet = new Set(actividades.map((a) => { const d = new Date(a.fecha_actividad); return isNaN(d.getTime()) ? null : String(d.getFullYear()); }).filter(Boolean));
+  nominaYearSet.add(currentYearStr());
+  const nominaYears = [...nominaYearSet].sort((a, b) => b.localeCompare(a));
 
   const actividadesFiltradas = actividades.filter((a) => {
     if (!inPeriodo(a.fecha_actividad)) return false;
@@ -253,6 +259,7 @@ export function Nomina() {
               ].map((p) => (
                 <button key={p.k} type="button" className={`pill ${filtroPeriodo === p.k ? "active" : ""}`} onClick={() => setFiltroPeriodo(p.k)} data-testid={`nomina-periodo-${p.k}`}>{p.label}</button>
               ))}
+              <PeriodPicker isMonth={filtroPeriodo === "mes"} isYear={filtroPeriodo === "ano"} mes={mesSel} setMes={setMesSel} anio={anioSel} setAnio={setAnioSel} years={nominaYears} testidPrefix="nomina" />
             </div>
           </div>
           <div style={{ flex: "1 1 180px" }}>
