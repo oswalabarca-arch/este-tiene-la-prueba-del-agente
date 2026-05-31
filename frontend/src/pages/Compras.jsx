@@ -21,6 +21,7 @@ export default function Compras() {
   const [items, setItems] = useState([]);
   const [editing, setEditing] = useState(null);
   const [showGasto, setShowGasto] = useState(false);
+  const [filterCat, setFilterCat] = useState("");
 
   const load = () => api.get("/compras").then((r) => setItems(r.data.compras));
   useEffect(() => { load(); }, []);
@@ -32,7 +33,9 @@ export default function Compras() {
     load();
   };
 
-  const total = items.reduce((s, c) => s + (c.precio || 0), 0);
+  const categoriasUsadas = Array.from(new Set(items.map((c) => c.categoria).filter(Boolean))).sort();
+  const filtered = filterCat ? items.filter((c) => c.categoria === filterCat) : items;
+  const total = filtered.reduce((s, c) => s + (c.precio || 0), 0);
 
   return (
     <div data-testid="compras-page">
@@ -48,18 +51,28 @@ export default function Compras() {
       </div>
 
       <div className="kpi-grid" style={{ marginBottom: 18 }}>
-        <div className="card kpi-card"><div className="kpi-label">Compras totales</div><div className="kpi-value">{items.length}</div></div>
-        <div className="card kpi-card"><div className="kpi-label">Inversión acumulada</div><div className="kpi-value" style={{ color: "#16a34a" }}>${total.toFixed(2)}</div></div>
+        <div className="card kpi-card"><div className="kpi-label">Compras {filterCat ? "(filtradas)" : "totales"}</div><div className="kpi-value">{filtered.length}</div></div>
+        <div className="card kpi-card"><div className="kpi-label">Inversión {filterCat ? "(filtrada)" : "acumulada"}</div><div className="kpi-value" style={{ color: "#16a34a" }}>${total.toFixed(2)}</div></div>
       </div>
 
       <div className="card">
-        <h3 style={{ marginTop: 0 }}>Registros de Compra</h3>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 0, marginBottom: 12, flexWrap: "wrap", gap: 12 }}>
+          <h3 style={{ margin: 0 }}>Registros de Compra</h3>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <span style={{ fontSize: 13, color: "#64748b", fontWeight: 600 }}>Filtrar por categoría:</span>
+            <select className="select" value={filterCat} onChange={(e) => setFilterCat(e.target.value)} data-testid="compras-filter-cat" style={{ minWidth: 200 }}>
+              <option value="">Todas las categorías</option>
+              {categoriasUsadas.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            {filterCat && <button type="button" className="btn" onClick={() => setFilterCat("")} data-testid="compras-limpiar">Limpiar</button>}
+          </div>
+        </div>
         <table className="table">
           <thead>
             <tr><th>Fecha</th><th>Categoría</th><th>Producto</th><th>Cantidad</th><th>Precio</th><th>Acciones</th></tr>
           </thead>
           <tbody>
-            {items.map((c) => (
+            {filtered.map((c) => (
               <tr key={c._id}>
                 <td>{new Date(c.fecha_compra).toLocaleDateString()}</td>
                 <td><span className="badge" style={catBadge(c.categoria)}>{c.categoria}</span></td>
@@ -74,7 +87,11 @@ export default function Compras() {
             ))}
           </tbody>
         </table>
-        {items.length === 0 && <div className="empty-state">Sin compras registradas</div>}
+        {filtered.length === 0 && (
+          <div className="empty-state">
+            {filterCat ? "No hay compras en esta categoría" : "Sin compras registradas"}
+          </div>
+        )}
       </div>
 
       {editing && <CompraModal initial={editing} compras={items} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
