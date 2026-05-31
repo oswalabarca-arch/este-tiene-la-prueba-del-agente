@@ -3,6 +3,7 @@ import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
 import { Plus, Pencil, Trash2, Eye, Award, TrendingUp, TrendingDown, AlertCircle, Apple, Filter } from "lucide-react";
+import { todayLocal, toLocalDateStr } from "../lib/dates";
 
 const KG_POR_CESTA = 14;
 
@@ -35,13 +36,13 @@ export default function Cosecha() {
   };
   useEffect(() => { loadAll(); }, []);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocal();
 
   const filtered = useMemo(() => {
     const now = new Date();
     return cosechas.filter((c) => {
       const d = new Date(c.fecha_cosecha);
-      if (period === "hoy") { if (d.toISOString().slice(0, 10) !== today) return false; }
+      if (period === "hoy") { if (toLocalDateStr(d) !== today) return false; }
       else if (period === "semana") { const diff = (now - d) / 86400000; if (diff > 7) return false; }
       else if (period === "mes") { const diff = (now - d) / 86400000; if (diff > 31) return false; }
       else if (period === "año") { if (d.getFullYear() !== now.getFullYear()) return false; }
@@ -250,7 +251,7 @@ function CalidadBoxes({ label, totals, sum, unidad, compact }) {
 function CosechaModal({ initial, tipos, variedades, plantaciones, onClose, onSaved, onCatalogRefresh }) {
   const toast = useToast();
   const isNew = !initial._id;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocal();
   const [form, setForm] = useState({
     tipo_fruta_id: initial.tipo_fruta_id || "",
     variedad_id: initial.variedad_id || "",

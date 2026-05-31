@@ -3,6 +3,7 @@ import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
 import { Car, Plus, Pencil, Trash2, Fuel, Wrench, Users as UsersIcon, ArrowLeft, DollarSign } from "lucide-react";
+import { todayLocal } from "../lib/dates";
 
 const COMBUSTIBLES = ["gasolina", "diesel", "electrico", "hibrido"];
 const ESTADOS = ["activo", "mantenimiento", "inactivo"];
@@ -190,7 +191,7 @@ export default function Vehiculos() {
 function VehiculoModal({ initial, onClose, onSaved }) {
   const toast = useToast();
   const isNew = !initial._id;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocal();
   const [form, setForm] = useState({
     nombre: "", marca: "", modelo: "", año: "", placa: "", color: "",
     tipo_combustible: "gasolina", kilometraje_inicial: 0, costo_adquisicion: 0,

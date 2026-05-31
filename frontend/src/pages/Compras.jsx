@@ -4,6 +4,7 @@ import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
 import { ShoppingCart, Plus, Pencil, Trash2, Car, Fuel, Wrench, Users as UsersIcon } from "lucide-react";
 import { catBadge } from "../lib/categoryColors";
+import { todayLocal } from "../lib/dates";
 
 const CATEGORIAS = ["fertilizantes", "plaguicidas", "fungicidas", "herbicidas", "tratamiento", "semillas", "otros"];
 const UNIDAD = "Unidades";
@@ -84,7 +85,7 @@ export default function Compras() {
 
 function GastoVehiculoModal({ onClose, onSaved }) {
   const toast = useToast();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocal();
   const [vehiculos, setVehiculos] = useState([]);
   const [form, setForm] = useState({
     vehiculo_id: "",
@@ -171,7 +172,7 @@ function GastoVehiculoModal({ onClose, onSaved }) {
 function CompraModal({ initial, onClose, onSaved }) {
   const toast = useToast();
   const isNew = !initial._id;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocal();
   const [form, setForm] = useState({
     categoria: "fertilizantes",
     nombre_producto: "",

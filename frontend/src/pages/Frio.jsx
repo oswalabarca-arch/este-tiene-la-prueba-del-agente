@@ -3,13 +3,14 @@ import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
 import { Snowflake, Plus, Trash2 } from "lucide-react";
+import { todayLocal } from "../lib/dates";
 
 export default function Frio() {
   const toast = useToast();
   const { canDelete } = useAuth();
   const [items, setItems] = useState([]);
   const [show, setShow] = useState(false);
-  const [form, setForm] = useState({ fecha_ingreso: new Date().toISOString().slice(0, 10), cantidad_cestas: 0, lote: "", variedad: "", observaciones: "" });
+  const [form, setForm] = useState({ fecha_ingreso: todayLocal(), cantidad_cestas: 0, lote: "", variedad: "", observaciones: "" });
 
   const load = () => api.get("/frio-registros").then((r) => setItems(r.data.registros));
   useEffect(() => { load(); }, []);
@@ -18,7 +19,7 @@ export default function Frio() {
     e.preventDefault();
     await api.post("/frio-registros", { ...form, fecha_ingreso: form.fecha_ingreso + "T12:00:00.000Z", cantidad_cestas: Number(form.cantidad_cestas) });
     setShow(false);
-    setForm({ fecha_ingreso: new Date().toISOString().slice(0, 10), cantidad_cestas: 0, lote: "", variedad: "", observaciones: "" });
+    setForm({ fecha_ingreso: todayLocal(), cantidad_cestas: 0, lote: "", variedad: "", observaciones: "" });
     toast.show("Ingreso registrado");
     load();
   };

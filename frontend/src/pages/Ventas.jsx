@@ -3,6 +3,7 @@ import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
 import { Plus, Trash2, Home, Truck, DollarSign, Snowflake, AlertCircle, Heart } from "lucide-react";
+import { todayLocal } from "../lib/dates";
 
 const TIPO_META = {
   finca: { label: "Venta en finca", icon: Home, color: "#16a34a" },
@@ -86,7 +87,7 @@ function Ventas({ tipo }) {
 function VentaForm({ tipo, onClose, onSaved }) {
   const toast = useToast();
   const [form, setForm] = useState({
-    fecha: new Date().toISOString().slice(0, 10),
+    fecha: todayLocal(),
     cantidad_cestas: 0,
     cantidad_kg: 0,
     precio_unitario: 0,

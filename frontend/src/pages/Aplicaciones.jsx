@@ -4,6 +4,7 @@ import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
 import { Droplets, Plus, Trash2, BookOpen, X, CheckCircle, Clock, Eye, Pencil } from "lucide-react";
 import { catBadge, catPill } from "../lib/categoryColors";
+import { todayLocal, toLocalDateStr } from "../lib/dates";
 
 const TIPOS = ["fertilizacion", "fungicida", "plaguicida", "herbicida", "tratamiento"];
 const UNIDAD = "Unidades";
@@ -248,9 +249,9 @@ export default function Aplicaciones() {
 
 function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, onSaved }) {
   const toast = useToast();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocal();
   const isEdit = !!initial;
-  const initialDate = initial?.fecha ? new Date(initial.fecha).toISOString().slice(0, 10) : today;
+  const initialDate = initial?.fecha ? toLocalDateStr(initial.fecha) : today;
   const [form, setForm] = useState({
     tipo: initial?.tipo || "",
     subtipo: initial?.subtipo || "",

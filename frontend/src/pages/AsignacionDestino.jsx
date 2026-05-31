@@ -3,6 +3,7 @@ import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
 import { Send, Plus, Trash2, Truck, Snowflake, Home, AlertCircle } from "lucide-react";
+import { todayLocal } from "../lib/dates";
 
 const DESTINOS = [
   { key: "venta_finca", label: "Venta en finca", icon: Home, color: "#16a34a", bg: "#dcfce7" },
@@ -14,7 +15,7 @@ const DESTINOS = [
 export default function AsignacionDestino() {
   const toast = useToast();
   const { canDelete } = useAuth();
-  const [today] = useState(new Date().toISOString().slice(0, 10));
+  const [today] = useState(todayLocal());
   const [asignaciones, setAsignaciones] = useState([]);
   const [cosechas, setCosechas] = useState([]);
   const [editing, setEditing] = useState(null);
@@ -135,7 +136,7 @@ function AsignacionModal({ initial, onClose, onSaved }) {
     destino: initial.destino || "venta_finca",
     unidad_ingreso: "cestas",
     cantidad_ingresada: 0,
-    fecha: new Date().toISOString().slice(0, 10) + "T12:00:00.000Z",
+    fecha: todayLocal() + "T12:00:00.000Z",
     observaciones: "",
   });
   const [busy, setBusy] = useState(false);

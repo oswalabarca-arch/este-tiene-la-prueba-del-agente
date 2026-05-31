@@ -7,6 +7,7 @@ import {
   Clock, Droplets, Eye, X, DollarSign, Sprout, Leaf, Droplet, Wrench, Apple,
 } from "lucide-react";
 import { catBadge, actBadge, actTile } from "../lib/categoryColors";
+import { todayLocal } from "../lib/dates";
 
 const TIPOS_REGISTRAR = [
   { key: "abonar",     label: "Abonar",          icon: Sprout },
@@ -405,7 +406,7 @@ function DetalleAplicacion({ aplicacion: a, onClose }) {
 
 function RegistrarActividadForm({ plantaciones, onSaved }) {
   const toast = useToast();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocal();
   const empty = {
     tipo: "",
     tipo_personalizado: "",
