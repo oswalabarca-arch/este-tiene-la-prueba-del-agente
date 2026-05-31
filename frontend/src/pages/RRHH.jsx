@@ -99,12 +99,16 @@ function TrabajadorModal({ initial, onClose, onSaved }) {
 
 export function Nomina() {
   const [actividades, setActividades] = useState([]);
+  const [plantaciones, setPlantaciones] = useState([]);
   const [filtroTipo, setFiltroTipo] = useState("");
   const [filtroLote, setFiltroLote] = useState("");
   const [filtroPeriodo, setFiltroPeriodo] = useState("todos");
 
   useEffect(() => {
-    api.get("/actividades").then((r) => setActividades(r.data.actividades));
+    Promise.all([api.get("/actividades"), api.get("/plantaciones")]).then(([a, p]) => {
+      setActividades(a.data.actividades);
+      setPlantaciones(p.data.plantaciones);
+    });
   }, []);
 
   // Filtro por periodo
@@ -141,16 +145,6 @@ export function Nomina() {
   const horasTotales = actividadesFiltradas.reduce((s, a) => s + (a.horas_hombre || 0), 0);
   const costoTotal = actividadesFiltradas.reduce((s, a) => s + (a.costo_total || 0), 0);
 
-  // Agrupar costos por origen
-  const costoPorOrigen = actividadesFiltradas.reduce((acc, a) => {
-    const k = a.origen || "registro_manual";
-    if (!acc[k]) acc[k] = { horas: 0, costo: 0, count: 0 };
-    acc[k].horas += (a.horas_hombre || 0);
-    acc[k].costo += (a.costo_total || 0);
-    acc[k].count += 1;
-    return acc;
-  }, {});
-
   // Agrupar por lote (para visibilidad rápida del gasto de mano de obra por lote)
   const costoPorLote = actividadesFiltradas.reduce((acc, a) => {
     const k = a.lote || "Sin lote";
@@ -160,6 +154,25 @@ export function Nomina() {
     acc[k].count += 1;
     return acc;
   }, {});
+
+  // Jornales por lote de plantación — 1 jornal = 8 horas-hombre
+  // Se muestran TODAS las plantaciones, incluso si no tienen actividades, para visibilidad completa.
+  const JORNAL_HORAS = 8;
+  const horasPorLote = actividadesFiltradas.reduce((acc, a) => {
+    const k = a.lote;
+    if (!k) return acc;
+    acc[k] = (acc[k] || 0) + (a.horas_hombre || 0);
+    return acc;
+  }, {});
+  const jornalesPorPlantacion = plantaciones
+    .filter((p) => p.lote)
+    .map((p) => {
+      const horas = horasPorLote[p.lote] || 0;
+      const jornales = horas / JORNAL_HORAS;
+      return { lote: p.lote, nombre: p.nombre, horas, jornales };
+    })
+    .sort((a, b) => b.jornales - a.jornales);
+  const jornalesTotales = jornalesPorPlantacion.reduce((s, j) => s + j.jornales, 0);
 
   const limpiarFiltros = () => { setFiltroTipo(""); setFiltroLote(""); setFiltroPeriodo("todos"); };
   const filtrosActivos = filtroTipo || filtroLote || filtroPeriodo !== "todos";
@@ -177,19 +190,28 @@ export function Nomina() {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 18 }}>
         <div className="card">
-          <h3 style={{ marginTop: 0 }}>Costo por origen</h3>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+            <h3 style={{ marginTop: 0 }}>Jornales por lote</h3>
+            <span style={{ fontSize: 12, color: "#64748b" }}>1 jornal = {JORNAL_HORAS} h trabajadas</span>
+          </div>
           <table className="table">
-            <thead><tr><th>Origen</th><th>Actividades</th><th>Horas-H</th><th>Costo</th></tr></thead>
+            <thead><tr><th>Lote</th><th>Plantación</th><th>Horas-H</th><th>Jornales</th></tr></thead>
             <tbody>
-              {Object.entries(costoPorOrigen).map(([k, v]) => (
-                <tr key={k}>
-                  <td><span className="badge badge-info">{k}</span></td>
-                  <td>{v.count}</td>
-                  <td>{v.horas.toFixed(1)}</td>
-                  <td style={{ fontWeight: 700, color: "#16a34a" }}>${v.costo.toFixed(2)}</td>
+              {jornalesPorPlantacion.map((j) => (
+                <tr key={j.lote}>
+                  <td><span className="badge badge-primary">{j.lote}</span></td>
+                  <td style={{ fontSize: 13, color: "#475569" }}>{j.nombre || "—"}</td>
+                  <td>{j.horas.toFixed(1)}</td>
+                  <td style={{ fontWeight: 700, color: "#16a34a" }}>{j.jornales.toFixed(2)}</td>
                 </tr>
               ))}
-              {Object.keys(costoPorOrigen).length === 0 && <tr><td colSpan="4" style={{ textAlign: "center", color: "#94a3b8" }}>Sin actividades</td></tr>}
+              {jornalesPorPlantacion.length > 0 && (
+                <tr style={{ background: "#f0fdf4", fontWeight: 700 }}>
+                  <td colSpan="3" style={{ textAlign: "right" }}>Total</td>
+                  <td style={{ color: "#16a34a" }}>{jornalesTotales.toFixed(2)} jornales</td>
+                </tr>
+              )}
+              {jornalesPorPlantacion.length === 0 && <tr><td colSpan="4" style={{ textAlign: "center", color: "#94a3b8" }}>No hay plantaciones registradas</td></tr>}
             </tbody>
           </table>
         </div>
