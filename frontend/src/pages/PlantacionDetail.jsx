@@ -392,11 +392,45 @@ function AplicacionesTab({ items }) {
   const itemsF = items.filter((a) => inPeriodo(a.fecha) && (filtroTipo ? (a.tipo || "otros") === filtroTipo : true));
   const totalCostoF = itemsF.reduce((s, a) => s + (a.costo_insumos || 0), 0);
   const limpiarFiltros = () => { setPeriod("todo"); setFiltroTipo(""); };
+  // Totales por tipo (solo Tipo + Costo real), ordenado por costo desc
+  const costoRows = Object.values(porTipo).slice().sort((a, b) => b.costo - a.costo);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-      {/* Gráfica circular por tipo — diseño moderno */}
-      <div className="card" style={{ padding: 0, overflow: "hidden", border: "1px solid #e2e8f0" }} data-testid="plant-aplicaciones-tipo-chart">
+      {/* Fila: Totales por tipo (izquierda) + Gráfica circular a media columna (derecha) */}
+      <div style={{ display: "flex", gap: 18, flexWrap: "wrap", alignItems: "stretch" }}>
+        {/* Totales por tipo — solo Tipo y Costo real (lado izquierdo) */}
+        <div className="card" style={{ flex: "1 1 300px", minWidth: 0 }} data-testid="plant-aplicaciones-totales-tipo">
+          <h3 style={{ marginTop: 0, marginBottom: 2 }}>Totales por tipo</h3>
+          <p style={{ color: "#64748b", marginTop: 0, marginBottom: 14, fontSize: 12 }}>
+            Costo real (PEPS) acumulado por tipo de aplicación.
+          </p>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th style={{ textAlign: "right" }}>Costo real</th>
+              </tr>
+            </thead>
+            <tbody>
+              {costoRows.map((r) => (
+                <tr key={r.tipo} data-testid="plant-aplicaciones-totales-row">
+                  <td><span className="badge" style={catBadge(r.tipo)}>{r.tipo}</span></td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: "#16a34a" }}>${r.costo.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 800 }}>
+                <td>Total general</td>
+                <td style={{ textAlign: "right", color: "#16a34a" }}>${totalCosto.toFixed(2)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        {/* Gráfica circular por tipo — diseño moderno (media columna) */}
+        <div className="card" style={{ flex: "1 1 320px", minWidth: 0, padding: 0, overflow: "hidden", border: "1px solid #e2e8f0" }} data-testid="plant-aplicaciones-tipo-chart">
         <div style={{ background: "linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%)", padding: "18px 24px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
           <div style={{ minWidth: 0 }}>
             <h3 style={{ margin: 0, display: "inline-flex", alignItems: "center", gap: 9, fontSize: 16, color: "#0f172a" }}>
@@ -414,11 +448,11 @@ function AplicacionesTab({ items }) {
           {metricToggle}
         </div>
 
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 28, padding: "24px" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 18, padding: "20px" }}>
           {/* Donut */}
-          <div style={{ width: 210, height: 210, position: "relative", flexShrink: 0, margin: "0 auto" }}>
-            <PieChart width={210} height={210}>
-              <Pie data={tipoData} dataKey={metricKey} nameKey="tipo" cx="50%" cy="50%" innerRadius={62} outerRadius={96} paddingAngle={3} stroke="#fff" strokeWidth={2} cornerRadius={6}>
+          <div style={{ width: 180, height: 180, position: "relative", flexShrink: 0, margin: "0 auto" }}>
+            <PieChart width={180} height={180}>
+              <Pie data={tipoData} dataKey={metricKey} nameKey="tipo" cx="50%" cy="50%" innerRadius={52} outerRadius={82} paddingAngle={3} stroke="#fff" strokeWidth={2} cornerRadius={6}>
                 {tipoData.map((d) => <Cell key={d.tipo} fill={catColor(d.tipo).color} />)}
               </Pie>
               <Tooltip
@@ -427,13 +461,13 @@ function AplicacionesTab({ items }) {
               />
             </PieChart>
             <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", textAlign: "center", pointerEvents: "none" }}>
-              <div style={{ fontSize: aplicMetric === "cantidad" ? 30 : 24, fontWeight: 800, color: "#0f172a", lineHeight: 1 }}>{center.num}</div>
-              <div style={{ fontSize: 11, color: "#64748b", marginTop: 3, textTransform: "uppercase", letterSpacing: 0.5 }}>{center.label}</div>
+              <div style={{ fontSize: aplicMetric === "cantidad" ? 26 : 20, fontWeight: 800, color: "#0f172a", lineHeight: 1 }}>{center.num}</div>
+              <div style={{ fontSize: 10, color: "#64748b", marginTop: 3, textTransform: "uppercase", letterSpacing: 0.5 }}>{center.label}</div>
             </div>
           </div>
 
           {/* Leyenda moderna */}
-          <div style={{ flex: 1, minWidth: 260, display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ flex: 1, minWidth: 160, display: "flex", flexDirection: "column", gap: 10 }}>
             {tipoData.map((d) => {
               const ratio = totalMetric > 0 ? (sortVal(d) / totalMetric) * 100 : 0;
               const col = catColor(d.tipo).color;
@@ -454,6 +488,7 @@ function AplicacionesTab({ items }) {
             })}
           </div>
         </div>
+      </div>
       </div>
 
       {/* Tabla de aplicaciones */}

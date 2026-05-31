@@ -1,0 +1,23 @@
+{
+  "summary": "Frontend-only test of Aplicaciones tab in Plantación detail ('ana'/L2). Validated NEW 'Totales por tipo' 2-column table (Tipo + Costo real) located to the LEFT of the reduced donut chart, with totals consistency, metric filter, and regression of the lower aplic-row table. All checks passed.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PlantacionDetail.jsx exceeds 1200 lines — consider splitting tabs (AplicacionesTab, GeneralTab, LaboresTab, CosechasTab) into separate files for maintainability (non-blocking).",
+    "Donut center in 'Costo $' mode shows rounded '$53' while exact total is $52.59 — visually OK because subtitle and tabla muestran el valor exacto, pero se podría mostrar $52.59 si hubiera espacio (cosmético)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "100%"},
+  "test_credentials": "oswaldabarca@gmail.com / 123456 (admin)",
+  "seed_data_creation": "None — usé el lote 'ana'/L2 ya seedeado con 3 aplicaciones (2 fertilizacion + 1 herbicida).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Aplicaciones tab layout (Totales tabla 2-col izquierda + donut media columna derecha) verified. Posiciones medidas: totales x=590, chart x=1077, misma y=76.5. Tabla totales tiene 2 filas con data-testid 'plant-aplicaciones-totales-row' (fertilizacion $44.59, herbicida $8.00) + Total general $52.59. Donut centro: cantidad=3, costo $=$53 (≈$52.59 redondeado), pct=$53. Tabla inferior 'aplic-row' con 3 filas, encabezado 'Aplicaciones · 3', 'Costo total (PEPS): $52.59'. Filtros Periodo/Tipo intactos. No se encontraron errores críticos de consola.",
+  "rca of the issue": "N/A — no bugs found."
+}
