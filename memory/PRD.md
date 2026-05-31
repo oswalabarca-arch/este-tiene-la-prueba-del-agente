@@ -272,6 +272,11 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - Tests: `test_peps_manual_entry.py` (2/2) + `test_peps_regression.py` (5/5, creado por testing agent) + `test_inventario_entradas.py` (7/7) = **14/14**. Testing **backend 100% + frontend 100%** (iteration_28.json), sin regresiones. Lint OK.
 - Nota: `test_asignacion_destino.py` falla por falta de stock de cosecha (cestas=0) — flujo cosecha→ventas ajeno a este cambio (preexistente/ambiental).
 
+## Implementado (Aplicaciones · filtro de productos por tipo — 01/02/2026)
+- En "Nueva Aplicación", el selector de **Productos** ahora muestra **solo los productos del inventario cuya categoría coincide con el Tipo de Aplicación** elegido (mapeo `TIPO_TO_CAT`: fertilizacion→fertilizantes, plaguicida→plaguicidas, fungicida→fungicidas, herbicida→herbicidas, tratamiento→tratamiento).
+- Al cambiar de tipo se **resetean** los productos seleccionados. El label muestra "solo de categoría <cat>" y hay aviso (`aplic-productos-vacio`) cuando no hay productos de esa categoría. Selects con `aplic-producto-{i}`.
+- Cambio 100% frontend (`Aplicaciones.jsx` → `AplicacionForm`). Lint OK. Testing frontend **100% (8/8)** (iteration_29.json): plaguicida→spiral, herbicida→gramonson, fertilización→magnesio/hierro, fungicida→vacío, reset al cambiar tipo, y creación (POST) OK.
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.
