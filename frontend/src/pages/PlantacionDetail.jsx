@@ -51,7 +51,16 @@ export default function PlantacionDetail() {
   useEffect(() => { load(); }, [id]);
 
   const lote = plantacion?.lote;
-  const aplicLote = useMemo(() => aplicaciones.filter((a) => a.lote === lote), [aplicaciones, lote]);
+  // Una aplicación puede tener: un solo lote (campo `lote`), múltiples lotes planificados
+  // (`lotes`) y/o múltiples lotes destino al confirmar (`lotes_destino`).
+  // Consideramos pertenencia si CUALQUIERA de esos campos contiene este lote.
+  const aplicLote = useMemo(() => aplicaciones.filter((a) => {
+    if (!lote) return false;
+    if (a.lote === lote) return true;
+    if (Array.isArray(a.lotes) && a.lotes.includes(lote)) return true;
+    if (Array.isArray(a.lotes_destino) && a.lotes_destino.includes(lote)) return true;
+    return false;
+  }), [aplicaciones, lote]);
   const activLote = useMemo(() => actividades.filter((a) => a.lote === lote), [actividades, lote]);
   const cosLote   = useMemo(() => cosechas.filter((c) => c.lote === lote), [cosechas, lote]);
 
