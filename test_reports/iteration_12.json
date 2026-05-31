@@ -1,0 +1,25 @@
+{
+  "summary": "Validación frontend de los nuevos gráficos circulares en la pestaña 'Cosechas' del detalle de plantación. Login admin OK. Navegación a /dashboard/plantaciones/76fc64ae-dd52-475b-8c62-5c25f6b91508 -> pestaña Cosechas. Donut principal 'Calidades del lote' renderiza correctamente con 4 calidades, centro mostrando 'Rendimiento 728 kg' y leyenda con porcentajes + kg. Tarjeta 'Calidades por variedad' muestra 2 pies (san andreas, albion) con Total: 168 kg y 560 kg respectivamente. Tarjeta 'Rendimiento por planta' ahora ocupa 560px (~mitad de ancho). Datos verificados contra la tabla de cosechas (cestas x14): suma 100% y kg coinciden exactamente. Sin errores de página ni de runtime.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "PlantacionDetail > Cosechas", "issues": ["Warning de recharts en consola en el primer render: 'The width(-1) and height(-1) of chart should be greater than 0'. Es solo warning (no error) emitido por ResponsiveContainer al primer pintado; los gráficos se renderizan correctamente después. Sugerencia opcional: definir minWidth/minHeight en el contenedor padre de ResponsiveContainer para silenciar el warning."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PlantacionDetail.jsx supera las ~600 líneas; considerar extraer CosechasTab, AplicacionesTab y LaboresTab a archivos separados para mejor mantenibilidad.",
+    "Los warnings de recharts ResponsiveContainer width(-1) son inocuos pero podrían silenciarse fijando una altura explícita en lugar de height='100%' dentro de un contenedor flexible."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "100%"},
+  "test_credentials": "Admin oswaldabarca@gmail.com / 123456",
+  "seed_data_creation": "Ninguna; se usaron las cosechas existentes del lote 1 (12 cestas san andreas + 40 cestas albion).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Pestaña Cosechas del detalle de plantación tiene 3 secciones: tabla, donut principal plant-calidades-chart (centro con kg y leyenda plant-calidad-legend-<key>), grid de pies plant-variedad-chart-<variedad>, y card plant-rendimiento-card (maxWidth 560). Verificación con lote 1 (76fc64ae-dd52-475b-8c62-5c25f6b91508) ya completada y exitosa.",
+  "rca of the issue": "N/A - feature funciona correctamente"
+}

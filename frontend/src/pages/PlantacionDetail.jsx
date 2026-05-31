@@ -8,6 +8,7 @@ import {
   Droplets, Users as UsersIcon, Apple, Sprout,
 } from "lucide-react";
 import { catBadge, actBadge } from "../lib/categoryColors";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 
 const TABS = [
   { key: "general",      label: "General",            icon: Sprout,    color: "#16a34a" },
@@ -18,6 +19,13 @@ const TABS = [
 
 const PALE_BG = "#f1f8f1";
 const KG_POR_CESTA = 14;
+const CAL_COLORS = { primera: "#16a34a", segunda: "#3b82f6", tercera: "#f59e0b", descarte: "#dc2626" };
+const CAL_DEFS = [
+  { key: "primera", name: "Primera", field: "primera_calidad" },
+  { key: "segunda", name: "Segunda", field: "segunda_calidad" },
+  { key: "tercera", name: "Tercera", field: "tercera_calidad" },
+  { key: "descarte", name: "Descarte", field: "descarte" },
+];
 
 export default function PlantacionDetail() {
   const { id } = useParams();
@@ -439,6 +447,25 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
     return { ...g, plantas, rendimiento: plantas > 0 ? g.kg / plantas : null };
   });
 
+  // Calidades del lote (en kg) para el gráfico principal
+  const fKg = (c) => (c.unidad === "kg") ? 1 : KG_POR_CESTA;
+  const loteCal = { primera: 0, segunda: 0, tercera: 0, descarte: 0 };
+  items.forEach((c) => { CAL_DEFS.forEach((d) => { loteCal[d.key] += (c[d.field] || 0) * fKg(c); }); });
+  const loteTotalKg = CAL_DEFS.reduce((s, d) => s + loteCal[d.key], 0);
+  const mainData = CAL_DEFS.map((d) => ({ key: d.key, name: d.name, value: loteCal[d.key] })).filter((d) => d.value > 0);
+
+  // Calidades por variedad (en kg) para los gráficos secundarios
+  const porVariedad = {};
+  items.forEach((c) => {
+    const variedad = labelVar(c);
+    if (!porVariedad[variedad]) porVariedad[variedad] = { variedad, primera: 0, segunda: 0, tercera: 0, descarte: 0 };
+    CAL_DEFS.forEach((d) => { porVariedad[variedad][d.key] += (c[d.field] || 0) * fKg(c); });
+  });
+  const variedadCharts = Object.values(porVariedad).map((v) => {
+    const total = CAL_DEFS.reduce((s, d) => s + v[d.key], 0);
+    return { variedad: v.variedad, total, data: CAL_DEFS.map((d) => ({ key: d.key, name: d.name, value: v[d.key] })).filter((d) => d.value > 0) };
+  });
+
   return (
     <>
       <div className="card">
@@ -482,8 +509,83 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
         </table>
       </div>
 
-      {/* Rendimiento por planta */}
-      <div className="card" style={{ marginTop: 18 }} data-testid="plant-rendimiento-card">
+      {/* Gráfico principal: calidades del lote */}
+      {loteTotalKg > 0 && (
+        <div className="card" style={{ marginTop: 18 }} data-testid="plant-calidades-chart">
+          <h3 style={{ marginTop: 0, marginBottom: 2 }}>Calidades del lote</h3>
+          <p style={{ color: "#64748b", marginTop: 0, marginBottom: 10, fontSize: 12 }}>
+            Distribución de calidades del lote en porcentaje. Rendimiento total: <b style={{ color: "#16a34a" }}>{loteTotalKg.toFixed(2)} kg</b>.
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 28 }}>
+            <div style={{ width: 240, height: 240, position: "relative", flexShrink: 0 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={mainData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={66} outerRadius={104} paddingAngle={2} stroke="none">
+                    {mainData.map((d) => <Cell key={d.key} fill={CAL_COLORS[d.key]} />)}
+                  </Pie>
+                  <Tooltip formatter={(val) => [`${Number(val).toFixed(2)} kg (${((Number(val) / loteTotalKg) * 100).toFixed(1)}%)`, ""]} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", textAlign: "center", pointerEvents: "none" }}>
+                <div style={{ fontSize: 11, color: "#64748b" }}>Rendimiento</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: "#16a34a" }}>{loteTotalKg.toFixed(0)}</div>
+                <div style={{ fontSize: 11, color: "#64748b" }}>kg</div>
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 220, flex: 1 }}>
+              {mainData.map((d) => {
+                const pct = loteTotalKg > 0 ? (d.value / loteTotalKg) * 100 : 0;
+                return (
+                  <div key={d.key} style={{ display: "flex", alignItems: "center", gap: 10 }} data-testid={`plant-calidad-legend-${d.key}`}>
+                    <span style={{ width: 14, height: 14, borderRadius: 4, background: CAL_COLORS[d.key], flexShrink: 0 }} />
+                    <span style={{ fontWeight: 600 }}>{d.name}</span>
+                    <span style={{ marginLeft: "auto", color: "#475569", fontWeight: 600 }}>{pct.toFixed(1)}%</span>
+                    <span style={{ color: "#94a3b8", minWidth: 90, textAlign: "right" }}>{d.value.toFixed(2)} kg</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Gráficos secundarios: calidades por variedad */}
+      {variedadCharts.some((v) => v.total > 0) && (
+        <div className="card" style={{ marginTop: 18 }} data-testid="plant-calidades-variedad-chart">
+          <h3 style={{ marginTop: 0, marginBottom: 2 }}>Calidades por variedad</h3>
+          <p style={{ color: "#64748b", marginTop: 0, marginBottom: 12, fontSize: 12 }}>Porcentaje de cada calidad (1ª, 2ª, 3ª y descarte) por variedad.</p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))", gap: 16 }}>
+            {variedadCharts.filter((v) => v.total > 0).map((v) => (
+              <div key={v.variedad} style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 12 }} data-testid={`plant-variedad-chart-${v.variedad}`}>
+                <div style={{ fontWeight: 700, marginBottom: 6, textAlign: "center", color: "#7c3aed" }}>{v.variedad}</div>
+                <div style={{ width: "100%", height: 150 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={v.data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={58} label={({ percent }) => `${(percent * 100).toFixed(0)}%`} labelLine={false} stroke="none">
+                        {v.data.map((d) => <Cell key={d.key} fill={CAL_COLORS[d.key]} />)}
+                      </Pie>
+                      <Tooltip formatter={(val, name) => [`${Number(val).toFixed(2)} kg (${((Number(val) / v.total) * 100).toFixed(1)}%)`, name]} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div style={{ fontSize: 11, color: "#64748b", textAlign: "center", marginTop: 4 }}>Total: {v.total.toFixed(2)} kg</div>
+              </div>
+            ))}
+          </div>
+          {/* Leyenda compartida */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 14, justifyContent: "center", marginTop: 14 }}>
+            {CAL_DEFS.map((d) => (
+              <div key={d.key} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <span style={{ width: 12, height: 12, borderRadius: 3, background: CAL_COLORS[d.key] }} />
+                <span style={{ fontSize: 12, color: "#475569" }}>{d.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Rendimiento por planta (más compacto, ~mitad del ancho) */}
+      <div className="card" style={{ marginTop: 18, maxWidth: 560 }} data-testid="plant-rendimiento-card">
         <h3 style={{ marginTop: 0, marginBottom: 2 }}>Rendimiento por planta</h3>
         <p style={{ color: "#64748b", marginTop: 0, marginBottom: 14, fontSize: 12 }}>
           Kg totales cosechados de cada variedad ÷ cantidad de plantas registradas de esa variedad.
