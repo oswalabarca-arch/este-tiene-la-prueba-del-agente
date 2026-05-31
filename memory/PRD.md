@@ -233,6 +233,12 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - Se eliminó la **leyenda compartida inferior** (ahora redundante). Cambio 100% frontend y solo visual.
 - Testing frontend **100%** (iteration_21.json): kg coherentes (Albion 2380, Alturas 924 → lote 3304 kg), **sin porcentajes**, sin regresiones.
 
+## Implementado (Plantación · Cosechas · unidades kg/cestas/% en gráficos — 01/02/2026)
+- **Gráficos circulares** ("Calidades del lote" y "Calidades por variedad"): nuevo **selector de unidad** (`plant-calidades-unidad` → `kg` / `cestas` / `pct`) en el header de ambos (estado compartido). Afecta centro del donut, leyendas/desglose por calidad y tooltips. Conversión 1 cesta = 14 kg; en `%` muestra el porcentaje de cada calidad (centro mantiene el total en kg como referencia).
+- **"Producción en el tiempo"** (áreas): nuevo **toggle kg / cestas** (`plant-serie-unidad`) junto a Año/granularidad. Afecta el área apilada, el eje Y (`Producción (kg|cestas)`), el tooltip y las 4 tarjetas resumen (pico/mínimo/promedio/total).
+- `ChartHeader` ahora acepta prop `right` para alojar controles. Cambio 100% frontend. Lint OK.
+- Testing frontend **100%** (iteration_22.json) en tafy/L3 (3304 kg): lote kg (2170/644/252/238), cestas (155/46/18/17), % (65.7/19.5/7.6/7.2=100); variedad albion coherente; serie en kg (total 3304) y cestas (total 236); regresión de la tabla (toggle independiente) OK.
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.
