@@ -7,7 +7,7 @@ import {
   ArrowLeft, Pencil, Trash2, ImagePlus,
   Droplets, Users as UsersIcon, Apple, Sprout, TrendingUp,
 } from "lucide-react";
-import { catBadge, actBadge } from "../lib/categoryColors";
+import { catBadge, actBadge, catColor } from "../lib/categoryColors";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
 import { PeriodPicker, currentMonthStr, currentYearStr } from "../components/PeriodPicker";
 
@@ -350,51 +350,123 @@ function PhotoUpload({ value, label }) {
 function AplicacionesTab({ items }) {
   if (items.length === 0) return <div className="card empty-state">Sin aplicaciones registradas en este lote</div>;
   const totalCosto = items.reduce((s, a) => s + (a.costo_insumos || 0), 0);
+
+  // Agrupación por tipo (para la gráfica circular)
+  const porTipo = {};
+  items.forEach((a) => {
+    const tipo = a.tipo || "otros";
+    if (!porTipo[tipo]) porTipo[tipo] = { tipo, count: 0, costo: 0 };
+    porTipo[tipo].count += 1;
+    porTipo[tipo].costo += (a.costo_insumos || 0);
+  });
+  const tipoData = Object.values(porTipo).sort((a, b) => b.count - a.count);
+
   return (
-    <div className="card">
-      <h3 style={{ marginTop: 0 }}>
-        Aplicaciones · {items.length}
-        <span style={{ float: "right", color: "#16a34a", fontSize: 16 }}>
-          Costo total (PEPS): ${totalCosto.toFixed(2)}
-        </span>
-      </h3>
-      <p style={{ color: "#64748b", marginTop: -4, fontSize: 12 }}>
-        Costo calculado por método PEPS (primero en entrar, primero en salir) usando los precios históricos de compras.
-      </p>
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Fecha</th>
-            <th>Tipo</th>
-            <th>Insumos</th>
-            <th>Estado</th>
-            <th style={{ textAlign: "right" }}>Costo real</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((a) => (
-            <tr key={a._id}>
-              <td>{new Date(a.fecha).toLocaleDateString()}</td>
-              <td><span className="badge" style={catBadge(a.tipo)}>{a.tipo}</span></td>
-              <td style={{ fontSize: 12, color: "#475569" }}>
-                {a.insumos_costo && a.insumos_costo.length > 0
-                  ? a.insumos_costo.map((ic, i) => (
-                      <div key={i}>
-                        {ic.nombre_producto} <b>{Number(ic.cantidad).toFixed(2)}</b> {ic.unidad} · <span style={{ color: "#16a34a" }}>${ic.costo.toFixed(2)}</span>
-                        {ic.cantidad_sin_cobertura > 0 && <span style={{ color: "#dc2626", fontSize: 11 }}> ⚠ {ic.cantidad_sin_cobertura} sin stock comprado</span>}
-                      </div>
-                    ))
-                  : (a.insumos?.map((i) => `${i.nombre_producto} ${Number(i.cantidad).toFixed(2)}${i.unidad}`).join(", ") || "—")}
-                {a._share_n > 1 && (
-                  <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>Porción del lote (1/{a._share_n})</div>
-                )}
-              </td>
-              <td>{a.estado === "confirmada" ? <span className="badge badge-primary">Confirmada</span> : <span className="badge badge-warn">Pendiente</span>}</td>
-              <td style={{ textAlign: "right", fontWeight: 700, color: "#16a34a" }}>${Number(a.costo_insumos || 0).toFixed(2)}</td>
+    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      {/* Gráfica circular por tipo — diseño moderno */}
+      <div className="card" style={{ padding: 0, overflow: "hidden", border: "1px solid #e2e8f0" }} data-testid="plant-aplicaciones-tipo-chart">
+        <div style={{ background: "linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%)", padding: "18px 24px", borderBottom: "1px solid #e2e8f0" }}>
+          <h3 style={{ margin: 0, display: "inline-flex", alignItems: "center", gap: 9, fontSize: 16, color: "#0f172a" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 9, background: "#3b82f6", color: "#fff" }}>
+              <Droplets size={17} />
+            </span>
+            Aplicaciones por tipo
+          </h3>
+          <p style={{ margin: "6px 0 0 39px", color: "#64748b", fontSize: 12.5 }}>
+            Distribución de las {items.length} aplicaciones de este lote según su tipo.
+          </p>
+        </div>
+
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 28, padding: "24px" }}>
+          {/* Donut */}
+          <div style={{ width: 210, height: 210, position: "relative", flexShrink: 0, margin: "0 auto" }}>
+            <PieChart width={210} height={210}>
+              <Pie data={tipoData} dataKey="count" nameKey="tipo" cx="50%" cy="50%" innerRadius={62} outerRadius={96} paddingAngle={3} stroke="#fff" strokeWidth={2} cornerRadius={6}>
+                {tipoData.map((d) => <Cell key={d.tipo} fill={catColor(d.tipo).color} />)}
+              </Pie>
+              <Tooltip
+                formatter={(val, _n, p) => [`${val} aplicación(es) · ${((val / items.length) * 100).toFixed(0)}%`, p?.payload?.tipo]}
+                contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12, textTransform: "capitalize" }}
+              />
+            </PieChart>
+            <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", textAlign: "center", pointerEvents: "none" }}>
+              <div style={{ fontSize: 30, fontWeight: 800, color: "#0f172a", lineHeight: 1 }}>{items.length}</div>
+              <div style={{ fontSize: 11, color: "#64748b", marginTop: 3, textTransform: "uppercase", letterSpacing: 0.5 }}>aplicaciones</div>
+            </div>
+          </div>
+
+          {/* Leyenda moderna */}
+          <div style={{ flex: 1, minWidth: 260, display: "flex", flexDirection: "column", gap: 10 }}>
+            {tipoData.map((d) => {
+              const pct = (d.count / items.length) * 100;
+              const col = catColor(d.tipo).color;
+              return (
+                <div key={d.tipo} data-testid={`plant-aplicaciones-tipo-row-${d.tipo}`} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ width: 12, height: 12, borderRadius: 4, background: col, flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
+                      <span style={{ fontWeight: 600, fontSize: 13.5, color: "#334155", textTransform: "capitalize" }}>{d.tipo}</span>
+                      <span style={{ fontSize: 12.5, color: "#64748b" }}>
+                        <b style={{ color: "#0f172a" }}>{d.count}</b> · {pct.toFixed(0)}%
+                      </span>
+                    </div>
+                    <div style={{ height: 6, borderRadius: 999, background: "#f1f5f9", overflow: "hidden" }}>
+                      <div style={{ width: `${pct}%`, height: "100%", borderRadius: 999, background: col, transition: "width .4s ease" }} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Tabla de aplicaciones */}
+      <div className="card">
+        <h3 style={{ marginTop: 0 }}>
+          Aplicaciones · {items.length}
+          <span style={{ float: "right", color: "#16a34a", fontSize: 16 }}>
+            Costo total (PEPS): ${totalCosto.toFixed(2)}
+          </span>
+        </h3>
+        <p style={{ color: "#64748b", marginTop: -4, fontSize: 12 }}>
+          Costo calculado por método PEPS (primero en entrar, primero en salir) usando los precios históricos de compras.
+        </p>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Tipo</th>
+              <th>Insumos</th>
+              <th>Estado</th>
+              <th style={{ textAlign: "right" }}>Costo real</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {items.map((a) => (
+              <tr key={a._id}>
+                <td>{new Date(a.fecha).toLocaleDateString()}</td>
+                <td><span className="badge" style={catBadge(a.tipo)}>{a.tipo}</span></td>
+                <td style={{ fontSize: 12, color: "#475569" }}>
+                  {a.insumos_costo && a.insumos_costo.length > 0
+                    ? a.insumos_costo.map((ic, i) => (
+                        <div key={i}>
+                          {ic.nombre_producto} <b>{Number(ic.cantidad).toFixed(2)}</b> {ic.unidad} · <span style={{ color: "#16a34a" }}>${ic.costo.toFixed(2)}</span>
+                          {ic.cantidad_sin_cobertura > 0 && <span style={{ color: "#dc2626", fontSize: 11 }}> ⚠ {ic.cantidad_sin_cobertura} sin stock comprado</span>}
+                        </div>
+                      ))
+                    : (a.insumos?.map((i) => `${i.nombre_producto} ${Number(i.cantidad).toFixed(2)}${i.unidad}`).join(", ") || "—")}
+                  {a._share_n > 1 && (
+                    <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>Porción del lote (1/{a._share_n})</div>
+                  )}
+                </td>
+                <td>{a.estado === "confirmada" ? <span className="badge badge-primary">Confirmada</span> : <span className="badge badge-warn">Pendiente</span>}</td>
+                <td style={{ textAlign: "right", fontWeight: 700, color: "#16a34a" }}>${Number(a.costo_insumos || 0).toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

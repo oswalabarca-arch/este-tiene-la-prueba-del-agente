@@ -1,0 +1,50 @@
+{
+  "summary": "Frontend-only testing del nuevo donut 'Aplicaciones por tipo' en PlantacionDetail > pestaña Aplicaciones. Todo OK: donut moderno, agrupación correcta por tipo, leyenda con barras de progreso y porcentajes, tabla y Costo total (PEPS) intactos. Regresión de Cosechas también OK.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PlantacionDetail.jsx tiene 949 líneas; conviene splitearlo en sub-componentes (AplicacionesTab, CosechasTab, GeneralTab, LaboresTab) en archivos separados para mantenibilidad.",
+    "El render de % dentro de los slices (renderPctLabel) está bien para slices >=6%; los más pequeños quedan sin etiqueta (manejado correctamente)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped)", "frontend": "100%"},
+  "test_credentials": "oswaldabarca@gmail.com / 123456 (admin)",
+  "seed_data_creation": "No se creó nada nuevo; se usaron los seeds existentes (ana/L2, oswald/L1, tafy/L3).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "El donut 'Aplicaciones por tipo' (data-testid='plant-aplicaciones-tipo-chart') está estable. Las filas por tipo usan data-testid='plant-aplicaciones-tipo-row-<tipo>'. El total del centro se renderiza como DIV (no SVG text). Verificado con: ANA (2 tipos: fertilizacion 2·67%, herbicida 1·33%, 2 segmentos), OSWALD (1 tipo: fertilizacion 2·100%, 1 segmento), TAFY (también recibe aplicaciones via lotes_destino: fertilizacion 2·100%, 1 segmento). Regresión Cosechas (plant-cosecha-serie) OK en ANA.",
+  "rca of the issue": "N/A - feature funciona correctamente.",
+  "evidence": {
+    "ANA_L2": {
+      "tipo_chart_present": true,
+      "segments": 2,
+      "fertilizacion_row_text": "fertilizacion 2 · 67%",
+      "herbicida_row_text": "herbicida 1 · 33%",
+      "table_present": true,
+      "costo_total_peps": true
+    },
+    "OSWALD_L1": {
+      "tipo_chart_present": true,
+      "segments": 1,
+      "fertilizacion_row_text": "fertilizacion 2 · 100%",
+      "herbicida_row_present": false
+    },
+    "TAFY_L3": {
+      "tipo_chart_present": true,
+      "segments": 1,
+      "fertilizacion_row_text": "fertilizacion 2 · 100%",
+      "note": "TAFY recibe aplicaciones por lotes_destino; el donut se muestra correctamente."
+    },
+    "COSECHAS_REGRESSION_ANA": {
+      "plant-tab-cosechas": true,
+      "plant-cosecha-serie": true,
+      "crash": false
+    }
+  }
+}
