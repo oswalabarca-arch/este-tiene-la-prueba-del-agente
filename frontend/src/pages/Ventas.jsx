@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
-import { Plus, Pencil, Trash2, Home, Truck, DollarSign, Snowflake, AlertCircle, Heart, TrendingUp, Wallet, AlertTriangle } from "lucide-react";
+import { Plus, Pencil, Trash2, Home, Truck, DollarSign, Snowflake, AlertCircle, Heart, TrendingUp, Wallet, AlertTriangle, Filter, Search, X, CreditCard, User, Phone } from "lucide-react";
 import { todayLocal } from "../lib/dates";
 
 const TIPO_META = {
@@ -50,6 +50,16 @@ function Ventas({ tipo }) {
   const [items, setItems] = useState([]);
   const [editing, setEditing] = useState(null); // null=cerrado, {}=nuevo, {...}=editar
   const [unidad, setUnidad] = useState("cestas");
+  // Filtros del registro
+  const [period, setPeriod] = useState("todo");
+  const [search, setSearch] = useState("");
+  const [estadoPago, setEstadoPago] = useState("todos");
+  const [diasMin, setDiasMin] = useState("");
+  const [soloDeudores, setSoloDeudores] = useState(false);
+  // Formulario inline + abono
+  const emptyNv = { cliente: "", telefono: "", cantidad_cestas: "", precio_unitario: "", abono_inicial: "", fecha: todayLocal(), observaciones: "" };
+  const [nv, setNv] = useState(emptyNv);
+  const [abonando, setAbonando] = useState(null);
 
   const load = () => api.get(`/ventas-${tipo}`).then((r) => setItems(r.data.ventas));
   useEffect(() => { load(); }, [tipo]);
@@ -81,19 +91,85 @@ function Ventas({ tipo }) {
   const vendidoHoyCestas = ventasHoy.reduce((s, v) => s + cestasDe(v), 0);
   const disponible = asignadoHoy - vendidoHoyCestas;
 
-  // Dinero
+  // Estado de pago y días endeudado
+  const saldoDe = (v) => (v.total || 0) - (v.abono_inicial || 0);
+  const estadoDe = (v) => {
+    if (saldoDe(v) <= 0.001) return "pagado";
+    if ((v.abono_inicial || 0) > 0.001) return "parcial";
+    return "sin_abonar";
+  };
+  const diasEndeudado = (v) => {
+    if (saldoDe(v) <= 0.001) return 0;
+    const d = Math.floor((new Date() - new Date(v.fecha)) / 86400000);
+    return Math.max(0, d);
+  };
+
+  // Aplicar filtros del registro
+  const ventasFiltradas = ventas.filter((v) => {
+    const f = new Date(v.fecha);
+    const now = new Date();
+    if (period === "hoy" && (v.fecha || "").slice(0, 10) !== realToday) return false;
+    if (period === "semana" && (now - f) / 86400000 > 7) return false;
+    if (period === "mes" && (now - f) / 86400000 > 31) return false;
+    if (period === "año" && f.getFullYear() !== now.getFullYear()) return false;
+    if (search && !`${v.cliente || ""} ${v.telefono || ""}`.toLowerCase().includes(search.toLowerCase())) return false;
+    if (estadoPago !== "todos" && estadoDe(v) !== estadoPago) return false;
+    if (diasMin && diasEndeudado(v) < Number(diasMin)) return false;
+    if (soloDeudores && saldoDe(v) <= 0.001) return false;
+    return true;
+  });
+
+  // Dinero (sobre la vista filtrada; "vendido hoy" siempre es hoy)
   const vendidoHoyDinero = ventasHoy.reduce((s, v) => s + (v.total || 0), 0);
-  const totalVendido = ventas.reduce((s, v) => s + (v.total || 0), 0);
-  const cobrado = ventas.reduce((s, v) => s + (v.abono_inicial || 0), 0);
-  const deuda = ventas.reduce((s, v) => s + Math.max((v.total || 0) - (v.abono_inicial || 0), 0), 0);
-  const deudores = ventas.filter((v) => (v.total || 0) - (v.abono_inicial || 0) > 0.001).length;
+  const totalVendido = ventasFiltradas.reduce((s, v) => s + (v.total || 0), 0);
+  const cobrado = ventasFiltradas.reduce((s, v) => s + (v.abono_inicial || 0), 0);
+  const deuda = ventasFiltradas.reduce((s, v) => s + Math.max(saldoDe(v), 0), 0);
+  const deudores = ventasFiltradas.filter((v) => saldoDe(v) > 0.001).length;
   const pctCobrado = totalVendido > 0 ? (cobrado / totalVendido) * 100 : 0;
 
   const factor = unidad === "kg" ? 14 : 1;
   const u = unidad === "kg" ? "kg" : "cestas";
   const fc = (cestas) => `${(cestas * factor).toFixed(2)} ${u}`;
 
-  const rows = esIngreso ? ventas : items;
+  const nvTotal = Number(nv.cantidad_cestas || 0) * Number(nv.precio_unitario || 0);
+  const nvSaldo = nvTotal - Number(nv.abono_inicial || 0);
+  const numv = (v) => (v === 0 || v === "" || v == null ? "" : v);
+
+  const registrarVenta = async () => {
+    if (!nv.cliente.trim()) { toast.show("Ingresa el nombre del cliente", "error"); return; }
+    if (!Number(nv.cantidad_cestas) || !Number(nv.precio_unitario)) { toast.show("Cestas y precio son obligatorios", "error"); return; }
+    await api.post(`/ventas-${tipo}`, {
+      fecha: nv.fecha + "T12:00:00.000Z",
+      cantidad_cestas: Number(nv.cantidad_cestas),
+      cantidad_kg: Number(nv.cantidad_cestas) * 14,
+      precio_unitario: Number(nv.precio_unitario),
+      total: nvTotal,
+      cliente: nv.cliente,
+      telefono: nv.telefono,
+      abono_inicial: Number(nv.abono_inicial || 0),
+      observaciones: nv.observaciones,
+    });
+    toast.show("Venta registrada");
+    setNv(emptyNv);
+    load();
+  };
+
+  const registrarAbono = async (monto) => {
+    const v = abonando;
+    const nuevo = Math.min((v.abono_inicial || 0) + Number(monto), v.total || 0);
+    await api.put(`/ventas-${tipo}/${v._id}`, {
+      fecha: v.fecha, cantidad_cestas: v.cantidad_cestas, cantidad_kg: v.cantidad_kg,
+      precio_unitario: v.precio_unitario, total: v.total, cliente: v.cliente,
+      telefono: v.telefono, abono_inicial: nuevo, observaciones: v.observaciones,
+    });
+    toast.show("Abono registrado");
+    setAbonando(null);
+    load();
+  };
+
+  const limpiarFiltros = () => { setPeriod("todo"); setSearch(""); setEstadoPago("todos"); setDiasMin(""); setSoloDeudores(false); };
+
+  const rows = esIngreso ? ventasFiltradas : items;
 
   return (
     <div data-testid={`ventas-${tipo}-page`}>
@@ -116,7 +192,9 @@ function Ventas({ tipo }) {
               ))}
             </div>
           )}
-          <button className="btn btn-primary" onClick={() => setEditing({})} data-testid="venta-new-btn"><Plus size={16} /> {esIngreso ? "Nueva venta" : "Nuevo registro"}</button>
+          {!esIngreso && (
+            <button className="btn btn-primary" onClick={() => setEditing({})} data-testid="venta-new-btn"><Plus size={16} /> Nuevo registro</button>
+          )}
         </div>
       </div>
 
@@ -149,7 +227,7 @@ function Ventas({ tipo }) {
           {/* Barra de dinero */}
           <div className="kpi-grid" style={{ marginBottom: 16, gridTemplateColumns: "repeat(4, 1fr)" }}>
             <MoneyCard title="Vendido (hoy)" icon={TrendingUp} color="#16a34a" value={fmtMoney(vendidoHoyDinero)} sub={`${vendidoHoyCestas.toFixed(2)} cestas en ${ventasHoy.length} venta(s)`} testid="money-vendido-hoy" />
-            <MoneyCard title="Total vendido" icon={DollarSign} color="#0f172a" value={fmtMoney(totalVendido)} sub={`${ventas.length} venta(s) en vista`} testid="money-total-vendido" />
+            <MoneyCard title="Total vendido" icon={DollarSign} color="#0f172a" value={fmtMoney(totalVendido)} sub={`${ventasFiltradas.length} venta(s) en vista`} testid="money-total-vendido" />
             <MoneyCard title="Cobrado" icon={Wallet} color="#3b82f6" value={fmtMoney(cobrado)} sub={`${pctCobrado.toFixed(1)}% del total`} testid="money-cobrado" />
             <MoneyCard title="Saldo / Deuda" icon={AlertTriangle} color="#dc2626" value={fmtMoney(deuda)} sub={`${deudores} deudor(es)`} testid="money-deuda" />
           </div>
@@ -163,38 +241,158 @@ function Ventas({ tipo }) {
         </div>
       )}
 
-      <div className="card">
-        <h3 style={{ marginTop: 0 }}>{esIngreso ? "Ventas registradas" : "Registros"}</h3>
-        <table className="table">
-          <thead><tr><th>Fecha</th><th>Cliente</th><th>Teléfono</th><th>Cestas</th><th>kg</th><th>Precio unitario</th><th>Total</th><th>Abono</th><th>Saldo</th>{!esIngreso && <th>Origen</th>}<th>Acciones</th></tr></thead>
-          <tbody>
-            {rows.map((v) => {
-              const saldo = (v.total || 0) - (v.abono_inicial || 0);
-              return (
-              <tr key={v._id}>
-                <td>{new Date(v.fecha).toLocaleDateString()}</td>
-                <td>{v.cliente || "—"}</td>
-                <td>{v.telefono || "—"}</td>
-                <td>{v.cantidad_cestas}</td>
-                <td>{v.cantidad_kg}</td>
-                <td>${v.precio_unitario}</td>
-                <td style={{ fontWeight: 700, color: "#16a34a" }}>${v.total}</td>
-                <td>${v.abono_inicial || 0}</td>
-                <td style={{ fontWeight: 600, color: saldo > 0 ? "#dc2626" : "#16a34a" }}>${saldo.toFixed(2)}</td>
-                {!esIngreso && <td>{v.origen === "asignacion_destino" ? <span className="badge" style={{ background: "#dcfce7", color: "#15803d" }}>Asignación</span> : <span style={{ color: "#94a3b8", fontSize: 12 }}>Manual</span>}</td>}
-                <td>
-                  {canEdit("ventas") && <button className="btn-icon" onClick={() => setEditing(v)} title="Editar"><Pencil size={16} /></button>}
-                  {canDelete("ventas") && <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(v)}><Trash2 size={16} /></button>}
-                </td>
-              </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        {rows.length === 0 && <div className="empty-state">{esIngreso ? "Sin ventas registradas. Usá \"Nueva venta\" para registrar una." : "Sin registros"}</div>}
-      </div>
+      {esIngreso ? (
+        <>
+          {/* Registrar nueva venta (inline) */}
+          <div className="card" style={{ background: "#f0fdf4", borderColor: "#bbf7d0", marginBottom: 16 }} data-testid="registrar-venta-card">
+            <h3 style={{ margin: 0, color: "#15803d", display: "flex", alignItems: "center", gap: 8 }}><Plus size={18} /> Registrar nueva venta</h3>
+            <div style={{ color: "#64748b", fontSize: 13, margin: "4px 0 16px" }}>Completá los campos y pulsá "Registrar". La venta se agrega al registro de abajo.</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
+              <div className="field"><label>Nombre del cliente *</label><input className="input" placeholder="Ej: Juan Pérez" value={nv.cliente} onChange={(e) => setNv({ ...nv, cliente: e.target.value })} data-testid="nv-cliente" /></div>
+              <div className="field"><label>Teléfono</label><input className="input" placeholder="Ej: 0414-1234567" value={nv.telefono} onChange={(e) => setNv({ ...nv, telefono: e.target.value })} data-testid="nv-telefono" /></div>
+              <div className="field"><label>Cantidad de cestas *</label><input type="number" step="0.01" min="0" className="input" placeholder="0" value={numv(nv.cantidad_cestas)} onChange={(e) => setNv({ ...nv, cantidad_cestas: e.target.value })} data-testid="nv-cestas" /></div>
+              <div className="field"><label>Precio por cesta *</label><input type="number" step="0.01" min="0" className="input" placeholder="0.00" value={numv(nv.precio_unitario)} onChange={(e) => setNv({ ...nv, precio_unitario: e.target.value })} data-testid="nv-precio" /></div>
+              <div className="field"><label>Abono inicial</label><input type="number" step="0.01" min="0" className="input" placeholder="0.00" value={numv(nv.abono_inicial)} onChange={(e) => setNv({ ...nv, abono_inicial: e.target.value })} data-testid="nv-abono" /></div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1.6fr 1.2fr", gap: 12, marginTop: 12, alignItems: "end" }}>
+              <div className="field" style={{ margin: 0 }}><label>Fecha</label><input type="date" className="input" value={nv.fecha} onChange={(e) => setNv({ ...nv, fecha: e.target.value })} data-testid="nv-fecha" /></div>
+              <div className="field" style={{ margin: 0 }}><label>Observaciones</label><input className="input" placeholder="Notas opcionales..." value={nv.observaciones} onChange={(e) => setNv({ ...nv, observaciones: e.target.value })} data-testid="nv-obs" /></div>
+              <div style={{ background: "#f8fafc", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 16px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#64748b" }}>Total:</span><b>{fmtMoney(nvTotal)}</b></div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}><span style={{ color: "#64748b" }}>Saldo:</span><b style={{ color: nvSaldo > 0.001 ? "#dc2626" : "#16a34a" }}>{fmtMoney(nvSaldo)}</b></div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+              <button className="btn" onClick={() => setNv(emptyNv)} data-testid="nv-limpiar">Limpiar</button>
+              <button className="btn btn-primary" onClick={registrarVenta} data-testid="nv-registrar"><Plus size={16} /> Registrar</button>
+            </div>
+          </div>
+
+          {/* Filtros del registro */}
+          <div className="card" style={{ marginBottom: 16 }}>
+            <h3 style={{ margin: 0, display: "flex", alignItems: "center", gap: 8 }}><Filter size={16} /> Filtros del registro</h3>
+            <div style={{ color: "#64748b", fontSize: 13, margin: "4px 0 14px" }}>Acotá la lista por cliente, estado de pago, deuda o período.</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+              {[["todo", "Todo"], ["hoy", "Hoy"], ["semana", "Esta semana"], ["mes", "Este mes"], ["año", "Este año"]].map(([val, lbl]) => (
+                <button key={val} type="button" className="btn btn-sm" onClick={() => setPeriod(val)}
+                  data-testid={`filtro-periodo-${val}`}
+                  style={{ background: period === val ? "#16a34a" : "#fff", color: period === val ? "#fff" : "#334155", borderColor: period === val ? "#16a34a" : "var(--border)" }}>
+                  {lbl}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, alignItems: "end" }}>
+              <div className="field" style={{ margin: 0 }}><label>Buscar (nombre o teléfono)</label>
+                <div style={{ position: "relative" }}>
+                  <Search size={15} style={{ position: "absolute", left: 10, top: 11, color: "#94a3b8" }} />
+                  <input className="input" style={{ paddingLeft: 32 }} placeholder="Ej: Juan o 0414..." value={search} onChange={(e) => setSearch(e.target.value)} data-testid="filtro-buscar" />
+                </div>
+              </div>
+              <div className="field" style={{ margin: 0 }}><label>Estado de pago</label>
+                <select className="select" value={estadoPago} onChange={(e) => setEstadoPago(e.target.value)} data-testid="filtro-estado">
+                  <option value="todos">Todos</option>
+                  <option value="sin_abonar">Sin abonar</option>
+                  <option value="parcial">Abono parcial</option>
+                  <option value="pagado">Pagado</option>
+                </select>
+              </div>
+              <div className="field" style={{ margin: 0 }}><label>Días endeudado (mínimo)</label><input type="number" min="0" className="input" placeholder="Ej: 30" value={diasMin} onChange={(e) => setDiasMin(e.target.value)} data-testid="filtro-dias" /></div>
+              <div className="field" style={{ margin: 0 }}><label>Sólo deudores</label>
+                <button type="button" onClick={() => setSoloDeudores((s) => !s)} data-testid="filtro-deudores"
+                  style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", border: "1px solid var(--border)", borderRadius: 8, background: "#fff", cursor: "pointer", width: "100%" }}>
+                  <span style={{ width: 36, height: 20, borderRadius: 999, background: soloDeudores ? "#16a34a" : "#cbd5e1", position: "relative", flexShrink: 0 }}>
+                    <span style={{ position: "absolute", top: 2, left: soloDeudores ? 18 : 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left .2s" }} />
+                  </span>
+                  <span style={{ color: "#334155" }}>{soloDeudores ? "Activo" : "Inactivo"}</span>
+                </button>
+              </div>
+              <button className="btn" onClick={limpiarFiltros} data-testid="filtro-limpiar"><X size={15} /> Limpiar</button>
+            </div>
+          </div>
+
+          {/* Registro de Ventas */}
+          <div className="card">
+            <h3 style={{ marginTop: 0, marginBottom: 2 }}>Registro de Ventas</h3>
+            <div style={{ color: "#64748b", fontSize: 13, marginBottom: 14 }}>{ventasFiltradas.length} venta(s) · {deudores} con saldo pendiente</div>
+            <table className="table">
+              <thead><tr><th>Cliente</th><th>Teléfono</th><th>Cestas</th><th>Precio/cesta</th><th>Total</th><th>Abono</th><th>Saldo</th><th>Fecha</th><th>Días</th><th>Estado</th><th style={{ textAlign: "right" }}>Acciones</th></tr></thead>
+              <tbody>
+                {rows.map((v) => {
+                  const saldo = saldoDe(v);
+                  const est = estadoDe(v);
+                  const estBadge = est === "pagado" ? { t: "Pagado", bg: "#dcfce7", c: "#15803d" } : est === "parcial" ? { t: "Abono parcial", bg: "#fef3c7", c: "#b45309" } : { t: "Sin abonar", bg: "#fee2e2", c: "#dc2626" };
+                  return (
+                    <tr key={v._id} data-testid="venta-row">
+                      <td><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><User size={14} style={{ color: "#94a3b8" }} /> {v.cliente || "—"}</span></td>
+                      <td>{v.telefono ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Phone size={13} style={{ color: "#94a3b8" }} /> {v.telefono}</span> : "—"}</td>
+                      <td>{v.cantidad_cestas}</td>
+                      <td>{fmtMoney(v.precio_unitario)}</td>
+                      <td style={{ fontWeight: 700 }}>{fmtMoney(v.total)}</td>
+                      <td style={{ color: "#3b82f6" }}>{fmtMoney(v.abono_inicial || 0)}</td>
+                      <td style={{ color: saldo > 0.001 ? "#dc2626" : "#16a34a", fontWeight: 600 }}>{fmtMoney(saldo)}</td>
+                      <td>{(v.fecha || "").slice(0, 10)}</td>
+                      <td><span className="badge" style={{ background: "#f1f5f9", color: "#475569" }}>{diasEndeudado(v)}d</span></td>
+                      <td><span className="badge" style={{ background: estBadge.bg, color: estBadge.c }}>{estBadge.t}</span></td>
+                      <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                        {est !== "pagado" && <button className="btn-icon" style={{ color: "#3b82f6" }} title="Registrar abono" onClick={() => setAbonando(v)} data-testid="venta-abonar"><CreditCard size={16} /></button>}
+                        {canEdit("ventas") && <button className="btn-icon" style={{ color: "#f59e0b" }} title="Editar" onClick={() => setEditing(v)}><Pencil size={16} /></button>}
+                        {canDelete("ventas") && <button className="btn-icon" style={{ color: "#dc2626" }} title="Eliminar" onClick={() => remove(v)}><Trash2 size={16} /></button>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {rows.length === 0 && <div className="empty-state">Sin ventas en el registro. Registrá una arriba.</div>}
+          </div>
+        </>
+      ) : (
+        <div className="card">
+          <h3 style={{ marginTop: 0 }}>Registros</h3>
+          <table className="table">
+            <thead><tr><th>Fecha</th><th>Cestas</th><th>kg</th><th>Origen</th><th>Observaciones</th><th>Acciones</th></tr></thead>
+            <tbody>
+              {items.map((v) => (
+                <tr key={v._id}>
+                  <td>{new Date(v.fecha).toLocaleDateString()}</td>
+                  <td>{v.cantidad_cestas}</td>
+                  <td>{v.cantidad_kg}</td>
+                  <td>{v.origen === "asignacion_destino" ? <span className="badge" style={{ background: "#dcfce7", color: "#15803d" }}>Asignación</span> : <span style={{ color: "#94a3b8", fontSize: 12 }}>Manual</span>}</td>
+                  <td>{v.observaciones || "—"}</td>
+                  <td>{canDelete("ventas") && <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(v)}><Trash2 size={16} /></button>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {items.length === 0 && <div className="empty-state">Sin registros</div>}
+        </div>
+      )}
 
       {editing && <VentaForm tipo={tipo} initial={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
+      {abonando && <AbonoModal venta={abonando} onClose={() => setAbonando(null)} onConfirm={registrarAbono} />}
+    </div>
+  );
+}
+
+function AbonoModal({ venta, onClose, onConfirm }) {
+  const saldo = (venta.total || 0) - (venta.abono_inicial || 0);
+  const [monto, setMonto] = useState("");
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <form className="modal" style={{ maxWidth: 440 }} onClick={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); if (Number(monto) > 0) onConfirm(monto); }} data-testid="abono-modal">
+        <h2 className="modal-title">Registrar abono · {venta.cliente || "Cliente"}</h2>
+        <div style={{ color: "#64748b", fontSize: 13, marginBottom: 14 }}>
+          Total: <b>{fmtMoney(venta.total)}</b> · Abonado: <b style={{ color: "#3b82f6" }}>{fmtMoney(venta.abono_inicial || 0)}</b> · Saldo: <b style={{ color: "#dc2626" }}>{fmtMoney(saldo)}</b>
+        </div>
+        <div className="field"><label>Monto del abono ($)</label><input type="number" step="0.01" min="0" max={saldo} className="input" placeholder="0.00" value={monto} onChange={(e) => setMonto(e.target.value)} autoFocus data-testid="abono-monto" /></div>
+        <div style={{ marginTop: 8 }}>
+          <button type="button" className="btn btn-sm" onClick={() => setMonto(String(saldo.toFixed(2)))}>Pagar todo ({fmtMoney(saldo)})</button>
+        </div>
+        <div className="modal-footer">
+          <button type="button" className="btn" onClick={onClose}>Cancelar</button>
+          <button type="submit" className="btn btn-primary" data-testid="abono-confirmar">Registrar abono</button>
+        </div>
+      </form>
     </div>
   );
 }

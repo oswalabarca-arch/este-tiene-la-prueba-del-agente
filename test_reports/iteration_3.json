@@ -1,0 +1,30 @@
+{
+  "summary": "Testing exhaustivo del módulo Ventas (Venta en finca) + Asignación de destino + descarte automático. Backend: 5/5 tests PASS (CRUD ventas-finca con PUT preservando origen/asignacion_id, descarte auto crea/actualiza/elimina asignación con origen='cosecha_descarte_auto', DELETE de auto-asignación devuelve 400, validación de disponibilidad rechaza con 400, asignación venta_finca alimenta ventas-finca con origen=asignacion_destino, filtro GET ?fecha=). Frontend: registro inline, money cards (vendido-hoy/total/cobrado/deuda), toggle Cestas↔kg (factor 14), abono modal → estado 'Pagado' cuando saldo=0, filtros (buscar/estado/limpiar) — todo funcional.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Ventas - panel Acumulado de hoy", "issues": ["Cuando 'Disponible' es negativo (ej. -2.00 cestas / -28.00 kg porque hay ventas manuales sin asignación previa), el valor se muestra en color gris claro (#94a3b8) en lugar de un color de alerta. Considerar rojo/ámbar para indicar exceso. No es bloqueante: refleja que se vendió sin antes asignar desde 'Asignación de destino'."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_ventas_descarte_auto.py",
+    "/app/test_reports/pytest/pytest_ventas_descarte.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "_sync_descarte_asignacion (server.py L507-555) NO actualiza el registro vinculado en ventas_descarte cuando se actualiza el monto: lo hace correctamente con update_many; OK.",
+    "Modal de abono usa HTML5 max={saldo} en el input; si el usuario digita un monto mayor al saldo, el navegador bloquea el submit silenciosamente. Considerar capear el valor a saldo o mostrar feedback en pantalla.",
+    "Ventas.jsx (~700 líneas) sigue siendo grande; aceptable pero a futuro extraer AbonoModal y VentaForm a archivos separados.",
+    "El total de cada venta inline se calcula como cestas*precio (no kg*precio): consistente con UI ($10/cesta × 2 cestas = $20). Confirmado coherente."
+  ],
+  "updated_files": ["/app/backend/tests/test_ventas_descarte_auto.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Admin: oswaldabarca@gmail.com / 123456",
+  "seed_data_creation": "Tests crean y limpian: tipos/variedades TEST_*, cosechas hoy, asignaciones hoy, ventas-finca TEST_*. Verificado al final: 0 datos residuales del día. Registro frío preexistente (1) preservado.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Para revalidar: ejecutar `pytest /app/backend/tests/test_ventas_descarte_auto.py -v`. Cubre descarte auto (crear/editar/eliminar), validación de disponibilidad (no >cosechado-asignado), CRUD ventas-finca con PUT que preserva origen/asignacion_id, y trazabilidad asignación venta_finca → ventas-finca (origen=asignacion_destino). El test maneja login, cleanup pre/post y borra todo lo que crea. KG_POR_CESTA=14. Las fechas se envían ISO con T12:00:00.000Z.",
+  "rca of the issue": "N/A - no issues found."
+}
