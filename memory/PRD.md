@@ -103,6 +103,16 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - Backend `GET /api/analiticas/cuentas-por-cobrar`: agrupa la deuda **por cliente** sumando ventas de **finca + ciudad** con saldo pendiente (total − abono_inicial > 0). Devuelve por cliente: total vendido, abonado, saldo, n_ventas, días máx. de mora y módulos de origen; más totales (deuda total, vendido, cobrado, n_deudores). Excluye clientes pagados.
 - Frontend Analíticas: KPIs (Deuda total, Total vendido, Total cobrado, Deudores) + tabla "Deuda por cliente" con badges de origen, búsqueda y badge de días (rojo si ≥30). Verificado: Maria Perez agrupada correctamente entre finca+ciudad; clientes pagados excluidos.
 
+## Implementado (Donaciones · panel completo sin dinero — 31/05/2026)
+- El submenú **Donaciones** (`/dashboard/ventas/donaciones`) ahora replica el layout de "Venta en finca / Envío a ciudad" PERO **sin ningún campo de dinero**.
+- **Panel "Acumulado de hoy"**: 3 cards (Asignado hoy / Donado hoy / Disponible para donar). No muestra barra de dinero.
+- **Registrar nueva donación (inline)**: Beneficiario, Teléfono, Cantidad de cestas, Fecha, Observaciones (sin precio/abono/total/saldo).
+- **Filtros**: período (Todo/Hoy/Semana/Mes/Año) + buscar por beneficiario/teléfono. Sin filtros de estado de pago ni deudores.
+- **Registro de Donaciones**: tabla con Beneficiario, Teléfono, Cestas, kg, Fecha, Observaciones, Acciones (editar/eliminar; sin abonar). Modal de edición "Editar donación" oculta campos de dinero.
+- **Backend defensivo**: `_ventas_router("donaciones")` fuerza `precio_unitario=total=abono_inicial=0` en POST/PUT (verificado vía curl: envío 99/198/50 → guarda 0/0/0).
+- Reutiliza el componente compartido `Ventas.jsx` (branch `esDonacion`). Sin cambios de esquema.
+- Testing: backend 100% (5/5, `/app/backend/tests/test_ventas_donaciones.py`) + frontend 100% (iteration_4.json).
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.

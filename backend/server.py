@@ -1256,6 +1256,15 @@ class VentaIn(BaseModel):
 
 
 def _ventas_router(tipo: str):
+    _es_donacion = tipo == "donaciones"
+
+    def _strip_money(data: dict) -> dict:
+        if _es_donacion:
+            data["precio_unitario"] = 0
+            data["total"] = 0
+            data["abono_inicial"] = 0
+        return data
+
     @api.get(f"/ventas-{tipo}")
     async def _list_v(_: dict = Depends(get_current_user)):
         docs = await db[f"ventas_{tipo}"].find({}).sort("fecha", -1).to_list(2000)
@@ -1263,11 +1272,11 @@ def _ventas_router(tipo: str):
 
     @api.post(f"/ventas-{tipo}")
     async def _create_v(payload: VentaIn, user: dict = Depends(get_current_user)):
-        return await _create(f"ventas_{tipo}", payload.model_dump(), user)
+        return await _create(f"ventas_{tipo}", _strip_money(payload.model_dump()), user)
 
     @api.put(f"/ventas-{tipo}/{{vid}}")
     async def _update_v(vid: str, payload: VentaIn, _: dict = Depends(get_current_user)):
-        data = payload.model_dump()
+        data = _strip_money(payload.model_dump())
         # No permitir que una edición rompa el vínculo con Asignación de destino
         data.pop("origen", None)
         data.pop("asignacion_id", None)
