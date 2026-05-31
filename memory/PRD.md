@@ -127,6 +127,10 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - Backend ya tenía CRUD completo en `/api/gastos-vehiculos` (GET/POST/PUT/DELETE) — verificado por curl. Cambio 100% frontend en `Vehiculos.jsx`.
 - Testing frontend 100% (iteration_6.json): registrar/ver/editar/eliminar + validación monto=0/vacío.
 
+## Implementado (Equipos · Motores/Herramientas · acción "Ver" — 31/05/2026)
+- En los submódulos **Motores** (/dashboard/equipos/motores) y **Herramientas** (/dashboard/equipos/herramientas), cada fila del inventario ahora tiene una acción **Ver** (`equipo-ver-<id>`) que abre `EquipoViewModal` (solo lectura) con todos los datos del equipo: nombre, categoría, estado, marca, modelo, año, cantidad, precio unitario, valor total, fecha de adquisición, responsable, ubicación y observaciones.
+- Cambio 100% frontend en `Equipos.jsx`; sin backend. Lint OK. (Comparte patrón con GastoViewModal, ya validado.)
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.

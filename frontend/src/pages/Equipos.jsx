@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
-import { Plus, Pencil, Trash2, Cog, Wrench } from "lucide-react";
+import { Plus, Pencil, Trash2, Cog, Wrench, Eye } from "lucide-react";
 
 // Sólo dos categorías ahora: motor y herramienta
 const ESTADOS = ["activo", "mantenimiento", "inactivo"];
@@ -22,6 +22,7 @@ export default function Equipos() {
   const { categoria } = useParams();
   const [items, setItems] = useState([]);
   const [editing, setEditing] = useState(null);
+  const [viewing, setViewing] = useState(null);  // equipo a ver (solo lectura)
 
   const filterCat = categoria ? URL_TO_CAT[categoria] : null;
 
@@ -83,8 +84,9 @@ export default function Equipos() {
                   <td>${precio.toFixed(2)}</td>
                   <td style={{ fontWeight: 700, color: "#16a34a" }}>${(cantidad * precio).toFixed(2)}</td>
                   <td>
-                    {canEdit("equipos") && <button className="btn-icon" onClick={() => setEditing(e)}><Pencil size={16} /></button>}
-                    {canDelete("equipos") && <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(e)}><Trash2 size={16} /></button>}
+                    <button className="btn-icon" style={{ color: "#3b82f6" }} title="Ver" onClick={() => setViewing(e)} data-testid={`equipo-ver-${e._id}`}><Eye size={16} /></button>
+                    {canEdit("equipos") && <button className="btn-icon" title="Editar" onClick={() => setEditing(e)}><Pencil size={16} /></button>}
+                    {canDelete("equipos") && <button className="btn-icon" style={{ color: "#dc2626" }} title="Eliminar" onClick={() => remove(e)}><Trash2 size={16} /></button>}
                   </td>
                 </tr>
               );
@@ -95,6 +97,7 @@ export default function Equipos() {
       </div>
 
       {editing && <EquipoModal initial={editing} filterCat={filterCat} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
+      {viewing && <EquipoViewModal equipo={viewing} onClose={() => setViewing(null)} />}
     </div>
   );
 }
@@ -183,3 +186,48 @@ function EquipoModal({ initial, filterCat, onClose, onSaved }) {
     </div>
   );
 }
+
+function EquipoViewModal({ equipo, onClose }) {
+  const meta = CAT_LABELS[equipo.categoria] || { label: "Equipo", color: "#64748b", bg: "#f1f5f9" };
+  const Icon = meta.icon;
+  const cantidad = equipo.cantidad || 1;
+  const precio = equipo.costo_adquisicion || 0;
+  const Row = ({ label, value }) => (
+    <div>
+      <div style={{ color: "#64748b", fontSize: 12, marginBottom: 2 }}>{label}</div>
+      <div style={{ fontWeight: 600 }}>{value || "—"}</div>
+    </div>
+  );
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 560 }} onClick={(e) => e.stopPropagation()} data-testid="equipo-view-modal">
+        <h2 className="modal-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {Icon && <Icon size={20} style={{ color: meta.color }} />} {equipo.nombre}
+        </h2>
+        <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+          <span className="badge" style={{ background: meta.bg, color: meta.color }}>{meta.label}</span>
+          <span className={`badge ${equipo.estado === "activo" ? "badge-primary" : equipo.estado === "mantenimiento" ? "badge-warn" : "badge-rose"}`}>{equipo.estado}</span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
+          <Row label="Marca" value={equipo.marca} />
+          <Row label="Modelo" value={equipo.modelo} />
+          <Row label="Año" value={equipo.año} />
+          <Row label="Cantidad" value={cantidad} />
+          <Row label="Precio unitario" value={`$${precio.toFixed(2)}`} />
+          <Row label="Valor total" value={<span style={{ color: "#16a34a", fontWeight: 800 }}>${(cantidad * precio).toFixed(2)}</span>} />
+          <Row label="Fecha de adquisición" value={equipo.fecha_adquisicion ? new Date(equipo.fecha_adquisicion).toLocaleDateString() : "—"} />
+          <Row label="Responsable" value={equipo.responsable} />
+          <Row label="Ubicación" value={equipo.ubicacion} />
+        </div>
+        <div style={{ marginTop: 14 }}>
+          <div style={{ color: "#64748b", fontSize: 12, marginBottom: 2 }}>Observaciones</div>
+          <div>{equipo.observaciones || "—"}</div>
+        </div>
+        <div className="modal-footer">
+          <button type="button" className="btn btn-primary" onClick={onClose} data-testid="equipo-view-close">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
