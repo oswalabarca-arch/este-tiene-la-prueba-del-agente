@@ -77,7 +77,7 @@ export default function Compras() {
         {items.length === 0 && <div className="empty-state">Sin compras registradas</div>}
       </div>
 
-      {editing && <CompraModal initial={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
+      {editing && <CompraModal initial={editing} compras={items} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
       {showGasto && <GastoVehiculoModal onClose={() => setShowGasto(false)} onSaved={() => setShowGasto(false)} />}
     </div>
   );
@@ -169,10 +169,16 @@ function GastoVehiculoModal({ onClose, onSaved }) {
   );
 }
 
-function CompraModal({ initial, onClose, onSaved }) {
+function CompraModal({ initial, compras = [], onClose, onSaved }) {
   const toast = useToast();
   const isNew = !initial._id;
   const today = todayLocal();
+  // Productos únicos previamente comprados, agrupados por categoría para sugerencias.
+  const sugerencias = Array.from(new Map(
+    compras
+      .filter((c) => !c.es_equipo && c.nombre_producto)
+      .map((c) => [c.nombre_producto.trim().toLowerCase(), { nombre: c.nombre_producto.trim(), categoria: c.categoria }])
+  ).values());
   const [form, setForm] = useState({
     categoria: "fertilizantes",
     nombre_producto: "",
@@ -186,6 +192,16 @@ function CompraModal({ initial, onClose, onSaved }) {
     fecha_compra: (initial.fecha_compra || today).slice(0, 10),
   });
   const [busy, setBusy] = useState(false);
+
+  // Coincidencias actuales para mostrar dropdown debajo del input
+  const matches = form.nombre_producto.trim().length > 0
+    ? sugerencias.filter((s) => s.nombre.toLowerCase().includes(form.nombre_producto.trim().toLowerCase()) && s.nombre.toLowerCase() !== form.nombre_producto.trim().toLowerCase()).slice(0, 6)
+    : [];
+
+  const pickSuggestion = (s) => {
+    // Al elegir un producto ya existente, sincronizamos también su categoría.
+    setForm((f) => ({ ...f, nombre_producto: s.nombre, categoria: s.categoria || f.categoria }));
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -219,9 +235,48 @@ function CompraModal({ initial, onClose, onSaved }) {
               <span className="badge" style={catBadge(form.categoria)}>{form.categoria}</span>
             </div>
           </div>
-          <div className="field">
+          <div className="field" style={{ position: "relative" }}>
             <label>Nombre del producto</label>
-            <input className="input" value={form.nombre_producto} onChange={(e) => setForm({ ...form, nombre_producto: e.target.value })} required data-testid="compra-form-nombre" />
+            <input
+              className="input"
+              value={form.nombre_producto}
+              onChange={(e) => setForm({ ...form, nombre_producto: e.target.value })}
+              list="compra-productos-historial"
+              autoComplete="off"
+              required
+              data-testid="compra-form-nombre"
+              placeholder={sugerencias.length > 0 ? "Empieza a escribir o elegí uno previo..." : ""}
+            />
+            {/* datalist provee autocompletado nativo del navegador */}
+            <datalist id="compra-productos-historial">
+              {sugerencias.map((s, idx) => (
+                <option key={idx} value={s.nombre}>{s.categoria}</option>
+              ))}
+            </datalist>
+            {/* Dropdown custom para feedback más visible */}
+            {matches.length > 0 && (
+              <div style={{
+                position: "absolute", top: "100%", left: 0, right: 0, zIndex: 30,
+                background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8,
+                boxShadow: "0 6px 24px rgba(15,23,42,0.08)", marginTop: 4, maxHeight: 220, overflowY: "auto",
+              }} data-testid="compra-sugerencias">
+                {matches.map((s, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => pickSuggestion(s)}
+                    style={{
+                      width: "100%", textAlign: "left", padding: "8px 12px", background: "transparent",
+                      border: "none", cursor: "pointer", borderBottom: i < matches.length - 1 ? "1px solid #f1f5f9" : "none",
+                      display: "flex", justifyContent: "space-between", alignItems: "center",
+                    }}
+                  >
+                    <span style={{ fontSize: 14 }}>{s.nombre}</span>
+                    <span className="badge" style={{ ...catBadge(s.categoria), fontSize: 11 }}>{s.categoria}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div className="field">
             <label>Cantidad</label>
