@@ -27,6 +27,20 @@ const CAL_DEFS = [
   { key: "descarte", name: "Descarte", field: "descarte" },
 ];
 
+// Etiqueta de porcentaje DENTRO de cada porción (evita que el recuadro corte los % afuera)
+const renderPctLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+  if (!percent || percent < 0.06) return null;
+  const RADIAN = Math.PI / 180;
+  const r = innerRadius + (outerRadius - innerRadius) * 0.6;
+  const x = cx + r * Math.cos(-midAngle * RADIAN);
+  const y = cy + r * Math.sin(-midAngle * RADIAN);
+  return (
+    <text x={x} y={y} fill="#fff" fontSize={11} fontWeight={700} textAnchor="middle" dominantBaseline="central">
+      {`${(percent * 100).toFixed(0)}%`}
+    </text>
+  );
+};
+
 export default function PlantacionDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -554,14 +568,14 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
         <div className="card" style={{ marginTop: 18 }} data-testid="plant-calidades-variedad-chart">
           <h3 style={{ marginTop: 0, marginBottom: 2 }}>Calidades por variedad</h3>
           <p style={{ color: "#64748b", marginTop: 0, marginBottom: 12, fontSize: 12 }}>Porcentaje de cada calidad (1ª, 2ª, 3ª y descarte) por variedad.</p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))", gap: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>
             {variedadCharts.filter((v) => v.total > 0).map((v) => (
               <div key={v.variedad} style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 12 }} data-testid={`plant-variedad-chart-${v.variedad}`}>
                 <div style={{ fontWeight: 700, marginBottom: 6, textAlign: "center", color: "#7c3aed" }}>{v.variedad}</div>
-                <div style={{ width: "100%", height: 150 }}>
+                <div style={{ width: "100%", height: 180 }}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={v.data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={58} label={({ percent }) => `${(percent * 100).toFixed(0)}%`} labelLine={false} stroke="none">
+                    <PieChart margin={{ top: 6, right: 6, bottom: 6, left: 6 }}>
+                      <Pie data={v.data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={72} label={renderPctLabel} labelLine={false} stroke="#fff" strokeWidth={1}>
                         {v.data.map((d) => <Cell key={d.key} fill={CAL_COLORS[d.key]} />)}
                       </Pie>
                       <Tooltip formatter={(val, name) => [`${Number(val).toFixed(2)} kg (${((Number(val) / v.total) * 100).toFixed(1)}%)`, name]} />
@@ -584,9 +598,9 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
         </div>
       )}
 
-      {/* Rendimiento por planta (más compacto, ~mitad del ancho) */}
-      <div className="card" style={{ marginTop: 18, maxWidth: 560 }} data-testid="plant-rendimiento-card">
-        <h3 style={{ marginTop: 0, marginBottom: 2 }}>Rendimiento por planta</h3>
+      {/* Rendimiento por planta — al final (debajo de las gráficas por variedad) y compacto */}
+      <div className="card" style={{ marginTop: 18, maxWidth: 440 }} data-testid="plant-rendimiento-card">
+        <h3 style={{ marginTop: 0, marginBottom: 2, fontSize: 15 }}>Rendimiento por planta</h3>
         <p style={{ color: "#64748b", marginTop: 0, marginBottom: 14, fontSize: 12 }}>
           Kg totales cosechados de cada variedad ÷ cantidad de plantas registradas de esa variedad.
         </p>

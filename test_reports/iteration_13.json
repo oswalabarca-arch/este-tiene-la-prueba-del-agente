@@ -1,0 +1,37 @@
+{
+  "summary": "Frontend-only retest of pestaña 'Cosechas' del detalle de plantación (lote 76fc64ae...). Validado: orden de tarjetas (tabla → Calidades del lote → Calidades por variedad → Rendimiento por planta al final), ancho angosto (440px) de plant-rendimiento-card, etiquetas % dentro de las porciones de los pies en 'Calidades por variedad'. Se detectó y corrigió un bug visual donde las etiquetas mostraban solo '%' (sin el número) por instrumentación del visual-editor envolviendo la expresión JSX dentro de un <span> dentro de un <text> SVG.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/calidades_variedad_fixed.png",
+    "/app/test_reports/calidades_variedad_hq.png",
+    "/app/test_reports/cosechas_full.png"
+  ],
+  "action_items": [
+    "Revisar la corrección aplicada en renderPctLabel de PlantacionDetail.jsx (línea 39): el contenido del <text> SVG se cambió a un único template literal `${...}%` para que el instrumentador del visual editor no inserte un <span> dentro del <text> (los <span> HTML no se renderizan dentro de SVG <text>, lo que hacía que solo el carácter literal '%' fuera visible). Aplicar el mismo patrón en cualquier otra etiqueta SVG con expresión + texto literal mezclados (ej. <text>{value} kg</text>) para prevenir el mismo bug a futuro."
+  ],
+  "critical_code_review_comments": [
+    "PATRÓN BUG/PREVENCIÓN: dentro de <text> SVG NO mezclar `{expresion}` con texto literal en el mismo nodo JSX cuando el entorno tenga instrumentación de visual-editor; usar siempre un único template literal `{`${expr}suffix`}` o un <tspan>. El renderPctLabel quedó así corregido.",
+    "PlantacionDetail.jsx tiene 633 líneas — empieza a ser candidato a split (extraer secciones de pestañas a sub-componentes: CosechasTab, AplicacionesTab, etc.) para mejor mantenibilidad.",
+    "Hay un warning de Recharts 'The width(-1) and height(-1) of chart should be greater than 0' en el primer render del donut principal (probablemente ResponsiveContainer mide antes del layout). No bloqueante, pero podría silenciarse asegurando min-height en el contenedor."
+  ],
+  "updated_files": [
+    "/app/frontend/src/pages/PlantacionDetail.jsx (renderPctLabel: contenido del <text> ahora es un único template literal `${(percent*100).toFixed(0)}%` para evitar que el instrumentador del visual editor envuelva la expresión en un <span> dentro de un SVG <text>)"
+  ],
+  "success_rate": {"backend": "n/a", "frontend": "100%"},
+  "test_credentials": "Admin: oswaldabarca@gmail.com / 123456 (de /app/memory/test_credentials.md)",
+  "seed_data_creation": "ninguna; se usaron las plantaciones ya seedadas (lote 1: 76fc64ae-dd52-475b-8c62-5c25f6b91508)",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Para validar visualmente las etiquetas % dentro de las porciones de pie en SVG dentro de este preview, NO basta con leer t.textContent (devuelve '42%' aunque solo se vea '%'); hay que inspeccionar el outerHTML de cada <text> y verificar que NO contenga elementos <span> intermedios (los <span> HTML no se renderizan dentro de SVG <text>). También útil: comparar getBoundingClientRect().width del <text> contra el ancho esperado del glifo completo (~22px para 'XX%' con fontSize 11).",
+  "rca of the issue": {
+    "issue": "Las etiquetas de porcentaje dentro de los pies 'Calidades por variedad' mostraban solo '%' (sin el número).",
+    "reproduction": "Login admin → /dashboard/plantaciones/76fc64ae-dd52-475b-8c62-5c25f6b91508 → pestaña Cosechas → ver gráficos 'Calidades por variedad' (san andreas y albion).",
+    "root_cause": "El instrumentador del visual editor de Emergent envolvía la expresión JSX `{(percent*100).toFixed(0)}` en un <span data-ve-dynamic=...> para tracking. El JSX original `<text>{(percent*100).toFixed(0)}%</text>` se renderizaba como `<text><span>42</span>%</text>`. Dentro de un <text> SVG, los elementos HTML <span> NO se renderizan como glifos — solo el text node literal '%' después del span se mostraba.",
+    "mitigation": "Se cambió el contenido del <text> a un único template literal: `{`${(percent*100).toFixed(0)}%`}`. Ahora React genera un único text node con la cadena '42%' completa y el instrumentador no inserta un <span> intermedio. Después del fix: outerHTML del <text> = <text>...>42%</text>, width = 22.2px, todos los porcentajes (42%, 33%, 17%, 8%, 50%, 25%, 13%, 13%) son visibles y legibles en texto blanco dentro de cada porción."
+  }
+}
