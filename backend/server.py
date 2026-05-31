@@ -852,9 +852,70 @@ async def create_aplicacion(payload: AplicacionIn, user: dict = Depends(get_curr
     return await _create("aplicaciones", data, user)
 
 
+async def _validate_inventory_for_confirmation(aid: str, payload_insumos: List[Dict[str, Any]]):
+    """
+    Antes de confirmar una aplicación, verifica que el inventario disponible
+    cubra todos los insumos solicitados. Match por nombre de producto (case-insensitive).
+    Lanza HTTPException 400 con el detalle del faltante.
+    """
+    # Total comprado por producto
+    pipeline_compras = [
+        {"$match": {"es_equipo": {"$ne": True}}},
+        {"$group": {
+            "_id": {"$toLower": "$nombre_producto"},
+            "total_comprado": {"$sum": "$cantidad"},
+        }},
+    ]
+    comprado = {c["_id"]: c["total_comprado"]
+                for c in await db.compras.aggregate(pipeline_compras).to_list(5000)}
+
+    # Total consumido por OTRAS aplicaciones confirmadas (excluye la actual aid)
+    pipeline_usado = [
+        {"$match": {"estado": "confirmada", "_id": {"$ne": aid}}},
+        {"$unwind": "$insumos"},
+        {"$group": {
+            "_id": {"$toLower": "$insumos.nombre_producto"},
+            "total_usado": {"$sum": "$insumos.cantidad"},
+        }},
+    ]
+    usado = {a["_id"]: a["total_usado"]
+             for a in await db.aplicaciones.aggregate(pipeline_usado).to_list(5000)}
+
+    # Sumar las cantidades del payload por producto (puede haber el mismo producto repetido)
+    pedido: Dict[str, float] = {}
+    for ins in (payload_insumos or []):
+        nombre = (ins.get("nombre_producto") or "").strip().lower()
+        if not nombre:
+            continue
+        pedido[nombre] = pedido.get(nombre, 0) + float(ins.get("cantidad") or 0)
+
+    faltantes = []
+    for nombre, cant in pedido.items():
+        disponible = comprado.get(nombre, 0) - usado.get(nombre, 0)
+        if cant > disponible + 1e-9:
+            faltantes.append({
+                "producto": nombre,
+                "solicitado": round(cant, 2),
+                "disponible": round(disponible, 2),
+                "faltante": round(cant - disponible, 2),
+            })
+
+    if faltantes:
+        msg_lines = ["No hay inventario suficiente para confirmar esta aplicación:"]
+        for f in faltantes:
+            msg_lines.append(
+                f"• {f['producto']}: pedido {f['solicitado']}, disponible {f['disponible']}, faltante {f['faltante']}"
+            )
+        raise HTTPException(status_code=400, detail="\n".join(msg_lines))
+
+
 @api.put("/aplicaciones/{aid}")
 async def update_aplicacion(aid: str, payload: AplicacionIn, _: dict = Depends(get_current_user)):
-    return await _update("aplicaciones", aid, payload.model_dump())
+    data = payload.model_dump()
+    # Si se está pasando a "confirmada", validar stock — el inventario no puede quedar negativo
+    if data.get("estado") == "confirmada":
+        await _validate_inventory_for_confirmation(aid, data.get("insumos") or [])
+    return await _update("aplicaciones", aid, data)
 
 
 @api.delete("/aplicaciones/{aid}")

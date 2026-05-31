@@ -183,10 +183,17 @@ function PendienteCard({ aplicacion: a, lotesDisponibles, canEdit, onConfirmed }
         });
       }
 
-      toast.show("Aplicación confirmada. Inventario, Nómina y Plantaciones actualizados.");
+      toast.show(`Aplicación confirmada. Inventario, Nómina y Plantaciones actualizados.`);
       onConfirmed();
-    } catch {
-      toast.show("Error al confirmar", "error");
+    } catch (err) {
+      const detail = err?.response?.data?.detail;
+      if (detail) {
+        // Mensaje del backend (ej. inventario insuficiente)
+        window.alert(detail);
+        toast.show("No se pudo confirmar: revisa el inventario", "error");
+      } else {
+        toast.show("Error al confirmar", "error");
+      }
       setBusy(false);
     }
   };
