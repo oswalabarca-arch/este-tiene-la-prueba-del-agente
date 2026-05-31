@@ -384,10 +384,19 @@ function CosechaModal({ initial, tipos, variedades, plantaciones, onClose, onSav
 }
 
 function Field({ label, value, onChange, type = "text", step, testid }) {
+  const display = type === "number" && (value === 0 || value === "" || value == null) ? "" : value;
   return (
     <div className="field">
       <label>{label}</label>
-      <input type={type} step={step} className="input" value={value ?? ""} onChange={(e) => onChange(e.target.value)} data-testid={testid} />
+      <input
+        type={type}
+        step={step}
+        className="input"
+        value={display}
+        placeholder={type === "number" ? "0" : undefined}
+        onChange={(e) => onChange(e.target.value)}
+        data-testid={testid}
+      />
     </div>
   );
 }
