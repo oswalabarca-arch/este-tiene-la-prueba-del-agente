@@ -825,7 +825,7 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
         <div className="card" style={{ marginTop: 18, padding: 0, overflow: "hidden", border: "1px solid #e2e8f0" }} data-testid="plant-calidades-variedad-chart">
           <ChartHeader icon={Apple} iconBg="#dc2626" title="Calidades por variedad" subtitle="Distribución de calidades (1ª, 2ª, 3ª y descarte) por cada variedad." />
           <div style={{ padding: 24 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 16 }}>
               {variedadCharts.filter((v) => v.total > 0).map((v) => (
                 <div key={v.variedad} style={{ border: "1px solid #e2e8f0", borderRadius: 12, padding: 14, background: "#fff" }} data-testid={`plant-variedad-chart-${v.variedad}`}>
                   <div style={{ fontWeight: 700, marginBottom: 8, textAlign: "center", color: "#7c3aed", textTransform: "capitalize" }}>{v.variedad}</div>
@@ -841,15 +841,26 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
                       <div style={{ fontSize: 9.5, color: "#64748b", textTransform: "uppercase" }}>kg</div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-            {/* Leyenda compartida */}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 16, justifyContent: "center", marginTop: 18 }}>
-              {CAL_DEFS.map((d) => (
-                <div key={d.key} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ width: 12, height: 12, borderRadius: 4, background: CAL_COLORS[d.key] }} />
-                  <span style={{ fontSize: 12.5, color: "#475569" }}>{d.name}</span>
+                  {/* Desglose de kg por calidad (fuera del gráfico) */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 14 }}>
+                    {v.data.map((d) => {
+                      const ratio = v.total > 0 ? (d.value / v.total) * 100 : 0;
+                      return (
+                        <div key={d.key} data-testid={`plant-variedad-legend-${v.variedad}-${d.key}`} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <span style={{ width: 11, height: 11, borderRadius: 4, background: CAL_COLORS[d.key], flexShrink: 0 }} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 3 }}>
+                              <span style={{ fontWeight: 600, fontSize: 12.5, color: "#334155" }}>{d.name}</span>
+                              <span style={{ fontSize: 12, color: "#0f172a", fontWeight: 700 }}>{d.value.toFixed(2)} kg</span>
+                            </div>
+                            <div style={{ height: 5, borderRadius: 999, background: "#f1f5f9", overflow: "hidden" }}>
+                              <div style={{ width: `${ratio}%`, height: "100%", borderRadius: 999, background: CAL_COLORS[d.key], transition: "width .4s ease" }} />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               ))}
             </div>

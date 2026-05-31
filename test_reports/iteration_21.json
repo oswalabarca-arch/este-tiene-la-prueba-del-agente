@@ -1,0 +1,44 @@
+{
+  "summary": "Frontend-only validation: en 'Calidades por variedad' (Cosechas tab de PlantacionDetail), cada tarjeta de variedad ahora muestra DEBAJO del mini-donut un desglose de kg por calidad con barra de progreso, y la leyenda compartida inferior fue eliminada. Sin regresiones en el resto de la pestaña.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/variedad_kg_outside.png"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PlantacionDetail.jsx sigue en ~962 líneas — recomendar extraer CosechasTab y ChartHeader a archivos separados (>700 líneas).",
+    "Recharts emite warning 'width(-1)/height(-1)' en render inicial — no bloquea pero conviene auditar minWidth/minHeight en contenedores padres."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "100%"},
+  "test_credentials": "oswaldabarca@gmail.com / 123456 (admin)",
+  "seed_data_creation": "Ninguna. Usada plantación 'tafy' (Lote L3) con cosechas 2026 (Albion 2380 kg, Alturas 924 kg, total 3304 kg).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iteration 21 validó el desglose de kg fuera del gráfico en 'Calidades por variedad'. Login -> /dashboard/plantaciones -> abrir primera plantación con cosechas (tafy/L3) -> pestaña 'plant-tab-cosechas'. Cada tarjeta plant-variedad-chart-<variedad> contiene: donut + 4 filas plant-variedad-legend-<variedad>-{primera,segunda,tercera,descarte} con nombre + kg + barra de progreso. Verificado: NO hay '%' en ningún gráfico. Verificado: 0 leyendas compartidas viejas dentro de plant-calidades-variedad-chart. Regresiones OK: plant-calidades-chart (lote), toggle cestas/kg, 3 filas cosecha-row, consolidado, rendimiento-card, serie.",
+  "evidence": {
+    "variedad_cards_found": ["plant-variedad-chart-albion", "plant-variedad-chart-alturas"],
+    "legend_testids_found_per_variedad": {
+      "albion": ["primera (1680.00 kg)", "segunda (350.00 kg)", "tercera (182.00 kg)", "descarte (168.00 kg)"],
+      "alturas": ["primera (490.00 kg)", "segunda (294.00 kg)", "tercera (70.00 kg)", "descarte (70.00 kg)"]
+    },
+    "kg_sum_coherencia": {
+      "albion_sum": "1680+350+182+168=2380 kg (coincide con centro del donut)",
+      "alturas_sum": "490+294+70+70=924 kg (coincide con centro del donut)",
+      "lote_sum_cross_check": "Albion 2380 + Alturas 924 = 3304 kg (coincide con plant-calidades-chart lote total)"
+    },
+    "porcentajes_detectados": "Ninguno. 0 ocurrencias de '%' tanto en plant-calidades-variedad-chart como en plant-calidades-chart.",
+    "old_shared_legend_inside_variedad_chart": 0,
+    "regression_passes": [
+      "plant-calidades-chart presente con leyenda de kg moderna y sin %",
+      "plant-cosecha-unidad-cestas y plant-cosecha-unidad-kg ambos presentes",
+      "cosecha-row=3",
+      "plant-cosecha-consolidado presente",
+      "plant-rendimiento-card presente",
+      "plant-cosecha-serie/cosecha-serie-chart presente"
+    ]
+  }
+}
