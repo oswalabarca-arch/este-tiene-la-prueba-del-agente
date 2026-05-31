@@ -156,6 +156,10 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 ## Implementado (Plantaciones · total de plantas en la tarjeta — 31/05/2026)
 - En el **listado de Plantaciones**, cada tarjeta ahora muestra el **total de plantas** del lote (badge verde con ícono, ej. "2.000 plantas") cuando hay un total registrado. Lee `total_plantas || inventario_plantas`. Testid `plantacion-total-plantas-<id>`. Solo lectura, sin backend.
 
+## Implementado (Plantación · pestaña Cosechas con toggle Cestas/kg — 31/05/2026)
+- En la pestaña **Cosechas** del detalle de plantación, se agregaron dos botones (pills) **Cestas / kg** arriba a la derecha (como el módulo Cosecha). Al cambiar, todas las cantidades (1ª, 2ª, 3ª, Descarte, Total por fila y Total general) se convierten (1 cesta = 14 kg) según la unidad en que se guardó cada cosecha. Encabezados de columna muestran la unidad activa. Se eliminó la columna "Unidad" por fila.
+- Cambio 100% frontend (`PlantacionDetail.jsx` → `CosechasTab`). Testing frontend 100% (iteration_10.json): Total 52 cestas ↔ 728 kg (×14), filas convertidas correctamente. Testids `plant-cosecha-unidad-cestas/kg`, `plant-cosecha-total`.
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.
