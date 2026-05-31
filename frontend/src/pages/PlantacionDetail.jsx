@@ -51,16 +51,40 @@ export default function PlantacionDetail() {
   useEffect(() => { load(); }, [id]);
 
   const lote = plantacion?.lote;
-  // Una aplicación puede tener: un solo lote (campo `lote`), múltiples lotes planificados
-  // (`lotes`) y/o múltiples lotes destino al confirmar (`lotes_destino`).
-  // Consideramos pertenencia si CUALQUIERA de esos campos contiene este lote.
-  const aplicLote = useMemo(() => aplicaciones.filter((a) => {
-    if (!lote) return false;
-    if (a.lote === lote) return true;
-    if (Array.isArray(a.lotes) && a.lotes.includes(lote)) return true;
-    if (Array.isArray(a.lotes_destino) && a.lotes_destino.includes(lote)) return true;
-    return false;
-  }), [aplicaciones, lote]);
+  // Una aplicación puede afectar a múltiples lotes (lote, lotes[] o lotes_destino[]).
+  // Para este lote en particular mostramos la PORCIÓN proporcional de insumos y costo.
+  const aplicLote = useMemo(() => {
+    if (!lote) return [];
+    return aplicaciones
+      .filter((a) => {
+        if (a.lote === lote) return true;
+        if (Array.isArray(a.lotes) && a.lotes.includes(lote)) return true;
+        if (Array.isArray(a.lotes_destino) && a.lotes_destino.includes(lote)) return true;
+        return false;
+      })
+      .map((a) => {
+        // Total de lotes que comparten la aplicación
+        const todos = (a.lotes_destino && a.lotes_destino.length > 0)
+          ? a.lotes_destino
+          : (a.lotes && a.lotes.length > 0 ? a.lotes : [a.lote].filter(Boolean));
+        const n = Math.max(todos.length || 1, 1);
+        const share = (v) => Number((v || 0) / n);
+        return {
+          ...a,
+          _share_n: n,
+          // Insumos: cantidad proporcional
+          insumos: (a.insumos || []).map((i) => ({ ...i, cantidad: share(i.cantidad) })),
+          // Costo PEPS proporcional
+          insumos_costo: (a.insumos_costo || []).map((ic) => ({
+            ...ic,
+            cantidad: share(ic.cantidad),
+            costo: Number((ic.costo || 0) / n),
+          })),
+          costo_insumos: Number((a.costo_insumos || 0) / n),
+          cantidad_agua: share(a.cantidad_agua),
+        };
+      });
+  }, [aplicaciones, lote]);
   const activLote = useMemo(() => actividades.filter((a) => a.lote === lote), [actividades, lote]);
   const cosLote   = useMemo(() => cosechas.filter((c) => c.lote === lote), [cosechas, lote]);
 
@@ -315,11 +339,14 @@ function AplicacionesTab({ items }) {
                 {a.insumos_costo && a.insumos_costo.length > 0
                   ? a.insumos_costo.map((ic, i) => (
                       <div key={i}>
-                        {ic.nombre_producto} <b>{ic.cantidad}</b> {ic.unidad} · <span style={{ color: "#16a34a" }}>${ic.costo.toFixed(2)}</span>
+                        {ic.nombre_producto} <b>{Number(ic.cantidad).toFixed(2)}</b> {ic.unidad} · <span style={{ color: "#16a34a" }}>${ic.costo.toFixed(2)}</span>
                         {ic.cantidad_sin_cobertura > 0 && <span style={{ color: "#dc2626", fontSize: 11 }}> ⚠ {ic.cantidad_sin_cobertura} sin stock comprado</span>}
                       </div>
                     ))
-                  : (a.insumos?.map((i) => `${i.nombre_producto} ${i.cantidad}${i.unidad}`).join(", ") || "—")}
+                  : (a.insumos?.map((i) => `${i.nombre_producto} ${Number(i.cantidad).toFixed(2)}${i.unidad}`).join(", ") || "—")}
+                {a._share_n > 1 && (
+                  <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>Porción del lote (1/{a._share_n})</div>
+                )}
               </td>
               <td>{a.estado === "confirmada" ? <span className="badge badge-primary">Confirmada</span> : <span className="badge badge-warn">Pendiente</span>}</td>
               <td style={{ textAlign: "right", fontWeight: 700, color: "#16a34a" }}>${Number(a.costo_insumos || 0).toFixed(2)}</td>
