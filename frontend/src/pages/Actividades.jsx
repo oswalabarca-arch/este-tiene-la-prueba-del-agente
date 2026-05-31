@@ -4,11 +4,17 @@ import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
 import {
   Activity, Plus, Trash2, CheckCircle, Calendar, MapPin, Users as UsersIcon,
-  Clock, Droplets, Eye, X, DollarSign,
+  Clock, Droplets, Eye, X, DollarSign, Sprout, Leaf, Droplet, Wrench, Apple,
 } from "lucide-react";
 import { catBadge } from "../lib/categoryColors";
 
-const TIPOS = ["deshierbar", "siembra", "poda", "limpieza", "transporte", "otro"];
+const TIPOS_REGISTRAR = [
+  { key: "abonar",     label: "Abonar",          icon: Sprout },
+  { key: "cosechar",   label: "Cosechar",        icon: Apple },
+  { key: "deshierbar", label: "Deshierbar",      icon: Leaf },
+  { key: "riego",      label: "Riego",           icon: Droplet },
+  { key: "otra",       label: "Otra actividad…", icon: Wrench },
+];
 
 function ActividadesBase({ filtro }) {
   const toast = useToast();
@@ -16,7 +22,6 @@ function ActividadesBase({ filtro }) {
   const [items, setItems] = useState([]);
   const [aplicaciones, setAplicaciones] = useState([]);
   const [plantaciones, setPlantaciones] = useState([]);
-  const [editing, setEditing] = useState(null);
   const [viewing, setViewing] = useState(null);
 
   const load = async () => {
@@ -44,10 +49,17 @@ function ActividadesBase({ filtro }) {
     <div data-testid="actividades-page">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
         <div>
-          <h1 className="page-title"><Activity size={24} style={{ verticalAlign: "middle", color: "#16a34a" }} /> Actividades {filtro === "pendientes" ? "— Pendientes" : "— Registrar"}</h1>
-          <p className="page-subtitle">{filtro === "pendientes" ? "Aplicaciones pendientes de ejecutar. Al marcar como aplicada se descuenta el inventario." : "Registra labores realizadas en el campo. Alimenta Recursos Humanos."}</p>
+          <h1 className="page-title">
+            {filtro === "registrar"
+              ? <><Plus size={24} style={{ verticalAlign: "middle", color: "#16a34a" }} /> Registrar Actividad</>
+              : <><Activity size={24} style={{ verticalAlign: "middle", color: "#16a34a" }} /> Actividades — Pendientes</>}
+          </h1>
+          <p className="page-subtitle">
+            {filtro === "registrar"
+              ? "Captura una actividad ya ejecutada en campo (mano de obra, lote y tipo de labor)"
+              : "Aplicaciones pendientes de ejecutar. Al marcar como aplicada se descuenta el inventario."}
+          </p>
         </div>
-        {filtro !== "pendientes" && <button className="btn btn-primary" onClick={() => setEditing({})} data-testid="actividad-new-btn"><Plus size={16} /> Nueva actividad</button>}
       </div>
 
       <div className="kpi-grid" style={{ marginBottom: 18 }}>
@@ -67,32 +79,36 @@ function ActividadesBase({ filtro }) {
           </div>
         )
       ) : (
-        <div className="card">
-          <h3 style={{ marginTop: 0 }}>Historial de actividades</h3>
-          <table className="table">
-            <thead>
-              <tr><th>Fecha</th><th>Tipo</th><th>Lote</th><th>Trabajadores</th><th>Horas</th><th>Horas-hombre</th><th>Origen</th><th>Acciones</th></tr>
-            </thead>
-            <tbody>
-              {items.map((a) => (
-                <tr key={a._id}>
-                  <td>{new Date(a.fecha_actividad).toLocaleDateString()}</td>
-                  <td><span className="badge badge-purple">{a.tipo_personalizado || a.tipo}</span></td>
-                  <td><span className="badge badge-primary">{a.lote}</span></td>
-                  <td>{a.cantidad_trabajadores}</td>
-                  <td>{a.horas_trabajo}</td>
-                  <td style={{ fontWeight: 700 }}>{a.horas_hombre || 0}</td>
-                  <td><span className="badge badge-info">{a.origen}</span></td>
-                  <td>{canDelete("actividades") && <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(a)}><Trash2 size={16} /></button>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {items.length === 0 && <div className="empty-state">Sin actividades registradas</div>}
-        </div>
+        <>
+          <RegistrarActividadForm plantaciones={plantaciones} onSaved={load} />
+          <div className="card" style={{ marginTop: 18 }}>
+            <h3 style={{ marginTop: 0 }}>Historial de actividades</h3>
+            <table className="table">
+              <thead>
+                <tr><th>Fecha</th><th>Tipo</th><th>Lote</th><th>Trabajadores</th><th>Horas</th><th>Precio/hr</th><th>Horas-H</th><th>Costo</th><th>Origen</th><th>Acciones</th></tr>
+              </thead>
+              <tbody>
+                {items.map((a) => (
+                  <tr key={a._id}>
+                    <td>{new Date(a.fecha_actividad).toLocaleDateString()}</td>
+                    <td><span className="badge badge-purple">{a.tipo_personalizado || a.tipo}</span></td>
+                    <td><span className="badge badge-primary">{a.lote}</span></td>
+                    <td>{Number(a.cantidad_trabajadores || 0).toFixed(2)}</td>
+                    <td>{a.horas_trabajo}</td>
+                    <td>${Number(a.precio_hora || 0).toFixed(2)}</td>
+                    <td style={{ fontWeight: 600 }}>{Number(a.horas_hombre || 0).toFixed(2)}</td>
+                    <td style={{ fontWeight: 700, color: "#16a34a" }}>${Number(a.costo_total || 0).toFixed(2)}</td>
+                    <td><span className="badge badge-info">{a.origen}</span></td>
+                    <td>{canDelete("actividades") && <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(a)}><Trash2 size={16} /></button>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {items.length === 0 && <div className="empty-state">Sin actividades registradas</div>}
+          </div>
+        </>
       )}
 
-      {editing && <ActividadModal lotes={lotes} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
       {viewing && <DetalleAplicacion aplicacion={viewing} onClose={() => setViewing(null)} />}
     </div>
   );
@@ -387,77 +403,224 @@ function DetalleAplicacion({ aplicacion: a, onClose }) {
   );
 }
 
-function ActividadModal({ lotes, onClose, onSaved }) {
+function RegistrarActividadForm({ plantaciones, onSaved }) {
   const toast = useToast();
-  const [form, setForm] = useState({
-    tipo: "deshierbar",
+  const today = new Date().toISOString().slice(0, 10);
+  const empty = {
+    tipo: "",
     tipo_personalizado: "",
-    cantidad_trabajadores: 1,
-    horas_trabajo: 1,
-    lote: "",
-    fecha_actividad: new Date().toISOString().slice(0, 10),
+    trabajadores: "",
+    horas: "",
+    precio_hora: "",
+    fecha: today,
     observaciones: "",
-  });
+  };
+  const [form, setForm] = useState(empty);
+  const [lotesDestino, setLotesDestino] = useState([]);
+  const [loteInput, setLoteInput] = useState("");
   const [busy, setBusy] = useState(false);
+
+  const lotesPlanta = Array.from(new Set(
+    plantaciones.map((p) => JSON.stringify({ lote: p.lote, nombre: p.nombre })).filter(Boolean)
+  )).map((s) => JSON.parse(s)).filter((p) => p.lote);
+
+  const toggleLote = (l) => setLotesDestino((prev) => prev.includes(l) ? prev.filter((x) => x !== l) : [...prev, l]);
+  const removeLote = (l) => setLotesDestino((prev) => prev.filter((x) => x !== l));
+  const addFromInput = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const parts = loteInput.split(",").map((s) => s.trim()).filter(Boolean);
+      const nuevos = parts.filter((p) => !lotesDestino.includes(p));
+      if (nuevos.length > 0) setLotesDestino([...lotesDestino, ...nuevos]);
+      setLoteInput("");
+    }
+  };
+
+  const reset = () => { setForm(empty); setLotesDestino([]); setLoteInput(""); };
+
+  const trabajadores = Number(form.trabajadores || 0);
+  const horas = Number(form.horas || 0);
+  const precio = Number(form.precio_hora || 0);
+  const totalHH = trabajadores * horas;
+  const costo = totalHH * precio;
 
   const submit = async (e) => {
     e.preventDefault();
+    if (!form.tipo) { toast.show("Selecciona el tipo de actividad", "error"); return; }
+    if (form.tipo === "otra" && !form.tipo_personalizado.trim()) { toast.show("Especifica el tipo de actividad", "error"); return; }
+    if (lotesDestino.length === 0) { toast.show("Selecciona al menos un lote", "error"); return; }
+    if (trabajadores < 1) { toast.show("Indica la cantidad de trabajadores", "error"); return; }
+    if (horas <= 0) { toast.show("Indica las horas de trabajo", "error"); return; }
+    if (precio <= 0) { toast.show("Indica el precio por hora", "error"); return; }
+
     setBusy(true);
     try {
-      await api.post("/actividades", { ...form, fecha_actividad: form.fecha_actividad + "T12:00:00.000Z" });
-      toast.show("Actividad registrada");
+      const N = lotesDestino.length;
+      const trabPorLote = trabajadores / N;
+      for (const lote of lotesDestino) {
+        await api.post("/actividades", {
+          tipo: form.tipo,
+          tipo_personalizado: form.tipo === "otra" ? form.tipo_personalizado.trim() : null,
+          cantidad_trabajadores: trabPorLote,
+          horas_trabajo: horas,
+          precio_hora: precio,
+          lote,
+          fecha_actividad: form.fecha + "T12:00:00.000Z",
+          observaciones: form.observaciones + (N > 1 ? ` (repartida entre ${N} lotes)` : ""),
+          origen: "registro_manual",
+        });
+      }
+      toast.show(`Actividad registrada en ${N} lote${N > 1 ? "s" : ""}. Nómina y Plantaciones actualizadas.`);
+      reset();
       onSaved();
-    } catch { toast.show("Error", "error"); }
-    finally { setBusy(false); }
+    } catch {
+      toast.show("Error al registrar", "error");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <form className="modal" style={{ maxWidth: 600 }} onClick={(e) => e.stopPropagation()} onSubmit={submit} data-testid="actividad-modal">
-        <h2 className="modal-title">Registrar actividad</h2>
-        <div className="form-grid">
-          <div className="field">
-            <label>Tipo</label>
-            <select className="select" value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })}>{TIPOS.map((t) => <option key={t} value={t}>{t}</option>)}</select>
-          </div>
-          {form.tipo === "otro" && (
-            <div className="field">
-              <label>Especifica</label>
-              <input className="input" value={form.tipo_personalizado} onChange={(e) => setForm({ ...form, tipo_personalizado: e.target.value })} required />
-            </div>
-          )}
-          <div className="field">
-            <label>Lote</label>
-            <select className="select" value={form.lote} onChange={(e) => setForm({ ...form, lote: e.target.value })} required>
-              <option value="">Selecciona...</option>{lotes.map((l) => <option key={l} value={l}>{l}</option>)}
-            </select>
-          </div>
-          <div className="field">
-            <label>Fecha</label>
-            <input type="date" className="input" value={form.fecha_actividad} onChange={(e) => setForm({ ...form, fecha_actividad: e.target.value })} required />
-          </div>
-          <div className="field">
-            <label>Cantidad de trabajadores</label>
-            <input type="number" className="input" value={form.cantidad_trabajadores} onChange={(e) => setForm({ ...form, cantidad_trabajadores: Number(e.target.value) })} required data-testid="act-form-trabajadores" />
-          </div>
-          <div className="field">
-            <label>Horas de trabajo</label>
-            <input type="number" step="0.5" className="input" value={form.horas_trabajo} onChange={(e) => setForm({ ...form, horas_trabajo: Number(e.target.value) })} required data-testid="act-form-horas" />
-          </div>
+    <form className="card" style={{ padding: 24 }} onSubmit={submit} data-testid="registrar-actividad-form">
+      <h2 style={{ margin: 0, fontSize: 22, color: "#0f172a" }}>Nueva Actividad</h2>
+      <p style={{ color: "#64748b", marginTop: 4, marginBottom: 18, fontSize: 14 }}>Completa los campos para dejar registro de la labor realizada</p>
+
+      {/* Tipo de actividad — tiles */}
+      <div style={{ marginBottom: 20 }}>
+        <label style={{ fontWeight: 600, fontSize: 14, color: "#334155" }}>Tipo de Actividad *</label>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginTop: 8 }}>
+          {TIPOS_REGISTRAR.map((t) => {
+            const Icon = t.icon;
+            const active = form.tipo === t.key;
+            return (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setForm({ ...form, tipo: t.key, tipo_personalizado: t.key === "otra" ? form.tipo_personalizado : "" })}
+                data-testid={`act-tipo-${t.key}`}
+                style={{
+                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                  gap: 8, padding: "20px 12px", borderRadius: 12, cursor: "pointer",
+                  background: active ? "#16a34a" : "#fff",
+                  color: active ? "#fff" : "#475569",
+                  border: active ? "2px solid #16a34a" : "1.5px solid #d1fae5",
+                  fontWeight: active ? 700 : 500,
+                  transition: "all 0.15s",
+                }}
+              >
+                <Icon size={28} strokeWidth={1.5} />
+                <span style={{ fontSize: 14 }}>{t.label}</span>
+              </button>
+            );
+          })}
         </div>
-        <div className="field" style={{ marginTop: 14 }}>
-          <label>Observaciones</label>
-          <textarea className="textarea" value={form.observaciones} onChange={(e) => setForm({ ...form, observaciones: e.target.value })} />
+        {form.tipo === "otra" && (
+          <div className="field" style={{ marginTop: 12 }}>
+            <label>Especifica la actividad *</label>
+            <input className="input" placeholder="Ej: poda, transporte, limpieza..." value={form.tipo_personalizado}
+              onChange={(e) => setForm({ ...form, tipo_personalizado: e.target.value })}
+              data-testid="act-tipo-personalizado" />
+          </div>
+        )}
+      </div>
+
+      {/* Lotes */}
+      <div style={{ marginBottom: 20 }}>
+        <label style={{ fontWeight: 600, fontSize: 14, color: "#334155", display: "flex", alignItems: "center", gap: 6 }}>
+          <MapPin size={15} style={{ color: "#f97316" }} /> Lote(s) de Campo *
+        </label>
+        <div style={{ color: "#64748b", fontSize: 12, marginTop: 4, marginBottom: 8 }}>
+          Podés seleccionar varios. Trabajadores se repartirán equitativamente entre los lotes (horas por persona se mantienen).
         </div>
-        <div style={{ marginTop: 10, color: "#64748b", fontSize: 13 }}>
-          Horas-hombre = {form.cantidad_trabajadores} × {form.horas_trabajo} = <b>{form.cantidad_trabajadores * form.horas_trabajo}</b>
+        {lotesPlanta.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <span style={{ fontSize: 13, color: "#64748b" }}>Plantaciones:</span>
+            {lotesPlanta.map((p) => {
+              const active = lotesDestino.includes(p.lote);
+              return (
+                <button key={p.lote} type="button" onClick={() => toggleLote(p.lote)}
+                  data-testid={`act-lote-${p.lote}`}
+                  style={{
+                    padding: "5px 12px", borderRadius: 999, fontSize: 13, cursor: "pointer",
+                    border: active ? "1px solid #16a34a" : "1px solid #bbf7d0",
+                    background: active ? "#16a34a" : "#fff",
+                    color: active ? "#fff" : "#15803d", fontWeight: active ? 600 : 500,
+                  }}>
+                  {p.lote} · {p.nombre}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        <input className="input" style={{ width: "100%" }}
+          placeholder="Agregar más lotes (separados por comas) y Enter…"
+          value={loteInput} onChange={(e) => setLoteInput(e.target.value)} onKeyDown={addFromInput}
+          data-testid="act-lote-input" />
+        {lotesDestino.length > 0 && (
+          <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {lotesDestino.map((l) => (
+              <span key={l} style={{ background: "#ecfdf5", color: "#065f46", padding: "4px 8px 4px 12px", borderRadius: 999, fontSize: 12, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                {l}
+                <button type="button" onClick={() => removeLote(l)} style={{ background: "transparent", border: "none", color: "inherit", cursor: "pointer", padding: 0, display: "inline-flex" }}><X size={12} /></button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Trabajadores · Horas · Precio · Fecha */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 16 }}>
+        <div className="field">
+          <label style={{ display: "flex", alignItems: "center", gap: 6 }}><UsersIcon size={14} style={{ color: "#3b82f6" }} /> Trabajadores *</label>
+          <input type="number" min="1" required className="input" placeholder="Ej: 3"
+            value={form.trabajadores} onChange={(e) => setForm({ ...form, trabajadores: e.target.value })}
+            data-testid="act-trabajadores" />
         </div>
-        <div className="modal-footer">
-          <button type="button" className="btn" onClick={onClose}>Cancelar</button>
-          <button type="submit" className="btn btn-primary" disabled={busy} data-testid="act-form-submit">{busy ? "..." : "Guardar"}</button>
+        <div className="field">
+          <label style={{ display: "flex", alignItems: "center", gap: 6 }}><Clock size={14} style={{ color: "#f97316" }} /> Horas * <span style={{ color: "#94a3b8", fontSize: 11, fontWeight: 400 }}>(por trabajador)</span></label>
+          <input type="number" step="0.5" min="0.5" required className="input" placeholder="Ej: 4.5"
+            value={form.horas} onChange={(e) => setForm({ ...form, horas: e.target.value })}
+            data-testid="act-horas" />
         </div>
-      </form>
-    </div>
+        <div className="field">
+          <label style={{ display: "flex", alignItems: "center", gap: 6 }}><DollarSign size={14} style={{ color: "#16a34a" }} /> Precio por hora *</label>
+          <input type="number" step="0.01" min="0.01" required className="input" placeholder="Ej: 5.00"
+            value={form.precio_hora} onChange={(e) => setForm({ ...form, precio_hora: e.target.value })}
+            data-testid="act-precio" />
+        </div>
+        <div className="field">
+          <label style={{ display: "flex", alignItems: "center", gap: 6 }}><Calendar size={14} style={{ color: "#64748b" }} /> Fecha *</label>
+          <input type="date" required className="input"
+            value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })}
+            data-testid="act-fecha" />
+        </div>
+      </div>
+
+      {/* Totales */}
+      {(trabajadores > 0 && horas > 0) && (
+        <div style={{ marginBottom: 16, padding: 10, background: "#f0fdf4", borderRadius: 8, fontSize: 13, color: "#065f46" }}>
+          Total horas-hombre: <b>{totalHH.toFixed(2)} h</b>
+          {precio > 0 && <> · Costo total: <b>${costo.toFixed(2)}</b></>}
+          {lotesDestino.length > 1 && <> · Por lote: <b>{(trabajadores / lotesDestino.length).toFixed(2)} trab × {horas} h = ${(costo / lotesDestino.length).toFixed(2)}</b></>}
+        </div>
+      )}
+
+      {/* Observaciones */}
+      <div className="field" style={{ marginBottom: 18 }}>
+        <label>Observaciones</label>
+        <textarea className="textarea" rows="4" placeholder="Detalles adicionales sobre la labor realizada (opcional)…"
+          value={form.observaciones} onChange={(e) => setForm({ ...form, observaciones: e.target.value })}
+          data-testid="act-observaciones" />
+      </div>
+
+      {/* Acciones */}
+      <div style={{ display: "flex", gap: 12 }}>
+        <button type="button" className="btn" onClick={reset} data-testid="act-limpiar" style={{ minWidth: 120 }}>Limpiar</button>
+        <button type="submit" className="btn btn-primary" disabled={busy} data-testid="act-submit" style={{ flex: 1, padding: "12px 16px", fontSize: 15, fontWeight: 700 }}>
+          <Plus size={18} /> {busy ? "Registrando…" : "Registrar Actividad"}
+        </button>
+      </div>
+    </form>
   );
 }
 
