@@ -142,6 +142,15 @@ function Ventas({ tipo }) {
     if (!nv.cliente.trim()) { toast.show(esDonacion ? "Ingresa el beneficiario" : "Ingresa el nombre del cliente", "error"); return; }
     if (!Number(nv.cantidad_cestas)) { toast.show("La cantidad de cestas es obligatoria", "error"); return; }
     if (esIngreso && !Number(nv.precio_unitario)) { toast.show("El precio por cesta es obligatorio", "error"); return; }
+    if (Number(nv.cantidad_cestas) > disponible + 0.001) {
+      toast.show(
+        disponible <= 0.001
+          ? `No hay cestas disponibles hoy. Asigná cestas desde "Asignación de destino" antes de ${esDonacion ? "donar" : "vender"}.`
+          : `Solo hay ${disponible.toFixed(2)} cesta(s) disponible(s) hoy. No podés ${esDonacion ? "donar" : "vender"} más de lo asignado.`,
+        "error"
+      );
+      return;
+    }
     await api.post(`/ventas-${tipo}`, {
       fecha: nv.fecha + "T12:00:00.000Z",
       cantidad_cestas: Number(nv.cantidad_cestas),
@@ -268,9 +277,10 @@ function Ventas({ tipo }) {
                 <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}><span style={{ color: "#64748b" }}>Saldo:</span><b style={{ color: nvSaldo > 0.001 ? "#dc2626" : "#16a34a" }}>{fmtMoney(nvSaldo)}</b></div>
               </div>
             </div>
-            <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+            <div style={{ display: "flex", gap: 10, marginTop: 16, alignItems: "center", flexWrap: "wrap" }}>
               <button className="btn" onClick={() => setNv(emptyNv)} data-testid="nv-limpiar">Limpiar</button>
-              <button className="btn btn-primary" onClick={registrarVenta} data-testid="nv-registrar"><Plus size={16} /> Registrar</button>
+              <button className="btn btn-primary" onClick={registrarVenta} disabled={disponible <= 0.001} data-testid="nv-registrar"><Plus size={16} /> Registrar</button>
+              {disponible <= 0.001 && <span style={{ color: "#dc2626", fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}><AlertCircle size={14} /> Sin cestas disponibles hoy. Asigná desde "Asignación de destino".</span>}
             </div>
           </div>
 
@@ -365,9 +375,10 @@ function Ventas({ tipo }) {
               <div className="field"><label>Fecha</label><input type="date" className="input" value={nv.fecha} onChange={(e) => setNv({ ...nv, fecha: e.target.value })} data-testid="nv-fecha" /></div>
             </div>
             <div className="field" style={{ marginTop: 12 }}><label>Observaciones</label><input className="input" placeholder="Notas opcionales..." value={nv.observaciones} onChange={(e) => setNv({ ...nv, observaciones: e.target.value })} data-testid="nv-obs" /></div>
-            <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+            <div style={{ display: "flex", gap: 10, marginTop: 16, alignItems: "center", flexWrap: "wrap" }}>
               <button className="btn" onClick={() => setNv(emptyNv)} data-testid="nv-limpiar">Limpiar</button>
-              <button className="btn btn-primary" onClick={registrarVenta} data-testid="nv-registrar"><Plus size={16} /> Registrar</button>
+              <button className="btn btn-primary" onClick={registrarVenta} disabled={disponible <= 0.001} data-testid="nv-registrar"><Plus size={16} /> Registrar</button>
+              {disponible <= 0.001 && <span style={{ color: "#dc2626", fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}><AlertCircle size={14} /> Sin cestas disponibles hoy. Asigná desde "Asignación de destino".</span>}
             </div>
           </div>
 

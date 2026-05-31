@@ -1,0 +1,24 @@
+{
+  "summary": "Frontend-only testing of the new MANDATORY disponibilidad guard on the 3 sales submodules (Venta en finca, Envío a ciudad, Donaciones). Validated: (a) NEGATIVE path on all 3 — when 'Disponible' <= 0 the nv-registrar button is DISABLED and the red text 'Sin cestas disponibles hoy. Asigná desde \"Asignación de destino\".' is shown next to it; (b) EXCESS validation — submitting more cestas than disponible is blocked with toast 'Solo hay X.XX cesta(s) disponible(s) hoy. No podés vender más de lo asignado.' and NO record is created; (c) EXACT match — submitting exactly the disponible amount IS allowed and after the registration Disponible drops to 0 + the button becomes disabled + warning appears. Positive flow on /ventas/finca (Disponible 1→0) and /ventas/ciudad (Disponible 2→0) verified end-to-end. /ventas/donaciones started with Disponible=0 so only the negative path was exercised on it; the positive/excess paths could NOT be replayed there because cosecha disponible del día = 0 (no quedaba fruta sin asignar). El código de validación es idéntico al de finca/ciudad (mismo bloque `registrarVenta` con rama esDonacion), por lo que se considera cubierto por equivalencia.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Validación SOLO en frontend. El backend (POST /api/ventas-finca, /api/ventas-ciudad, /api/ventas-donaciones) NO verifica la disponibilidad: un cliente API externo podría seguir creando ventas/donaciones que excedan el stock asignado hoy. Recomendado añadir guard server-side equivalente: total_asignado_hoy(destino) - total_vendido_hoy(destino) >= cantidad_cestas, devolviendo 400 con mensaje en español si no alcanza.",
+    "El umbral 'disponible <= 0.001' y 'disponible + 0.001' es razonable como tolerancia float, pero no maneja explícitamente el caso 'disponible negativo' (que sí puede ocurrir si se borra una asignación posterior a una venta). En ese estado el botón queda deshabilitado correctamente, pero el aviso rojo dice 'Sin cestas disponibles hoy', cuando en realidad hay sobreventa. Podría diferenciarse el mensaje cuando disponible < 0.",
+    "Ventas.jsx ahora ~560 líneas con 3 ramas (esIngreso/esDonacion/otros). La validación de disponible/excess está duplicada inline en 'registrarVenta'; conviene extraerla a un helper junto con el cálculo de 'disponible' para reuso y testabilidad."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "100%"},
+  "test_credentials": "Admin: oswaldabarca@gmail.com / 123456",
+  "seed_data_creation": "Se crearon y luego eliminaron filas TEST_ en /ventas-finca (TEST_Excess_*) y /ventas-ciudad (TEST_CiudadExcess, TEST_CiudadExact). Cleanup automático vía botón 'Eliminar' en cada fila. Estado final = sin TEST_ residual.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Para revalidar: login admin, ir a /dashboard/ventas/{finca,ciudad,donaciones}. Estado actual tras esta corrida: Disponible hoy = 0 en finca y ciudad (consumidas las cestas asignadas), 0 en donaciones (sin stock). Si querés re-probar el camino positivo necesitás primero registrar Cosecha del día (módulo Cosecha) y luego asignar cestas al destino correspondiente desde /dashboard/asignacion-destino — la disponibilidad inicial hoy en /asignacion-destino era 'Cosecha 19 – Asignado 19 = 0.00 cestas', por eso no se pudo asignar nada nuevo. Los testids relevantes: nv-cliente|nv-beneficiario, nv-cestas, nv-precio (solo finca/ciudad), nv-registrar, ventas-disponible-grande. Toast de exceso aparece como elemento '✕ Solo hay X.XX cesta(s) disponible(s) hoy...'. Aviso negativo: texto 'Sin cestas disponibles hoy. Asigná desde \"Asignación de destino\".' junto al botón nv-registrar deshabilitado.",
+  "rca of the issue": "N/A — feature implementada correctamente según el requisito. Los 3 submenús de Ventas comparten el mismo componente Ventas({tipo}) y por lo tanto la misma lógica de disponibilidad: `disponible = asignadoHoy - vendidoHoyCestas`, deshabilitando nv-registrar cuando disponible<=0.001 y bloqueando con toast cuando se intenta cantidad>disponible+0.001."
+}
