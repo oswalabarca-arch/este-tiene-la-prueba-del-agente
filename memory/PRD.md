@@ -202,6 +202,18 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - Se movió la tarjeta **"Registro de cosecha"** (con sus filtros período/variedad, toggle Cestas/kg y tabla) al **final** de la pestaña, debajo de "Calidades por variedad". Nuevo orden: Totales por variedad → [Calidades del lote | Rendimiento por planta] → Calidades por variedad → Registro de cosecha.
 - Reordenamiento puro (sin cambio de lógica). Lint OK, sin testids duplicados, orden verificado.
 
+## Fix + Rediseño (Plantación · Cosechas · "Producción en el tiempo" — 01/02/2026)
+- **BUG resuelto:** la pestaña **Cosechas** del detalle de Plantación no abría (quedaba en blanco). Causa raíz: el gráfico usaba `<BarChart>/<Bar>` de recharts que ya **no estaban importados** (cambio previo a mitad de tarea) → crash al renderizar `CosechasTab`.
+- **Rediseño del gráfico** (según mockup `grafico de cestas y tiempo por modulo.png`): se reemplazó el gráfico de barras por **"Producción en el tiempo"**, un **AreaChart apilado por calidad** en **kg** (eje Y = Producción (kg)):
+  - Áreas apiladas con gradiente: **1ª verde, 2ª azul, 3ª ámbar, Descarte rojo** (`grad-<key>`).
+  - **Selector de Año** (`cosecha-serie-anio`) — por defecto el año actual; opciones = años presentes en datos.
+  - Toggle **Por semana (52)** (`cosecha-serie-semana`) / **Por mes (12)** (`cosecha-serie-mes`).
+  - **Filtro de variedad** (`cosecha-serie-variedad`) y **toggles de calidad** (`cosecha-serie-cal-<key>`) para mostrar/ocultar capas.
+  - **4 tarjetas resumen** (`cosecha-serie-resumen`): **PICO MÁXIMO**, **MÍNIMO (CON DATOS)**, **PROMEDIO (PERÍODOS CON DATOS)**, **TOTAL {año}** (componente `ResumenCard`).
+  - Estado vacío `cosecha-serie-empty` cuando el año/variedad no tiene datos.
+- Cambio 100% frontend (`PlantacionDetail.jsx`). Lint OK. Testing frontend **100%** (iteration_18.json): no-crash, render del area chart, selector de año (vacío en 2024), toggles semana/mes, filtro variedad, toggles de calidad, 4 tarjetas (l1: PICO Abr·560, MIN May·168, PROM 364, TOTAL 728 kg) y regresiones (cestas/kg, tabla, consolidado, calidades del lote, rendimiento por planta).
+- Nota: datos de cosecha sólo existen para **2026**. `PlantacionDetail.jsx` ya tiene ~877 líneas → candidato a refactor (dividir tabs en archivos).
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.
