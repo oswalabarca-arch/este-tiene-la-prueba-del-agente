@@ -1,0 +1,30 @@
+{
+  "summary": "Tested NEW Inventario manual entries feature (donaciones/producción propia/ajustes). Backend: 7/7 pytest passing; POST/GET/DELETE /api/inventario/entradas funcionan; producto creado aparece en /api/inventario (total_disponible suma) y queda excluido de /api/compras; al eliminar la entrada desaparece del stock. Frontend: en /dashboard/inventario el botón 'Registrar producto' abre el modal, todos los campos (fecha/categoría/nombre/cantidad/precio) funcionan, el producto aparece en la tabla principal y en la tarjeta 'Entradas manuales', y el botón de basura lo elimina correctamente. Regresión OK (KPIs, filtro por categoría).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_inventario_entradas.py",
+    "/app/test_reports/pytest/iter27_inventario.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py ya supera ~1540 líneas; ideal partir endpoints por dominio (inventario, compras, aplicaciones) en módulos separados para mantener legibilidad — no bloqueante.",
+    "EntradaInventarioIn permite precio negativo: agregar Pydantic Field(ge=0) para evitar valores absurdos (mejora menor).",
+    "Endpoint DELETE /api/inventario/entradas/{eid} no valida que el doc tenga origen='ajuste' antes de borrar; en teoría un id de compra real podría borrarse desde este endpoint. Recomendado agregar filtro {'_id': eid, 'origen': 'ajuste'} antes del delete (seguridad).",
+    "Inventario.jsx: hay dos botones 'inv-entrada-new-btn' e 'inv-entrada-new-btn-2' que abren el mismo modal — duplicación menor, los testids permiten distinguir."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_inventario_entradas.py (creado)"
+  ],
+  "success_rate": {"backend": "100% (7/7)", "frontend": "100%"},
+  "test_credentials": "oswaldabarca@gmail.com / 123456 (admin)",
+  "seed_data_creation": "Se crearon entradas TEST_EntradaManual_<uuid> y TESTUI_ProdManual_002 que se eliminaron al final (cleanup). No quedan datos sucios.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Feature 'Registrar producto' en /dashboard/inventario verificada end-to-end. Testids clave: inv-entrada-new-btn (botón header) / inv-entrada-new-btn-2 (botón en tarjeta), inv-entrada-modal, inv-entrada-fecha, inv-entrada-categoria (valores: fertilizantes/plaguicidas/fungicidas/herbicidas/tratamiento/semillas/otros — plurales), inv-entrada-nombre, inv-entrada-cantidad, inv-entrada-precio, inv-entrada-submit, inv-entradas-card, inv-entrada-row, inv-entrada-del-<id>. Backend almacena en colección 'compras' con origen='ajuste', es_equipo=False; /api/compras filtra origen!='ajuste'. El cleanup test_cleanup_main_entrada está al final del archivo pytest.",
+  "rca of the issue": "N/A — feature implementada correctamente y sin bugs detectados."
+}

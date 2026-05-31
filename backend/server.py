@@ -615,7 +615,7 @@ class CompraIn(BaseModel):
 
 @api.get("/compras")
 async def list_compras(_: dict = Depends(get_current_user)):
-    return await _list("compras", "compras", sort_field="fecha_compra")
+    return await _list("compras", "compras", filt={"origen": {"$ne": "ajuste"}}, sort_field="fecha_compra")
 
 
 @api.post("/compras")
@@ -658,6 +658,49 @@ async def update_compra(cid: str, payload: CompraIn, _: dict = Depends(get_curre
 @api.delete("/compras/{cid}")
 async def delete_compra(cid: str, _: dict = Depends(get_current_user)):
     return await _delete("compras", cid)
+
+
+# ----- Entradas manuales de inventario -----
+# Productos que NO entran por compras: se registran directamente en el módulo
+# Inventario. Se guardan en la colección `compras` con origen="ajuste" para que
+# fluyan automáticamente al inventario, al PEPS y a la validación de stock, pero
+# se excluyen del listado del módulo Compras.
+class EntradaInventarioIn(BaseModel):
+    categoria: str
+    nombre_producto: str
+    cantidad: float
+    unidad: str = "Unidades"
+    precio: float = 0  # valor/costo total (opcional; 0 si el producto no tiene costo de compra)
+    descripcion: Optional[str] = ""
+    fecha: str  # fecha de la entrada (se mapea a fecha_compra para el cálculo PEPS)
+
+
+@api.get("/inventario/entradas")
+async def list_entradas_inventario(_: dict = Depends(get_current_user)):
+    docs = await db.compras.find({"origen": "ajuste"}).sort("fecha_compra", -1).to_list(5000)
+    return {"entradas": docs}
+
+
+@api.post("/inventario/entradas")
+async def create_entrada_inventario(payload: EntradaInventarioIn, user: dict = Depends(get_current_user)):
+    data = payload.model_dump()
+    doc = {
+        "categoria": data["categoria"],
+        "nombre_producto": data["nombre_producto"],
+        "precio": float(data.get("precio") or 0),
+        "cantidad": float(data["cantidad"]),
+        "unidad": data.get("unidad") or "Unidades",
+        "descripcion": data.get("descripcion", "") or "",
+        "fecha_compra": data["fecha"],
+        "es_equipo": False,
+        "origen": "ajuste",
+    }
+    return await _create("compras", doc, user)
+
+
+@api.delete("/inventario/entradas/{eid}")
+async def delete_entrada_inventario(eid: str, _: dict = Depends(get_current_user)):
+    return await _delete("compras", eid)
 
 
 async def _compute_peps_remaining_per_product() -> Dict[str, Dict[str, Any]]:
