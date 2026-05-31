@@ -245,6 +245,11 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - `AplicacionesTab` reescrito (hooks antes del early-return). Cambio 100% frontend. Lint OK.
 - Testing frontend **100%** (iteration_23.json, 11/11): donut Cantidad (3), Costo $ (fert $44.59 + herb $8.00 = $52.59), Costo % (85%/15%); filtros período/tipo y Limpiar OK; donut no se filtra; sin regresiones.
 
+## Implementado (Plantación · Labores de personal · totales por tipo — 01/02/2026)
+- En la pestaña **"Labores de personal"** se agregó la tarjeta **"Totales por tipo"** (`plant-labores-totales-tipo`) **arriba de la tabla de registros** (entre los KPIs y el detalle).
+- Agrupa por tipo de labor (`tipo_personalizado || tipo`) con columnas **Tipo · Labores (conteo) · Horas-hombre · Costo** (filas `plant-labores-tipo-row`) + fila **Total general**. Usa `actBadge` para el color del tipo.
+- Cambio 100% frontend, aditivo. Lint OK. Testing frontend **100%** (iteration_24.json): 6 tipos agrupados, Total general (7 / 29.33 / $101.67) coincide con los KPIs, ubicación y regresión OK.
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.
