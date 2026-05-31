@@ -1,0 +1,35 @@
+{
+  "summary": "Frontend + backend persistence testing of new 'plantas por variedad' + 'total de plantas' feature in Nueva/Editar Plantación modal. All 6 scenarios from review_request passed end-to-end.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "test_results_detail": {
+    "login": "OK (oswaldabarca@gmail.com)",
+    "open_modal": "plantaciones-new-btn -> plantacion-modal visible",
+    "total_block_hidden_with_0_variedades": "plant-form-total-plantas not present (PASS)",
+    "total_block_hidden_with_1_variedad": "After adding only 'Albion', plant-form-total-plantas not present (PASS)",
+    "total_block_visible_with_2_variedades": "After adding 'San Andreas', plant-form-total-plantas appears with valor=2000 (1200+800) (PASS)",
+    "live_update": "Changing Albion 1200->1500 updates total to 2300 in real time (PASS)",
+    "remove_variedad": "Clicking X on 'San Andreas' chip removes its row AND hides total block (back to 1 var). Quantity excluded from total (PASS)",
+    "save_persistence": "Submit creates plantación, modal closes. Reopening in Edit mode pre-populates plant-form-variedad-cantidad-Albion=1200 and plant-form-variedad-cantidad-San Andreas=800; total recalculates to 2000 (PASS)",
+    "label_variedades_count": "'· 2 variedades' shown alongside 'Total de plantas de la plantación' (PASS)",
+    "cleanup": "DELETE /api/plantaciones/{id} -> 200 {success:true}; subsequent list confirms no TEST_ plantaciones remain"
+  },
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Total format: total uses toLocaleString('es-ES') which renders 2000 as '2.000' in real browser, but in this Chromium test env it rendered as '2000' (no thousand separator). Locale resolution depends on the build's Intl data; verify in production. Not a functional bug.",
+    "Plantaciones.jsx is ~379 lines, still under 700 threshold but PlantacionModal is growing — consider extracting to its own file (PlantacionModal.jsx) for maintainability.",
+    "Submit always sets inventario_plantas = totalPlantas. If a user only fills 1 variedad without entering plantas, inventario_plantas will be 0 (overwrites any prior value on edit). Confirm desired semantics for the 1-variedad case."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (persistence verified by Edit reopen + cleanup DELETE 200)", "frontend": "100%"},
+  "test_credentials": "Admin oswaldabarca@gmail.com / 123456",
+  "seed_data_creation": "Created TEST_PLANT_VARIEDADES plantación (id 2619e66b-c653-4fbb-bdf9-385fcf3e19a8) and DELETED via API after test. List endpoint confirms 0 TEST_ plantaciones remain.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Feature 'plantas por variedad + total condicional (>=2 vars)' is fully working in /dashboard/plantaciones modal. Key testids: plantaciones-new-btn, plantacion-modal, plant-form-nombre, plant-form-lote, plant-form-variedad-input, plant-form-variedad-add, plant-form-variedad-row-<name>, plant-form-variedad-cantidad-<name>, plant-form-total-plantas, plant-form-total-plantas-valor, plant-form-submit. Backend persists plantas_por_variedad (Dict[str,float]) and total_plantas (float) on POST/PUT /api/plantaciones; DELETE /api/plantaciones/{id} works."
+}

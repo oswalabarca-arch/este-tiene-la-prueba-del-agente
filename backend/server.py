@@ -339,6 +339,8 @@ class PlantacionIn(BaseModel):
     variedad: str = ""  # mantenido por compatibilidad
     cultivos: List[str] = []  # NUEVO: lista de cultivos (fresa, arándano, etc.)
     variedades: List[str] = []  # NUEVO: lista de variedades (albion, san andreas, etc.)
+    plantas_por_variedad: Dict[str, float] = {}  # NUEVO: cantidad de plantas por variedad
+    total_plantas: float = 0  # NUEVO: total de plantas de la plantación (suma de variedades)
     inventario_plantas: float = 0
     cobertura: str = ""
     sistema_riego: str = ""

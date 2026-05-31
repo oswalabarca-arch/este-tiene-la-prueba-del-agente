@@ -140,6 +140,7 @@ function PlantacionModal({ initial, onClose, onSaved }) {
     ...initial,
     cultivos: initialCultivos,
     variedades: initialVariedades,
+    plantas_por_variedad: initial.plantas_por_variedad || {},
     fecha_inicio: (initial.fecha_inicio || "").slice(0, 10),
     fecha_finalizacion: (initial.fecha_finalizacion || "").slice(0, 10),
   });
@@ -158,10 +159,20 @@ function PlantacionModal({ initial, onClose, onSaved }) {
   const addVariedad = () => {
     const v = variedadInput.trim();
     if (!v) return;
-    if (!form.variedades.includes(v)) setForm({ ...form, variedades: [...form.variedades, v] });
+    if (!form.variedades.includes(v)) {
+      setForm({ ...form, variedades: [...form.variedades, v], plantas_por_variedad: { ...form.plantas_por_variedad, [v]: form.plantas_por_variedad[v] || 0 } });
+    }
     setVariedadInput("");
   };
-  const removeVariedad = (c) => setForm({ ...form, variedades: form.variedades.filter((x) => x !== c) });
+  const removeVariedad = (c) => {
+    const { [c]: _omit, ...rest } = form.plantas_por_variedad;
+    setForm({ ...form, variedades: form.variedades.filter((x) => x !== c), plantas_por_variedad: rest });
+  };
+  const setPlantasVariedad = (nombre, val) => {
+    setForm((f) => ({ ...f, plantas_por_variedad: { ...f.plantas_por_variedad, [nombre]: val === "" ? 0 : Number(val) } }));
+  };
+  const totalPlantas = form.variedades.reduce((s, v) => s + Number(form.plantas_por_variedad[v] || 0), 0);
+  const numPlantas = (n) => (n === 0 || n === undefined || n === null || n === "" ? "" : n);
 
   const handlePhotoChange = async (key, e) => {
     const file = e.target.files?.[0];
@@ -180,6 +191,9 @@ function PlantacionModal({ initial, onClose, onSaved }) {
         ...form,
         cultivo: form.cultivos[0] || "",
         variedad: form.variedades[0] || "",
+        plantas_por_variedad: form.plantas_por_variedad,
+        total_plantas: totalPlantas,
+        inventario_plantas: totalPlantas || Number(form.inventario_plantas || 0),
         fecha_inicio: form.fecha_inicio || null,
         fecha_finalizacion: form.fecha_finalizacion || null,
         superficie_geometrica: Number(form.superficie_geometrica || 0),
@@ -270,8 +284,8 @@ function PlantacionModal({ initial, onClose, onSaved }) {
         {/* Variedades */}
         <div style={{ marginTop: 18 }}>
           <label style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>Variedades del cultivo</label>
-          <div style={{ color: "#64748b", fontSize: 12, marginBottom: 8 }}>Agrega una o más variedades (Albion, San Andreas, etc.)</div>
-          <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+          <div style={{ color: "#64748b", fontSize: 12, marginBottom: 8 }}>Agrega una o más variedades e indica la cantidad de plantas de cada una (Albion, San Andreas, etc.)</div>
+          <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
             <input
               className="input"
               placeholder="Ej: Albion"
@@ -282,15 +296,38 @@ function PlantacionModal({ initial, onClose, onSaved }) {
             />
             <button type="button" className="btn btn-primary" onClick={addVariedad} data-testid="plant-form-variedad-add"><Plus size={14} /> Agregar</button>
           </div>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {form.variedades.map((c) => (
-              <span key={c} className="badge badge-purple" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 8px 5px 12px" }}>
-                {c}
-                <button type="button" onClick={() => removeVariedad(c)} style={{ background: "transparent", border: "none", color: "inherit", cursor: "pointer", padding: 0, display: "inline-flex" }}><X size={12} /></button>
-              </span>
+              <div key={c} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: "#faf5ff", border: "1px solid #e9d5ff", borderRadius: 8, padding: "8px 12px" }} data-testid={`plant-form-variedad-row-${c}`}>
+                <span className="badge badge-purple" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 8px 5px 12px" }}>
+                  {c}
+                  <button type="button" onClick={() => removeVariedad(c)} style={{ background: "transparent", border: "none", color: "inherit", cursor: "pointer", padding: 0, display: "inline-flex" }} title="Quitar variedad"><X size={12} /></button>
+                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
+                  <Sprout size={14} style={{ color: "#16a34a" }} />
+                  <label style={{ fontSize: 12, color: "#64748b" }}>Plantas:</label>
+                  <input
+                    type="number" min="0" step="1" className="input" style={{ width: 130 }} placeholder="0"
+                    value={numPlantas(form.plantas_por_variedad[c])}
+                    onChange={(e) => setPlantasVariedad(c, e.target.value)}
+                    data-testid={`plant-form-variedad-cantidad-${c}`}
+                  />
+                </div>
+              </div>
             ))}
             {form.variedades.length === 0 && <span style={{ color: "#94a3b8", fontSize: 13 }}>Sin variedades agregadas</span>}
           </div>
+
+          {/* Total de plantas (cuando hay más de una variedad) */}
+          {form.variedades.length >= 2 && (
+            <div style={{ marginTop: 12, padding: "12px 16px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }} data-testid="plant-form-total-plantas">
+              <div style={{ fontSize: 14, color: "#15803d", fontWeight: 600 }}>
+                <Sprout size={16} style={{ verticalAlign: "middle" }} /> Total de plantas de la plantación
+                <span style={{ color: "#64748b", fontWeight: 400, fontSize: 12 }}> · {form.variedades.length} variedades</span>
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: "#16a34a" }} data-testid="plant-form-total-plantas-valor">{totalPlantas.toLocaleString("es-ES")}</div>
+            </div>
+          )}
         </div>
 
         {/* Fotos */}
