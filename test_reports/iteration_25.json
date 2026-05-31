@@ -1,0 +1,24 @@
+{
+  "summary": "Frontend-only test of LaboresTab redesign in PlantacionDetail.jsx (lote L2 'ana', 7 labores). Verified: (1) columna 'Labores' eliminada — tabla 'Totales por tipo' tiene SOLO 3 columnas (Tipo / Horas-hombre / Costo) y tfoot 'Total general' también 3 celdas. (2) Tabla a media columna (flex 1 1 320px, width=479px) y al lado la GRÁFICA CIRCULAR 'plant-labores-tipo-chart' en la MISMA fila (ambos boxes y=206.5, x=590 y x=1087). (3) Toggle 'plant-labores-metric' con 3 botones (horas/costo/pct) — los 3 funcionan. Modo Horas-H: leyenda muestra '1.33 h', '10.67 h' etc., centro '29 HORAS-HOMBRE'. Modo Costo $: leyenda '$66.67','$13.33',... centro '$102 COSTO TOTAL'. Modo %: leyenda 66/13/12/5/2/2 (suma=100), centro '$102 COSTO TOTAL' como referencia. Coherencia: total general tabla (29.33 / $101.67) = KPIs superiores = donut totals. REGRESIÓN OK: 3 KPIs intactos y tabla detallada (Fecha/Tipo/Trabajadores/Horas/Precio-hr/Horas-H/Costo/Origen) debajo de la fila Totales+gráfica.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/labores_metric_pct.png", "/app/test_reports/labores_pct.png"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PlantacionDetail.jsx tiene 1183 líneas — superior al límite recomendado de 700; considerar dividir (LaboresTab, CosechasTab, AplicacionesTab, etc. a archivos separados).",
+    "Tooltip de recharts: el formatter recibe payload con 'tipo' en minúsculas; visualmente correcto pero el tooltip muestra el tipo en minúscula via CSS textTransform — OK pero verificar.",
+    "El centro del donut usa toFixed(0) (29 / $102) mientras tabla y KPI usan toFixed(2) (29.33 / $101.67). Es consistente con un 'resumen' y aceptable, sólo aclaro la diferencia."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped)", "frontend": "100%"},
+  "test_credentials": "oswaldabarca@gmail.com / 123456 (admin)",
+  "seed_data_creation": "Ninguno — se usó la plantación seedeada 'ana' (lote L2) con 7 labores ya existentes.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Cambio en LaboresTab de PlantacionDetail.jsx pasó al 100%. Si necesitas re-test, basta con loguearte admin → /dashboard/plantaciones → abrir 'ana' → tab 'Labores de personal'. Selectores clave: plant-tab-labores, plant-labores-totales-tipo (3 cols), plant-labores-tipo-chart, plant-labores-metric-{horas|costo|pct}, plant-labores-legend-<tipo>. Valores esperados: 29.33 h / $101.67 / 7 labores.",
+  "rca of the issue": "N/A — feature passed."
+}

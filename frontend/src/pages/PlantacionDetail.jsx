@@ -7,7 +7,7 @@ import {
   ArrowLeft, Pencil, Trash2, ImagePlus,
   Droplets, Users as UsersIcon, Apple, Sprout, TrendingUp,
 } from "lucide-react";
-import { catBadge, actBadge, catColor } from "../lib/categoryColors";
+import { catBadge, actBadge, catColor, actColor } from "../lib/categoryColors";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
 import { PeriodPicker, currentMonthStr, currentYearStr } from "../components/PeriodPicker";
 
@@ -532,6 +532,8 @@ function AplicacionesTab({ items }) {
 }
 
 function LaboresTab({ items }) {
+  const [laborMetric, setLaborMetric] = useState("horas"); // horas | costo | pct
+
   if (items.length === 0) return <div className="card empty-state">Sin labores registradas en este lote</div>;
   const totalHH = items.reduce((s, a) => s + (a.horas_hombre || 0), 0);
   const totalCosto = items.reduce((s, a) => s + (a.costo_total || 0), 0);
@@ -547,6 +549,18 @@ function LaboresTab({ items }) {
   });
   const tipoRows = Object.values(porTipo).sort((a, b) => b.costo - a.costo);
 
+  // Métrica activa de la gráfica circular (horas | costo | pct)
+  const dataKey = laborMetric === "horas" ? "hh" : "costo";
+  const totalMetric = laborMetric === "horas" ? totalHH : totalCosto;
+  const fmtLabor = (r) => {
+    if (laborMetric === "horas") return `${(r.hh || 0).toFixed(2)} h`;
+    if (laborMetric === "pct") return `${totalCosto > 0 ? (((r.costo || 0) / totalCosto) * 100).toFixed(0) : "0"}%`;
+    return `$${(r.costo || 0).toFixed(2)}`;
+  };
+  const centerLabor = laborMetric === "horas"
+    ? { num: totalHH.toFixed(0), label: "horas-hombre" }
+    : { num: `$${totalCosto.toFixed(0)}`, label: "costo total" };
+
   return (
     <>
       <div className="kpi-grid" style={{ marginBottom: 14 }}>
@@ -555,40 +569,86 @@ function LaboresTab({ items }) {
         <div className="card kpi-card"><div className="kpi-label">Costo mano de obra</div><div className="kpi-value" style={{ color: "#16a34a" }}>${totalCosto.toFixed(2)}</div></div>
       </div>
 
-      {/* Totales por tipo — arriba de los registros */}
-      <div className="card" style={{ marginBottom: 14 }} data-testid="plant-labores-totales-tipo">
-        <h3 style={{ marginTop: 0, marginBottom: 2 }}>Totales por tipo</h3>
-        <p style={{ color: "#64748b", marginTop: 0, marginBottom: 14, fontSize: 12 }}>
-          Suma de labores, horas-hombre y costo de mano de obra agrupados por tipo de labor.
-        </p>
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Tipo</th>
-              <th style={{ textAlign: "right" }}>Labores</th>
-              <th style={{ textAlign: "right" }}>Horas-hombre</th>
-              <th style={{ textAlign: "right" }}>Costo</th>
-            </tr>
-          </thead>
-          <tbody>
-            {tipoRows.map((r) => (
-              <tr key={r.tipo} data-testid="plant-labores-tipo-row">
-                <td><span className="badge" style={actBadge(r.tipo)}>{r.tipo}</span></td>
-                <td style={{ textAlign: "right", fontWeight: 600 }}>{r.count}</td>
-                <td style={{ textAlign: "right", fontWeight: 600, color: "#8b5cf6" }}>{r.hh.toFixed(2)}</td>
-                <td style={{ textAlign: "right", fontWeight: 700, color: "#16a34a" }}>${r.costo.toFixed(2)}</td>
+      {/* Fila: Totales por tipo (mitad) + Distribución por tipo (mitad) — arriba de los registros */}
+      <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginBottom: 14, alignItems: "stretch" }}>
+        {/* Totales por tipo — sin columna "Labores" */}
+        <div className="card" style={{ flex: "1 1 320px", minWidth: 0, marginBottom: 0 }} data-testid="plant-labores-totales-tipo">
+          <h3 style={{ marginTop: 0, marginBottom: 2 }}>Totales por tipo</h3>
+          <p style={{ color: "#64748b", marginTop: 0, marginBottom: 14, fontSize: 12 }}>
+            Horas-hombre y costo de mano de obra agrupados por tipo de labor.
+          </p>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th style={{ textAlign: "right" }}>Horas-hombre</th>
+                <th style={{ textAlign: "right" }}>Costo</th>
               </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 800 }}>
-              <td>Total general</td>
-              <td style={{ textAlign: "right" }}>{items.length}</td>
-              <td style={{ textAlign: "right", color: "#8b5cf6" }}>{totalHH.toFixed(2)}</td>
-              <td style={{ textAlign: "right", color: "#16a34a" }}>${totalCosto.toFixed(2)}</td>
-            </tr>
-          </tfoot>
-        </table>
+            </thead>
+            <tbody>
+              {tipoRows.map((r) => (
+                <tr key={r.tipo} data-testid="plant-labores-tipo-row">
+                  <td><span className="badge" style={actBadge(r.tipo)}>{r.tipo}</span></td>
+                  <td style={{ textAlign: "right", fontWeight: 600, color: "#8b5cf6" }}>{r.hh.toFixed(2)}</td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: "#16a34a" }}>${r.costo.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 800 }}>
+                <td>Total general</td>
+                <td style={{ textAlign: "right", color: "#8b5cf6" }}>{totalHH.toFixed(2)}</td>
+                <td style={{ textAlign: "right", color: "#16a34a" }}>${totalCosto.toFixed(2)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        {/* Distribución por tipo — gráfica circular con toggle de métrica */}
+        <div className="card" style={{ flex: "1 1 320px", minWidth: 0, marginBottom: 0 }} data-testid="plant-labores-tipo-chart">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
+            <h3 style={{ margin: 0 }}>Distribución por tipo</h3>
+            <div className="pill-group" style={{ display: "inline-flex", gap: 6 }} data-testid="plant-labores-metric">
+              {[["horas", "Horas-H"], ["costo", "Costo $"], ["pct", "%"]].map(([k, l]) => (
+                <button key={k} type="button" className={`pill ${laborMetric === k ? "active" : ""}`} onClick={() => setLaborMetric(k)} data-testid={`plant-labores-metric-${k}`}>{l}</button>
+              ))}
+            </div>
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 18 }}>
+            <div style={{ width: 180, height: 180, position: "relative", flexShrink: 0, margin: "0 auto" }}>
+              <PieChart width={180} height={180}>
+                <Pie data={tipoRows} dataKey={dataKey} nameKey="tipo" cx="50%" cy="50%" innerRadius={54} outerRadius={84} paddingAngle={3} stroke="#fff" strokeWidth={2} cornerRadius={6}>
+                  {tipoRows.map((r) => <Cell key={r.tipo} fill={actColor(r.tipo).color} />)}
+                </Pie>
+                <Tooltip formatter={(_v, _n, p) => [fmtLabor(p?.payload || {}), p?.payload?.tipo]} contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12, textTransform: "capitalize" }} />
+              </PieChart>
+              <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", textAlign: "center", pointerEvents: "none" }}>
+                <div style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", lineHeight: 1 }}>{centerLabor.num}</div>
+                <div style={{ fontSize: 9.5, color: "#64748b", marginTop: 2, textTransform: "uppercase", letterSpacing: 0.4 }}>{centerLabor.label}</div>
+              </div>
+            </div>
+            <div style={{ flex: 1, minWidth: 160, display: "flex", flexDirection: "column", gap: 8 }}>
+              {tipoRows.map((r) => {
+                const ratio = totalMetric > 0 ? ((laborMetric === "horas" ? r.hh : r.costo) / totalMetric) * 100 : 0;
+                const col = actColor(r.tipo).color;
+                return (
+                  <div key={r.tipo} data-testid={`plant-labores-legend-${r.tipo}`} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ width: 11, height: 11, borderRadius: 4, background: col, flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 3 }}>
+                        <span style={{ fontWeight: 600, fontSize: 12.5, color: "#334155", textTransform: "capitalize" }}>{r.tipo}</span>
+                        <span style={{ fontSize: 12, color: "#0f172a", fontWeight: 700 }}>{fmtLabor(r)}</span>
+                      </div>
+                      <div style={{ height: 5, borderRadius: 999, background: "#f1f5f9", overflow: "hidden" }}>
+                        <div style={{ width: `${ratio}%`, height: "100%", borderRadius: 999, background: col, transition: "width .4s ease" }} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="card">
