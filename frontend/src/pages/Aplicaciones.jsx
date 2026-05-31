@@ -10,6 +10,15 @@ import { PeriodPicker, currentMonthStr, currentYearStr } from "../components/Per
 const TIPOS = ["fertilizacion", "fungicida", "plaguicida", "herbicida", "tratamiento"];
 const UNIDAD = "Unidades";
 
+// Mapeo tipo de aplicación -> categoría de inventario (para filtrar los productos seleccionables)
+const TIPO_TO_CAT = {
+  fertilizacion: "fertilizantes",
+  plaguicida: "plaguicidas",
+  fungicida: "fungicidas",
+  herbicida: "herbicidas",
+  tratamiento: "tratamiento",
+};
+
 export default function Aplicaciones() {
   const toast = useToast();
   const { canEdit, canDelete } = useAuth();
@@ -282,6 +291,10 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
   const isReceta = requiresSubtipo && form.subtipo === "receta";
   const showProductos = form.tipo && (!requiresSubtipo || form.subtipo === "producto");
 
+  // Productos seleccionables: solo los del inventario cuya categoría coincide con el tipo elegido
+  const catFiltro = TIPO_TO_CAT[form.tipo];
+  const productosDisponibles = inventario.filter((x) => x.existencia && (!catFiltro || x.categoria === catFiltro));
+
   const updateRow = (i, key, val) => {
     const rows = [...productoRows];
     rows[i] = { ...rows[i], [key]: val };
@@ -368,7 +381,7 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
         <div className="form-grid">
           <div className="field">
             <label>Tipo de Aplicación *</label>
-            <select className="select" value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value, subtipo: "" })} required data-testid="aplic-tipo">
+            <select className="select" value={form.tipo} onChange={(e) => { setForm({ ...form, tipo: e.target.value, subtipo: "" }); setProductoRows([{ nombre_producto: "", cantidad: 0, unidad: UNIDAD }]); }} required data-testid="aplic-tipo">
               <option value="">Selecciona tipo</option>
               <option value="fertilizacion">Fertilización</option>
               <option value="plaguicida">Plaguicida</option>
@@ -391,17 +404,24 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
 
         {showProductos && (
           <div style={{ marginTop: 18 }}>
-            <label style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>Productos (máx. 3)</label>
+            <label style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>
+              Productos (máx. 3){catFiltro && <span style={{ color: "#64748b", fontWeight: 500 }}> · solo de categoría <b style={{ color: "#0f172a" }}>{catFiltro}</b></span>}
+            </label>
+            {productosDisponibles.length === 0 && (
+              <div style={{ color: "#f59e0b", fontSize: 12, marginTop: 6 }} data-testid="aplic-productos-vacio">
+                No hay productos disponibles de categoría "{catFiltro}" en el inventario.
+              </div>
+            )}
             {productoRows.map((row, i) => (
               <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 8, marginTop: 8, alignItems: "center" }}>
-                <select className="select" value={row.nombre_producto} onChange={(e) => {
+                <select className="select" value={row.nombre_producto} data-testid={`aplic-producto-${i}`} onChange={(e) => {
                   const nombre = e.target.value;
                   const rows = [...productoRows];
                   rows[i] = { ...rows[i], nombre_producto: nombre, unidad: UNIDAD };
                   setProductoRows(rows);
                 }}>
                   <option value="">Producto</option>
-                  {inventario.filter((x) => x.existencia).map((p, idx) => <option key={idx} value={p.nombre_producto}>{p.nombre_producto} ({p.total_disponible} {UNIDAD})</option>)}
+                  {productosDisponibles.map((p, idx) => <option key={idx} value={p.nombre_producto}>{p.nombre_producto} ({p.total_disponible} {UNIDAD})</option>)}
                 </select>
                 <input type="number" className="input" placeholder={`Cantidad (${UNIDAD})`} value={row.cantidad || ""} onChange={(e) => updateRow(i, "cantidad", e.target.value)} />
                 {i === productoRows.length - 1 && productoRows.length < 3 ? (
