@@ -113,6 +113,13 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - Reutiliza el componente compartido `Ventas.jsx` (branch `esDonacion`). Sin cambios de esquema.
 - Testing: backend 100% (5/5, `/app/backend/tests/test_ventas_donaciones.py`) + frontend 100% (iteration_4.json).
 
+## Implementado (Ventas/Donaciones · disponibilidad obligatoria — 31/05/2026)
+- En los 3 submenús de Ventas (Venta en finca, Envío a ciudad, Donaciones) ahora es **obligatorio** tener cestas en "Disponible" para poder vender/donar.
+- `registrarVenta` bloquea si `cantidad_cestas > disponible` (toast: "Solo hay X cesta(s) disponible(s) hoy...") y no crea el registro.
+- El botón "Registrar" (nv-registrar) se **deshabilita** cuando `disponible <= 0` y se muestra aviso rojo: "Sin cestas disponibles hoy. Asigná desde Asignación de destino." `disponible = asignadoHoy − vendidoHoyCestas`.
+- Testing frontend 100% (iteration_5.json): camino negativo (Disponible 0 → bloqueado), exceso (bloqueado), monto exacto (permitido, Disponible→0).
+- Pendiente de endurecimiento (futuro): la validación es solo frontend; un guard de backend debe excluir los POST con `origen=asignacion_destino` (que crean el stock) para no romper la trazabilidad.
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.
