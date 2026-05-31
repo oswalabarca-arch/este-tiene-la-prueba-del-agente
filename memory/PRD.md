@@ -228,6 +228,11 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - Nuevo componente reutilizable `ChartHeader` (header con gradiente + ícono). Cambio 100% frontend y **solo visual** (sin cambios de lógica/datos). Lint OK.
 - Testing frontend **100%** (iteration_20.json): ambos gráficos con estilo moderno, **sin ningún '%'**, y regresiones OK (toggle Cestas/kg, tabla, consolidado, rendimiento por planta, gráfico de áreas).
 
+## Ajuste (Plantación · Cosechas · "Calidades por variedad" muestra kg fuera del gráfico — 01/02/2026)
+- En **"Calidades por variedad"**, cada tarjeta de variedad (`plant-variedad-chart-<variedad>`) ahora muestra **debajo del mini-donut** el desglose de **kg por calidad** (punto de color + nombre + kg + barra de progreso), igual que en "Calidades del lote". Filas con testid `plant-variedad-legend-<variedad>-<key>`.
+- Se eliminó la **leyenda compartida inferior** (ahora redundante). Cambio 100% frontend y solo visual.
+- Testing frontend **100%** (iteration_21.json): kg coherentes (Albion 2380, Alturas 924 → lote 3304 kg), **sin porcentajes**, sin regresiones.
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.
