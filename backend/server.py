@@ -668,9 +668,9 @@ async def delete_compra(cid: str, _: dict = Depends(get_current_user)):
 class EntradaInventarioIn(BaseModel):
     categoria: str
     nombre_producto: str
-    cantidad: float
+    cantidad: float = Field(gt=0)
     unidad: str = "Unidades"
-    precio: float = 0  # valor/costo total (opcional; 0 si el producto no tiene costo de compra)
+    precio: float = Field(default=0, ge=0)  # valor/costo total (opcional; 0 si el producto no tiene costo de compra)
     descripcion: Optional[str] = ""
     fecha: str  # fecha de la entrada (se mapea a fecha_compra para el cálculo PEPS)
 
@@ -700,7 +700,9 @@ async def create_entrada_inventario(payload: EntradaInventarioIn, user: dict = D
 
 @api.delete("/inventario/entradas/{eid}")
 async def delete_entrada_inventario(eid: str, _: dict = Depends(get_current_user)):
-    return await _delete("compras", eid)
+    # Solo permite eliminar entradas manuales (origen='ajuste'), nunca compras reales.
+    res = await db.compras.delete_one({"_id": eid, "origen": "ajuste"})
+    return {"success": res.deleted_count > 0}
 
 
 async def _compute_peps_remaining_per_product() -> Dict[str, Dict[str, Any]]:

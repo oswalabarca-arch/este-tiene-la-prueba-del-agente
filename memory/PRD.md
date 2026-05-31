@@ -260,6 +260,12 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - A la **izquierda** se agregó una tabla **"Totales por tipo"** (`plant-aplicaciones-totales-tipo`) con **solo 2 columnas: Tipo y Costo real** (filas `plant-aplicaciones-totales-row`) + fila Total general. No se filtra.
 - Cambio 100% frontend. Lint OK. Testing frontend **100%** (iteration_26.json): totales izquierda (x=590) / gráfica derecha (x=1077), Total general $52.59 = centro del donut en Costo $, sin regresiones en la tabla de registros inferior.
 
+## Implementado (Inventario · entradas manuales — 01/02/2026)
+- Nuevo **registro de entradas manuales** en el módulo **Inventario** para productos que NO entran por compras (donaciones, producción propia, ajustes).
+- **Backend** (`server.py`): modelo `EntradaInventarioIn` (cantidad>0, precio>=0) + endpoints `GET/POST/DELETE /api/inventario/entradas`. Se guardan en `db.compras` con `origen="ajuste"`, `es_equipo=False` → fluyen automáticamente a inventario, PEPS, costeo y validación de stock. `GET /api/compras` ahora excluye `origen="ajuste"` (no aparecen en el módulo Compras). El DELETE solo borra docs con `origen="ajuste"` (no puede borrar compras reales).
+- **Frontend** (`Inventario.jsx`): botón **"Registrar producto"** + `EntradaModal` (fecha, categoría, nombre con autocompletado, cantidad, valor opcional, descripción) + tarjeta **"Entradas manuales"** (lista con eliminar). Columna de la tabla principal renombrada "Comprado"→"Ingresado".
+- Lint OK (backend y frontend). Testing **100%**: backend 7/7 pytest (`test_inventario_entradas.py`), frontend 100% (iteration_27.json) end-to-end; validaciones 422 y seguridad del DELETE verificadas por curl. Un producto solo ingresado manualmente queda disponible para aplicaciones.
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.
