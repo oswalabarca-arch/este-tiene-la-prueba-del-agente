@@ -284,6 +284,11 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - En **desktop (>1024px)** el sidebar fijo de 256px se mantiene **sin cambios** (sin topbar/hamburguesa). Cambio 100% frontend (`Layout.jsx` + `index.css`). Lint OK.
 - Verificado en vivo: móvil 390px, tablet 768px (hamburguesa + backdrop cierran) y desktop 1920px (sin regresión).
 
+## Fix (Modales · footer sticky en tablet/móvil — 31/05/2026)
+- **BUG (reportado por Oswald):** en tablet no se podían guardar cambios en "Editar usuario". Causa raíz: el modal de usuario es muy alto (tabla de 12 módulos + permisos) y el botón **Guardar** quedaba al final; con la barra del navegador (alto medido en `vh`) el `.modal-footer` quedaba **tapado/inalcanzable** al tocar.
+- **Fix (CSS global, `index.css`):** `.modal-footer` ahora es **`position: sticky; bottom: 0`** (fondo blanco + borde) → Cancelar/Guardar **siempre visibles** sin scrollear, en TODOS los modales. Además `.modal` usa `max-height: 90dvh` (vía `@supports`) para respetar la barra del navegador móvil; en ≤640px se reduce padding del modal, `form-grid` pasa a 1 columna y se ajustan los márgenes del footer.
+- Verificado en vivo (tablet 820×700, alto corto): Guardar visible sin scroll y PUT `/api/users` → **200**, modal cierra. Cambio 100% frontend, lint OK. Nota: para verlo en producción hay que **re-desplegar**.
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.
