@@ -1,0 +1,39 @@
+{
+  "summary": "Frontend-only test de la pestaña Aplicaciones (PlantacionDetail) con foco en (a) el toggle de métrica del donut (Cantidad / Costo $ / Costo %) y (b) los filtros Período + Tipo aplicados sólo a la tabla. Probado con la plantación 'ana' (lote L2) que tiene 2 tipos. TODO funciona como se especificó.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "verified_behaviors": [
+    "Donut Cantidad: leyenda 'fertilizacion:2' y 'herbicida:1'; centro '3 APLICACIONES'.",
+    "Donut Costo $: leyenda 'fertilizacion $44.59' y 'herbicida $8.00' (suma $52.59 == costo total del lote); centro '$53 COSTO TOTAL'.",
+    "Donut Costo %: leyenda '85% / 15%' (suma 100%); centro sigue mostrando '$53 COSTO TOTAL' como referencia, según spec.",
+    "Tabla: Período='todo' por defecto → 3 filas; header 'Aplicaciones · 3' + 'Costo total (PEPS): $52.59'.",
+    "Tabla: Período='mes' (default mes actual = 2026-05 porque la fecha del entorno es 31/May/2026, no Feb como decía el review) → 3 filas (coincide con los datos de Mayo 2026).",
+    "Tabla: cambiar PeriodPicker mes a 2026-02 → tabla vacía con empty state 'Sin aplicaciones para los filtros aplicados'.",
+    "Tabla: PeriodPicker mes 2026-05 → 3 filas.",
+    "Tabla: Período='año' (2026 por defecto) → 3 filas; combobox de año disponible (data-testid='aplic-filtro-picker-anio') con 2021-2027.",
+    "Tabla: Tipo='herbicida' + Año=2026 → 1 fila.",
+    "Donut NO se filtra (sigue mostrando 2 tipos y costo total $52.59) aunque la tabla se reduzca, conforme a la spec.",
+    "Botón 'Limpiar filtros' (data-testid='aplic-filtro-limpiar') restablece período=todo y tipo='' → vuelven 3 filas.",
+    "Regresión: la tabla mantiene columnas Fecha / Tipo / Insumos / Estado / Costo real y el donut conserva el diseño moderno (header con gradiente, leyenda con barras de progreso)."
+  ],
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Nota informativa (no es bug): el data-testid del input de mes/año del PeriodPicker es `${testidPrefix}-picker-mes` / `${testidPrefix}-picker-anio` (ej. `aplic-filtro-picker-mes`), no `aplic-filtro-mes`. La review request mencionaba 'PeriodPicker testidPrefix aplic-filtro' lo cual es correcto, pero el sufijo real es '-picker-mes'. Conviene documentarlo para futuros agentes de testing.",
+    "Observación menor: en modo 'Costo %' la leyenda redondea con toFixed(0); con sólo 2 categorías y valores actuales suma exactamente 100%, pero con más tipos podría sumar 99% o 101% por redondeo. No es bloqueante.",
+    "PlantacionDetail.jsx ya supera las 1070 líneas; considerar dividirlo por pestaña (AplicacionesTab, LaboresTab, CosechasTab) en archivos propios para mantenibilidad."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped)", "frontend": "100% (11/11 escenarios)"},
+  "test_credentials": "oswaldabarca@gmail.com / 123456 (admin) — sin throttling observado.",
+  "seed_data_creation": "Ninguno. Se usaron las plantaciones existentes ('ana' L2 con fertilizacion+herbicida).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "La fecha del entorno es 31/Mayo/2026. Si revisan el filtro 'Mes' default, los datos de Mayo 2026 aparecerán (no quedan vacíos como decía el review). Para validar vacío, fijar PeriodPicker a 2026-02. PeriodPicker testids reales: aplic-filtro-picker-mes (type=month) y aplic-filtro-picker-anio (select).",
+  "rca of the issue": "No se detectaron issues. La supuesta divergencia entre el review ('Mes default debe quedar vacío') y el comportamiento observado ('3 filas') se explica porque la fecha actual del entorno es Mayo 2026 y los datos también son de Mayo 2026; el filtro está aplicando correctamente."
+}

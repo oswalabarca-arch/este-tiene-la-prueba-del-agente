@@ -334,10 +334,17 @@ function PhotoUpload({ value, label }) {
 }
 
 function AplicacionesTab({ items }) {
+  const [aplicMetric, setAplicMetric] = useState("cantidad"); // cantidad | costo | pct
+  const [period, setPeriod] = useState("todo"); // todo | semana | mes | año
+  const [mesSel, setMesSel] = useState(currentMonthStr);
+  const [anioSel, setAnioSel] = useState(currentYearStr);
+  const [filtroTipo, setFiltroTipo] = useState("");
+
   if (items.length === 0) return <div className="card empty-state">Sin aplicaciones registradas en este lote</div>;
+
   const totalCosto = items.reduce((s, a) => s + (a.costo_insumos || 0), 0);
 
-  // Agrupación por tipo (para la gráfica circular)
+  // Agrupación por tipo (para la gráfica circular) — usa TODAS las aplicaciones del lote
   const porTipo = {};
   items.forEach((a) => {
     const tipo = a.tipo || "otros";
@@ -345,46 +352,90 @@ function AplicacionesTab({ items }) {
     porTipo[tipo].count += 1;
     porTipo[tipo].costo += (a.costo_insumos || 0);
   });
-  const tipoData = Object.values(porTipo).sort((a, b) => b.count - a.count);
+  const sortVal = (d) => (aplicMetric === "cantidad" ? d.count : d.costo);
+  const tipoData = Object.values(porTipo).sort((a, b) => sortVal(b) - sortVal(a));
+
+  // Métrica activa de la gráfica circular
+  const totalMetric = aplicMetric === "cantidad" ? items.length : totalCosto;
+  const metricKey = aplicMetric === "cantidad" ? "count" : "costo";
+  const fmtMetricVal = (d) => {
+    if (aplicMetric === "cantidad") return `${d.count}`;
+    if (aplicMetric === "pct") return `${totalCosto > 0 ? ((d.costo / totalCosto) * 100).toFixed(0) : "0"}%`;
+    return `$${d.costo.toFixed(2)}`;
+  };
+  const center = aplicMetric === "cantidad"
+    ? { num: items.length, label: "aplicaciones" }
+    : { num: `$${totalCosto.toFixed(0)}`, label: "costo total" };
+  const metricToggle = (
+    <div className="pill-group" style={{ display: "inline-flex", gap: 6 }} data-testid="plant-aplicaciones-metric">
+      {[["cantidad", "Cantidad"], ["costo", "Costo $"], ["pct", "Costo %"]].map(([k, l]) => (
+        <button key={k} type="button" className={`pill ${aplicMetric === k ? "active" : ""}`} onClick={() => setAplicMetric(k)} data-testid={`plant-aplicaciones-metric-${k}`}>{l}</button>
+      ))}
+    </div>
+  );
+
+  // Filtros del registro (tabla): período + tipo
+  const tiposDisponibles = Array.from(new Set(items.map((a) => a.tipo || "otros"))).sort();
+  const yearSet = new Set(items.map((a) => { const d = new Date(a.fecha); return isNaN(d.getTime()) ? null : String(d.getFullYear()); }).filter(Boolean));
+  yearSet.add(currentYearStr());
+  const years = [...yearSet].sort((a, b) => b.localeCompare(a));
+  const inPeriodo = (fechaStr) => {
+    if (period === "todo") return true;
+    const f = new Date(fechaStr);
+    if (isNaN(f.getTime())) return false;
+    const now = new Date();
+    if (period === "semana") { const s = new Date(now); s.setDate(now.getDate() - now.getDay()); s.setHours(0, 0, 0, 0); const e = new Date(s); e.setDate(s.getDate() + 7); return f >= s && f < e; }
+    if (period === "mes") return f.getFullYear() === Number(mesSel.slice(0, 4)) && (f.getMonth() + 1) === Number(mesSel.slice(5, 7));
+    if (period === "año") return f.getFullYear() === Number(anioSel);
+    return true;
+  };
+  const itemsF = items.filter((a) => inPeriodo(a.fecha) && (filtroTipo ? (a.tipo || "otros") === filtroTipo : true));
+  const totalCostoF = itemsF.reduce((s, a) => s + (a.costo_insumos || 0), 0);
+  const limpiarFiltros = () => { setPeriod("todo"); setFiltroTipo(""); };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       {/* Gráfica circular por tipo — diseño moderno */}
       <div className="card" style={{ padding: 0, overflow: "hidden", border: "1px solid #e2e8f0" }} data-testid="plant-aplicaciones-tipo-chart">
-        <div style={{ background: "linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%)", padding: "18px 24px", borderBottom: "1px solid #e2e8f0" }}>
-          <h3 style={{ margin: 0, display: "inline-flex", alignItems: "center", gap: 9, fontSize: 16, color: "#0f172a" }}>
-            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 9, background: "#3b82f6", color: "#fff" }}>
-              <Droplets size={17} />
-            </span>
-            Aplicaciones por tipo
-          </h3>
-          <p style={{ margin: "6px 0 0 39px", color: "#64748b", fontSize: 12.5 }}>
-            Distribución de las {items.length} aplicaciones de este lote según su tipo.
-          </p>
+        <div style={{ background: "linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%)", padding: "18px 24px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ minWidth: 0 }}>
+            <h3 style={{ margin: 0, display: "inline-flex", alignItems: "center", gap: 9, fontSize: 16, color: "#0f172a" }}>
+              <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 9, background: "#3b82f6", color: "#fff" }}>
+                <Droplets size={17} />
+              </span>
+              Aplicaciones por tipo
+            </h3>
+            <p style={{ margin: "6px 0 0 39px", color: "#64748b", fontSize: 12.5 }}>
+              {aplicMetric === "cantidad"
+                ? `Distribución de las ${items.length} aplicaciones de este lote según su tipo.`
+                : `Distribución del costo real (PEPS) por tipo. Costo total del lote: $${totalCosto.toFixed(2)}.`}
+            </p>
+          </div>
+          {metricToggle}
         </div>
 
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 28, padding: "24px" }}>
           {/* Donut */}
           <div style={{ width: 210, height: 210, position: "relative", flexShrink: 0, margin: "0 auto" }}>
             <PieChart width={210} height={210}>
-              <Pie data={tipoData} dataKey="count" nameKey="tipo" cx="50%" cy="50%" innerRadius={62} outerRadius={96} paddingAngle={3} stroke="#fff" strokeWidth={2} cornerRadius={6}>
+              <Pie data={tipoData} dataKey={metricKey} nameKey="tipo" cx="50%" cy="50%" innerRadius={62} outerRadius={96} paddingAngle={3} stroke="#fff" strokeWidth={2} cornerRadius={6}>
                 {tipoData.map((d) => <Cell key={d.tipo} fill={catColor(d.tipo).color} />)}
               </Pie>
               <Tooltip
-                formatter={(val, _n, p) => [`${val} aplicación(es) · ${((val / items.length) * 100).toFixed(0)}%`, p?.payload?.tipo]}
+                formatter={(_val, _n, p) => [fmtMetricVal(p?.payload || {}), p?.payload?.tipo]}
                 contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12, textTransform: "capitalize" }}
               />
             </PieChart>
             <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", textAlign: "center", pointerEvents: "none" }}>
-              <div style={{ fontSize: 30, fontWeight: 800, color: "#0f172a", lineHeight: 1 }}>{items.length}</div>
-              <div style={{ fontSize: 11, color: "#64748b", marginTop: 3, textTransform: "uppercase", letterSpacing: 0.5 }}>aplicaciones</div>
+              <div style={{ fontSize: aplicMetric === "cantidad" ? 30 : 24, fontWeight: 800, color: "#0f172a", lineHeight: 1 }}>{center.num}</div>
+              <div style={{ fontSize: 11, color: "#64748b", marginTop: 3, textTransform: "uppercase", letterSpacing: 0.5 }}>{center.label}</div>
             </div>
           </div>
 
           {/* Leyenda moderna */}
           <div style={{ flex: 1, minWidth: 260, display: "flex", flexDirection: "column", gap: 10 }}>
             {tipoData.map((d) => {
-              const pct = (d.count / items.length) * 100;
+              const ratio = totalMetric > 0 ? (sortVal(d) / totalMetric) * 100 : 0;
               const col = catColor(d.tipo).color;
               return (
                 <div key={d.tipo} data-testid={`plant-aplicaciones-tipo-row-${d.tipo}`} style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -392,12 +443,10 @@ function AplicacionesTab({ items }) {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
                       <span style={{ fontWeight: 600, fontSize: 13.5, color: "#334155", textTransform: "capitalize" }}>{d.tipo}</span>
-                      <span style={{ fontSize: 12.5, color: "#64748b" }}>
-                        <b style={{ color: "#0f172a" }}>{d.count}</b> · {pct.toFixed(0)}%
-                      </span>
+                      <span style={{ fontSize: 12.5, color: "#0f172a", fontWeight: 700 }}>{fmtMetricVal(d)}</span>
                     </div>
                     <div style={{ height: 6, borderRadius: 999, background: "#f1f5f9", overflow: "hidden" }}>
-                      <div style={{ width: `${pct}%`, height: "100%", borderRadius: 999, background: col, transition: "width .4s ease" }} />
+                      <div style={{ width: `${ratio}%`, height: "100%", borderRadius: 999, background: col, transition: "width .4s ease" }} />
                     </div>
                   </div>
                 </div>
@@ -410,14 +459,38 @@ function AplicacionesTab({ items }) {
       {/* Tabla de aplicaciones */}
       <div className="card">
         <h3 style={{ marginTop: 0 }}>
-          Aplicaciones · {items.length}
+          Aplicaciones · {itemsF.length}{itemsF.length !== items.length ? ` de ${items.length}` : ""}
           <span style={{ float: "right", color: "#16a34a", fontSize: 16 }}>
-            Costo total (PEPS): ${totalCosto.toFixed(2)}
+            Costo total (PEPS): ${totalCostoF.toFixed(2)}
           </span>
         </h3>
         <p style={{ color: "#64748b", marginTop: -4, fontSize: 12 }}>
           Costo calculado por método PEPS (primero en entrar, primero en salir) usando los precios históricos de compras.
         </p>
+
+        {/* Filtros: período + tipo */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-end", marginBottom: 14, padding: 12, background: "#f8fafc", borderRadius: 8 }}>
+          <div>
+            <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 600, marginBottom: 6 }}>Periodo</div>
+            <div className="pill-group" data-testid="aplic-filtro-periodo" style={{ display: "inline-flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+              {[["semana", "Semana"], ["mes", "Mes"], ["año", "Año"], ["todo", "Todo"]].map(([k, l]) => (
+                <button key={k} type="button" className={`pill ${period === k ? "active" : ""}`} onClick={() => setPeriod(k)} data-testid={`aplic-filtro-periodo-${k}`}>{l}</button>
+              ))}
+              <PeriodPicker isMonth={period === "mes"} isYear={period === "año"} mes={mesSel} setMes={setMesSel} anio={anioSel} setAnio={setAnioSel} years={years} testidPrefix="aplic-filtro" />
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 600, marginBottom: 6 }}>Tipo</div>
+            <select className="select" value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)} data-testid="aplic-filtro-tipo" style={{ minWidth: 180, textTransform: "capitalize" }}>
+              <option value="">Todos los tipos</option>
+              {tiposDisponibles.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          {(period !== "todo" || filtroTipo) && (
+            <button type="button" className="btn btn-sm" onClick={limpiarFiltros} data-testid="aplic-filtro-limpiar">Limpiar filtros</button>
+          )}
+        </div>
+
         <table className="table">
           <thead>
             <tr>
@@ -429,8 +502,8 @@ function AplicacionesTab({ items }) {
             </tr>
           </thead>
           <tbody>
-            {items.map((a) => (
-              <tr key={a._id}>
+            {itemsF.map((a) => (
+              <tr key={a._id} data-testid="aplic-row">
                 <td>{new Date(a.fecha).toLocaleDateString()}</td>
                 <td><span className="badge" style={catBadge(a.tipo)}>{a.tipo}</span></td>
                 <td style={{ fontSize: 12, color: "#475569" }}>
@@ -452,6 +525,7 @@ function AplicacionesTab({ items }) {
             ))}
           </tbody>
         </table>
+        {itemsF.length === 0 && <div className="empty-state">Sin aplicaciones para los filtros aplicados</div>}
       </div>
     </div>
   );
