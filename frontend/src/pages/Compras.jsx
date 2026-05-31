@@ -57,7 +57,6 @@ export default function Compras() {
 
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 0, marginBottom: 12, flexWrap: "wrap", gap: 12 }}>
-          <h3 style={{ margin: 0 }}>Registros de Compra</h3>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <span style={{ fontSize: 13, color: "#64748b", fontWeight: 600 }}>Filtrar por categoría:</span>
             <select className="select" value={filterCat} onChange={(e) => setFilterCat(e.target.value)} data-testid="compras-filter-cat" style={{ minWidth: 200 }}>
@@ -66,6 +65,7 @@ export default function Compras() {
             </select>
             {filterCat && <button type="button" className="btn" onClick={() => setFilterCat("")} data-testid="compras-limpiar">Limpiar</button>}
           </div>
+          <h3 style={{ margin: 0 }}>Registros de Compra</h3>
         </div>
         <table className="table">
           <thead>
