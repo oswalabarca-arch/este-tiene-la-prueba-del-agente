@@ -30,21 +30,40 @@ const CALIDADES = [
 export default function AsignacionDestino() {
   const toast = useToast();
   const { canDelete } = useAuth();
-  const [today] = useState(todayLocal());
+  const [realToday, setRealToday] = useState(todayLocal());
+  const [selectedDate, setSelectedDate] = useState(todayLocal());
   const [asignaciones, setAsignaciones] = useState([]);
   const [cosechas, setCosechas] = useState([]);
   const [inputs, setInputs] = useState({}); // { destinoKey: { cantidad, unidad } }
   const [busy, setBusy] = useState("");
+  const isToday = selectedDate === realToday;
 
   const load = async () => {
     const [a, c] = await Promise.all([
-      api.get(`/asignaciones-destino?fecha=${today}`),
-      api.get(`/cosechas?fecha_desde=${today}T00:00:00.000Z&fecha_hasta=${today}T23:59:59.999Z`),
+      api.get(`/asignaciones-destino?fecha=${selectedDate}`),
+      api.get(`/cosechas?fecha_desde=${selectedDate}T00:00:00.000Z&fecha_hasta=${selectedDate}T23:59:59.999Z`),
     ]);
     setAsignaciones(a.data.asignaciones);
     setCosechas(c.data.cosechas);
   };
-  useEffect(() => { load(); }, [today]);
+  useEffect(() => { load(); }, [selectedDate]);
+
+  // Reset automático a medianoche (11:59pm → 12:00am): cambia de día y reinicia en 0.
+  // Si estabas viendo "hoy", saltás automáticamente al nuevo día (todo en 0).
+  // El día anterior queda guardado como registro consultable por fecha.
+  useEffect(() => {
+    const iv = setInterval(() => {
+      const d = todayLocal();
+      setRealToday((prev) => {
+        if (prev !== d) {
+          setSelectedDate((sel) => (sel === prev ? d : sel));
+          return d;
+        }
+        return prev;
+      });
+    }, 30000);
+    return () => clearInterval(iv);
+  }, []);
 
   // Cosecha del día en cestas, desglosada por calidad
   const toCestas = (c, key) => (c.unidad === "kg" ? (c[key] || 0) / KG : (c[key] || 0));
@@ -68,6 +87,7 @@ export default function AsignacionDestino() {
     }));
 
   const agregar = async (key) => {
+    if (!isToday) { toast.show("Solo podés asignar la cosecha del día de hoy", "error"); return; }
     const inp = inputs[key] || {};
     const cantidad = Number(inp.cantidad);
     if (!cantidad || cantidad <= 0) { toast.show("Ingresa una cantidad válida", "error"); return; }
@@ -83,7 +103,7 @@ export default function AsignacionDestino() {
         destino: key,
         unidad_ingreso: unidad,
         cantidad_ingresada: cantidad,
-        fecha: today + "T12:00:00.000Z",
+        fecha: realToday + "T12:00:00.000Z",
         observaciones: "",
       });
       toast.show("Asignado a " + (DESTINOS.find((d) => d.key === key)?.label || key));
@@ -96,6 +116,7 @@ export default function AsignacionDestino() {
   };
 
   const remove = async (a) => {
+    if (!isToday) { toast.show("Solo se pueden modificar las asignaciones del día de hoy", "error"); return; }
     if (!window.confirm("¿Eliminar este movimiento?")) return;
     await api.delete(`/asignaciones-destino/${a._id}`);
     toast.show("Eliminado");
@@ -104,23 +125,46 @@ export default function AsignacionDestino() {
 
   return (
     <div data-testid="asignacion-page">
-      <h1 className="page-title"><Send size={24} style={{ verticalAlign: "middle", color: "#16a34a" }} /> Asignación de Destino</h1>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+        <h1 className="page-title" style={{ margin: 0 }}><Send size={24} style={{ verticalAlign: "middle", color: "#16a34a" }} /> Asignación de Destino</h1>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <label style={{ color: "#64748b", fontSize: 13 }}>Registro del día:</label>
+          <input
+            type="date"
+            className="input"
+            style={{ width: 170 }}
+            value={selectedDate}
+            max={realToday}
+            onChange={(e) => setSelectedDate(e.target.value || realToday)}
+            data-testid="asignacion-fecha-selector"
+          />
+          {!isToday && (
+            <button className="btn btn-sm" onClick={() => setSelectedDate(realToday)} data-testid="asignacion-hoy-btn">Ir a hoy</button>
+          )}
+        </div>
+      </div>
 
-      {/* Tarjeta: Fruta total cosechada (hoy) */}
-      <div className="card" style={{ marginTop: 8, background: "#f0fdf4", borderColor: "#bbf7d0" }} data-testid="asignacion-cosecha-dia">
+      {!isToday && (
+        <div className="card" style={{ marginTop: 12, background: "#fffbeb", borderColor: "#fde68a", color: "#92400e", display: "flex", alignItems: "center", gap: 8 }} data-testid="asignacion-readonly-banner">
+          <AlertCircle size={16} /> Estás viendo el <b>registro del {selectedDate}</b> (solo lectura). Solo podés asignar la cosecha del día de hoy.
+        </div>
+      )}
+
+      {/* Tarjeta: Fruta total cosechada (del día) */}
+      <div className="card" style={{ marginTop: 12, background: "#f0fdf4", borderColor: "#bbf7d0" }} data-testid="asignacion-cosecha-dia">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
           <div>
-            <h3 style={{ margin: 0, color: "#15803d" }}>● Fruta total cosechada (hoy)</h3>
+            <h3 style={{ margin: 0, color: "#15803d" }}>● Fruta total cosechada {isToday ? "(hoy)" : `(${selectedDate})`}</h3>
             <div style={{ color: "#64748b", fontSize: 13, marginTop: 2 }}>
-              {today} · {cosechas.length} cosecha(s). Se descuenta a medida que asignás a un destino.
+              {selectedDate} · {cosechas.length} cosecha(s). Se descuenta a medida que asignás a un destino.
             </div>
           </div>
           <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 30, fontWeight: 800, color: disponible >= 0 ? "#15803d" : "#dc2626" }} data-testid="asignacion-disponible">
+            <div style={{ fontSize: 30, fontWeight: 800, color: disponible > 0.001 ? "#15803d" : "#94a3b8" }} data-testid="asignacion-disponible">
               {disponible.toFixed(2)} cestas
             </div>
             <div style={{ color: "#64748b", fontSize: 12 }}>
-              Disponible · Cosecha {cosechaTotal.toFixed(2)} cestas − Asignado {asignadoTotal.toFixed(2)} cestas
+              Sin asignar · Cosecha {cosechaTotal.toFixed(2)} − Asignado {asignadoTotal.toFixed(2)} cestas
             </div>
           </div>
         </div>
@@ -144,13 +188,15 @@ export default function AsignacionDestino() {
       <div className="card" style={{ marginTop: 18 }}>
         <h3 style={{ margin: 0 }}><Send size={18} style={{ verticalAlign: "middle", color: "#16a34a" }} /> Distribución del día</h3>
         <div style={{ color: "#64748b", fontSize: 13, margin: "4px 0 14px" }}>
-          Ingresá la cantidad y unidad por destino y pulsá "Agregar". Podés agregar varias veces al mismo destino, se acumulan.
+          {isToday
+            ? 'Ingresá la cantidad y unidad por destino y pulsá "Agregar". Podés agregar varias veces al mismo destino, se acumulan.'
+            : "Distribución registrada ese día (solo lectura)."}
         </div>
         <table className="table">
           <thead>
             <tr>
               <th>Destino</th>
-              <th>Acumulado hoy</th>
+              <th>Acumulado</th>
               <th>Cantidad</th>
               <th>Unidad</th>
               <th style={{ textAlign: "right" }}>Acción</th>
@@ -178,6 +224,7 @@ export default function AsignacionDestino() {
                       style={{ width: 120 }}
                       placeholder="0"
                       value={inp.cantidad ?? ""}
+                      disabled={!isToday}
                       onChange={(e) => setInput(d.key, "cantidad", e.target.value)}
                       data-testid={`destino-cantidad-${d.key}`}
                     />
@@ -187,6 +234,7 @@ export default function AsignacionDestino() {
                       className="select"
                       style={{ width: 120 }}
                       value={inp.unidad || "cestas"}
+                      disabled={!isToday}
                       onChange={(e) => setInput(d.key, "unidad", e.target.value)}
                       data-testid={`destino-unidad-${d.key}`}
                     >
@@ -198,7 +246,7 @@ export default function AsignacionDestino() {
                     <button
                       className="btn btn-primary btn-sm"
                       onClick={() => agregar(d.key)}
-                      disabled={busy === d.key || disponible <= 0.001}
+                      disabled={busy === d.key || disponible <= 0.001 || !isToday}
                       data-testid={`destino-agregar-${d.key}`}
                     >
                       <Plus size={14} /> {busy === d.key ? "..." : "Agregar"}
@@ -211,10 +259,15 @@ export default function AsignacionDestino() {
         </table>
       </div>
 
-      {/* Movimientos del día (gestión / eliminar) */}
+      {/* Movimientos del día (registro / gestión) */}
       {asignaciones.length > 0 && (
         <div className="card" style={{ marginTop: 18 }}>
-          <h3 style={{ marginTop: 0 }}>Movimientos del día · {asignaciones.length}</h3>
+          <h3 style={{ marginTop: 0 }}>
+            Movimientos del día · {asignaciones.length}
+            <span style={{ float: "right", fontSize: 14, color: disponible > 0.001 ? "#dc2626" : "#16a34a" }}>
+              Cestas sin asignar: {disponible.toFixed(2)}
+            </span>
+          </h3>
           <table className="table">
             <thead>
               <tr><th>Destino</th><th>Cantidad ingresada</th><th>Cestas</th><th>kg</th><th style={{ textAlign: "right" }}>Acción</th></tr>
@@ -233,7 +286,8 @@ export default function AsignacionDestino() {
                     <td>{a.cantidad_cestas?.toFixed(2)}</td>
                     <td>{a.cantidad_kg?.toFixed(2)} kg</td>
                     <td style={{ textAlign: "right" }}>
-                      {canDelete("cosecha") && <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(a)}><Trash2 size={16} /></button>}
+                      {isToday && canDelete("cosecha") && <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(a)}><Trash2 size={16} /></button>}
+                      {!isToday && <span style={{ color: "#94a3b8", fontSize: 12 }}>—</span>}
                     </td>
                   </tr>
                 );

@@ -78,6 +78,18 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - Validación UX: confirma si se intenta asignar más cestas que las disponibles del día.
 - Testing: 11/11 pytest backend + flujos UI verdes (`/app/backend/tests/test_asignacion_destino.py`).
 
+## Implementado (Asignación de destino · registro diario + reset medianoche — 31/05/2026)
+- **Reset automático a medianoche**: la "Asignación de destino" es un módulo diario. Un temporizador detecta el cambio de día (11:59pm → 12:00am) y, si estabas viendo "hoy", reinicia automáticamente la vista en 0 para la nueva cosecha.
+- **Registro diario consultable**: selector de fecha en el encabezado. Cada día queda guardado (cosechas + asignaciones con su fecha). Se puede consultar cualquier día pasado en **solo lectura** (banner amarillo, inputs y botón "Agregar" deshabilitados; solo el día de hoy es editable).
+- **Cestas sin asignar**: el panel superior muestra "Sin asignar" (Cosecha − Asignado) y "Movimientos del día" muestra "Cestas sin asignar"; lo que queda sin asignar permanece en el registro del día.
+- Estilo global: botones `:disabled` ahora se ven grises (opacity 0.5).
+
+## Implementado (Ventas en finca · datos de cliente — 31/05/2026)
+- Formulario de venta ampliado: Nombre del cliente, Teléfono, Cantidad de cestas, Precio por cesta (calcula kg y Total), Abono inicial (calcula Saldo pendiente), Fecha y Observaciones. Tabla con columnas Teléfono, Abono y Saldo. Backend `VentaIn` con `telefono` y `abono_inicial`.
+
+## Implementado (Plantaciones · pestaña Cosechas — 31/05/2026)
+- La pestaña "Cosechas" del detalle de Plantaciones ahora muestra los registros reales del módulo Cosecha filtrados por el lote (Fecha, Tipo, Variedad, 1ª/2ª/3ª/Descarte, Total, Unidad) — antes usaba campos inexistentes.
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.

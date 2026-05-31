@@ -165,6 +165,8 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
   transition: all 0.15s;
 }
 .btn:hover { background: #f8fafc; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn:disabled:hover { background: inherit; }
 .btn-primary {
   background: var(--primary);
   border-color: var(--primary);
