@@ -275,18 +275,45 @@ function PhotoUpload({ value, label }) {
 
 function AplicacionesTab({ items }) {
   if (items.length === 0) return <div className="card empty-state">Sin aplicaciones registradas en este lote</div>;
+  const totalCosto = items.reduce((s, a) => s + (a.costo_insumos || 0), 0);
   return (
     <div className="card">
-      <h3 style={{ marginTop: 0 }}>Aplicaciones · {items.length}</h3>
+      <h3 style={{ marginTop: 0 }}>
+        Aplicaciones · {items.length}
+        <span style={{ float: "right", color: "#16a34a", fontSize: 16 }}>
+          Costo total (PEPS): ${totalCosto.toFixed(2)}
+        </span>
+      </h3>
+      <p style={{ color: "#64748b", marginTop: -4, fontSize: 12 }}>
+        Costo calculado por método PEPS (primero en entrar, primero en salir) usando los precios históricos de compras.
+      </p>
       <table className="table">
-        <thead><tr><th>Fecha</th><th>Tipo</th><th>Insumos</th><th>Estado</th></tr></thead>
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Tipo</th>
+            <th>Insumos</th>
+            <th>Estado</th>
+            <th style={{ textAlign: "right" }}>Costo real</th>
+          </tr>
+        </thead>
         <tbody>
           {items.map((a) => (
             <tr key={a._id}>
               <td>{new Date(a.fecha).toLocaleDateString()}</td>
               <td><span className="badge" style={catBadge(a.tipo)}>{a.tipo}</span></td>
-              <td style={{ fontSize: 13, color: "#64748b" }}>{a.insumos?.map((i) => `${i.nombre_producto} ${i.cantidad}${i.unidad}`).join(", ") || "—"}</td>
+              <td style={{ fontSize: 12, color: "#475569" }}>
+                {a.insumos_costo && a.insumos_costo.length > 0
+                  ? a.insumos_costo.map((ic, i) => (
+                      <div key={i}>
+                        {ic.nombre_producto} <b>{ic.cantidad}</b> {ic.unidad} · <span style={{ color: "#16a34a" }}>${ic.costo.toFixed(2)}</span>
+                        {ic.cantidad_sin_cobertura > 0 && <span style={{ color: "#dc2626", fontSize: 11 }}> ⚠ {ic.cantidad_sin_cobertura} sin stock comprado</span>}
+                      </div>
+                    ))
+                  : (a.insumos?.map((i) => `${i.nombre_producto} ${i.cantidad}${i.unidad}`).join(", ") || "—")}
+              </td>
               <td>{a.estado === "confirmada" ? <span className="badge badge-primary">Confirmada</span> : <span className="badge badge-warn">Pendiente</span>}</td>
+              <td style={{ textAlign: "right", fontWeight: 700, color: "#16a34a" }}>${Number(a.costo_insumos || 0).toFixed(2)}</td>
             </tr>
           ))}
         </tbody>

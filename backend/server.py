@@ -734,9 +734,116 @@ class AplicacionIn(BaseModel):
     precio_hora: float = 0  # costo por hora de trabajo
 
 
+async def _compute_fifo_costs_per_aplicacion() -> Dict[str, Dict[str, Any]]:
+    """
+    Calcula el costo real de cada aplicación usando PEPS (FIFO):
+    'primeros precios que entran, primeros precios que salen'.
+
+    Para cada producto:
+      - Las compras se ordenan por fecha y se acumulan como lotes (cantidad, precio_unitario).
+      - Las aplicaciones (en orden cronológico) consumen los lotes más antiguos primero.
+
+    Tanto aplicaciones confirmadas como pendientes reciben un costo estimado,
+    siguiendo la misma simulación. El cost mismo es real para confirmadas y proyectado
+    para pendientes (asumiendo que se confirman en el orden cronológico actual).
+
+    Retorna: { aplicacion_id: { "total_costo": float,
+                                 "insumos_costo": [{"nombre", "cantidad", "unidad", "costo", "precio_unitario_promedio"}] } }
+    """
+    # 1. Cargar compras (solo insumos, no equipos)
+    compras_cur = db.compras.find({"es_equipo": {"$ne": True}})
+    compras = await compras_cur.to_list(20000)
+    # ordenar por fecha_compra asc; si falta fecha, va al final
+    compras.sort(key=lambda c: (c.get("fecha_compra") or "9999-12-31"))
+
+    # 2. Cargar aplicaciones ordenadas por fecha asc
+    aplic_cur = db.aplicaciones.find({})
+    aplicaciones = await aplic_cur.to_list(20000)
+    aplicaciones.sort(key=lambda a: (a.get("fecha") or "9999-12-31"))
+
+    # 3. Construir línea de tiempo: cada compra y cada aplicación con su fecha
+    eventos: List[Dict[str, Any]] = []
+    for c in compras:
+        eventos.append({
+            "kind": "compra",
+            "fecha": c.get("fecha_compra") or "9999-12-31",
+            "data": c,
+        })
+    for a in aplicaciones:
+        eventos.append({
+            "kind": "aplicacion",
+            "fecha": a.get("fecha") or "9999-12-31",
+            "data": a,
+        })
+    # estabilidad: compras antes que aplicaciones en la misma fecha
+    eventos.sort(key=lambda e: (e["fecha"], 0 if e["kind"] == "compra" else 1))
+
+    # 4. Lotes FIFO por nombre de producto (case-insensitive)
+    lotes: Dict[str, List[Dict[str, float]]] = {}  # nombre.lower() -> [{cantidad, precio_unitario}]
+    resultados: Dict[str, Dict[str, Any]] = {}
+
+    for ev in eventos:
+        if ev["kind"] == "compra":
+            c = ev["data"]
+            nombre = (c.get("nombre_producto") or "").strip().lower()
+            cantidad = float(c.get("cantidad") or 0)
+            precio = float(c.get("precio") or 0)
+            if cantidad <= 0 or not nombre:
+                continue
+            unit = precio / cantidad if cantidad else 0
+            lotes.setdefault(nombre, []).append({"cantidad": cantidad, "precio_unitario": unit})
+        else:
+            a = ev["data"]
+            aid = a.get("_id")
+            insumos = a.get("insumos") or []
+            total_costo = 0.0
+            insumos_cost: List[Dict[str, Any]] = []
+            for ins in insumos:
+                nombre = (ins.get("nombre_producto") or "").strip().lower()
+                qty_needed = float(ins.get("cantidad") or 0)
+                qty_orig = qty_needed
+                cost = 0.0
+                queue = lotes.get(nombre, [])
+                # consumir de los lotes más antiguos
+                while qty_needed > 0 and queue:
+                    lot = queue[0]
+                    take = min(lot["cantidad"], qty_needed)
+                    cost += take * lot["precio_unitario"]
+                    lot["cantidad"] -= take
+                    qty_needed -= take
+                    if lot["cantidad"] <= 1e-9:
+                        queue.pop(0)
+                # si queda demanda no cubierta (sin stock comprado), el costo de esa parte queda en 0
+                insumos_cost.append({
+                    "nombre_producto": ins.get("nombre_producto"),
+                    "cantidad": qty_orig,
+                    "unidad": ins.get("unidad"),
+                    "costo": round(cost, 2),
+                    "precio_unitario_promedio": round(cost / qty_orig, 4) if qty_orig else 0,
+                    "cantidad_sin_cobertura": round(qty_needed, 4),  # qty que se aplicó pero no había stock
+                })
+                total_costo += cost
+            resultados[aid] = {
+                "total_costo": round(total_costo, 2),
+                "insumos_costo": insumos_cost,
+            }
+    return resultados
+
+
 @api.get("/aplicaciones")
 async def list_aplicaciones(_: dict = Depends(get_current_user)):
-    return await _list("aplicaciones", "aplicaciones", sort_field="fecha")
+    resp = await _list("aplicaciones", "aplicaciones", sort_field="fecha")
+    # Decorar cada aplicación con su costo real usando PEPS (FIFO)
+    costos = await _compute_fifo_costs_per_aplicacion()
+    for a in resp.get("aplicaciones", []):
+        c = costos.get(a.get("_id"))
+        if c:
+            a["costo_insumos"] = c["total_costo"]
+            a["insumos_costo"] = c["insumos_costo"]
+        else:
+            a["costo_insumos"] = 0.0
+            a["insumos_costo"] = []
+    return resp
 
 
 @api.post("/aplicaciones")
