@@ -1,0 +1,22 @@
+{
+  "summary": "Verified the new Cestas/kg toggle in the Cosechas tab of Plantacion detail (plantacion lote 1, id 76fc64ae...). Login admin → navegar al detalle → pestaña Cosechas. Toggle, headers, totals, row values and conversion 1 cesta = 14 kg verificados correctamente. Columna 'Unidad' por fila eliminada como se esperaba.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "CosechasTab está bien encapsulado; lógica de conversión multDe() es correcta y soporta cosechas almacenadas en cestas o kg."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "100%"},
+  "test_credentials": "Admin: oswaldabarca@gmail.com / 123456",
+  "seed_data_creation": "No data creada — se usaron las cosechas existentes del lote l1 (2 registros).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Funcionalidad nueva del toggle Cestas/kg en PlantacionDetail.jsx > CosechasTab está completamente funcional. Test verificó: (1) botones plant-cosecha-unidad-cestas/kg con default 'cestas' activo. (2) Headers '(cestas)'/'(kg)' dinámicos. (3) Total: 52.00 cestas ↔ 728.00 kg (×14 OK). (4) Fila 1 [5,4,2,1,12] cestas ↔ [70,56,28,14,168] kg, exactamente ×14. (5) Toggle de vuelta a cestas restaura valores. (6) Columna 'Unidad' por fila no existe. La preview se conecta sin necesidad de wake-up.",
+  "rca of the issue": "n/a — feature funcionando como se especificó."
+}

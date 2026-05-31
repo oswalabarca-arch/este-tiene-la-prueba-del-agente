@@ -17,6 +17,7 @@ const TABS = [
 ];
 
 const PALE_BG = "#f1f8f1";
+const KG_POR_CESTA = 14;
 
 export default function PlantacionDetail() {
   const { id } = useParams();
@@ -409,41 +410,54 @@ function LaboresTab({ items }) {
 }
 
 function CosechasTab({ items, tipos, variedades }) {
+  const [unidadVista, setUnidadVista] = useState("cestas");
   if (items.length === 0) return <div className="card empty-state">Sin cosechas registradas en este lote</div>;
   const labelTipo = (c) => c.tipo_fruta || tipos.find((t) => t._id === c.tipo_fruta_id)?.nombre || "—";
   const labelVar = (c) => c.variedad || variedades.find((v) => v._id === c.variedad_id)?.nombre || "—";
+  // Factor de conversión según la unidad en que se guardó la cosecha vs la que se quiere ver
+  const multDe = (c) => (c.unidad === "kg" && unidadVista === "cestas") ? 1 / KG_POR_CESTA
+                      : (c.unidad === "cestas" && unidadVista === "kg") ? KG_POR_CESTA : 1;
   const totalDe = (c) => (c.primera_calidad || 0) + (c.segunda_calidad || 0) + (c.tercera_calidad || 0) + (c.descarte || 0);
-  const totalCestas = items.reduce((s, c) => s + (c.unidad === "kg" ? totalDe(c) / 14 : totalDe(c)), 0);
+  const u = unidadVista === "kg" ? "kg" : "cestas";
+  const totalGeneral = items.reduce((s, c) => s + totalDe(c) * multDe(c), 0);
   return (
     <div className="card">
-      <h3 style={{ marginTop: 0 }}>
-        Cosechas · {items.length}
-        <span style={{ float: "right", color: "#dc2626", fontSize: 16 }}>Total: {totalCestas.toFixed(2)} cestas</span>
-      </h3>
-      <p style={{ color: "#64748b", marginTop: -4, fontSize: 12 }}>
-        Registros de cosecha de este lote (provenientes del módulo Cosecha).
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <h3 style={{ margin: 0 }}>Cosechas · {items.length}</h3>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <span style={{ color: "#dc2626", fontSize: 16, fontWeight: 700 }} data-testid="plant-cosecha-total">Total: {totalGeneral.toFixed(2)} {u}</span>
+          <div className="pill-group" style={{ display: "inline-flex", gap: 6 }}>
+            <button type="button" className={`pill ${unidadVista === "cestas" ? "active" : ""}`} onClick={() => setUnidadVista("cestas")} data-testid="plant-cosecha-unidad-cestas">Cestas</button>
+            <button type="button" className={`pill ${unidadVista === "kg" ? "active" : ""}`} onClick={() => setUnidadVista("kg")} data-testid="plant-cosecha-unidad-kg">kg</button>
+          </div>
+        </div>
+      </div>
+      <p style={{ color: "#64748b", marginTop: 6, marginBottom: 14, fontSize: 12 }}>
+        Registros de cosecha de este lote (provenientes del módulo Cosecha). Cantidades mostradas en <b>{u}</b>.
       </p>
       <table className="table">
         <thead>
           <tr>
             <th>Fecha</th><th>Tipo Fruta</th><th>Variedad</th>
-            <th>1ª</th><th>2ª</th><th>3ª</th><th>Descarte</th><th>Total</th><th>Unidad</th>
+            <th>1ª ({u})</th><th>2ª ({u})</th><th>3ª ({u})</th><th>Descarte ({u})</th><th>Total ({u})</th>
           </tr>
         </thead>
         <tbody>
-          {items.map((c) => (
-            <tr key={c._id}>
-              <td>{c.fecha_cosecha ? new Date(c.fecha_cosecha).toLocaleDateString() : "—"}</td>
-              <td>{labelTipo(c)}</td>
-              <td>{labelVar(c)}</td>
-              <td style={{ color: "#16a34a", fontWeight: 600 }}>{(c.primera_calidad || 0).toFixed(2)}</td>
-              <td style={{ color: "#3b82f6" }}>{(c.segunda_calidad || 0).toFixed(2)}</td>
-              <td style={{ color: "#f59e0b" }}>{(c.tercera_calidad || 0).toFixed(2)}</td>
-              <td style={{ color: "#dc2626" }}>{(c.descarte || 0).toFixed(2)}</td>
-              <td style={{ fontWeight: 700 }}>{totalDe(c).toFixed(2)}</td>
-              <td>{c.unidad}</td>
-            </tr>
-          ))}
+          {items.map((c) => {
+            const m = multDe(c);
+            return (
+              <tr key={c._id}>
+                <td>{c.fecha_cosecha ? new Date(c.fecha_cosecha).toLocaleDateString() : "—"}</td>
+                <td>{labelTipo(c)}</td>
+                <td>{labelVar(c)}</td>
+                <td style={{ color: "#16a34a", fontWeight: 600 }}>{((c.primera_calidad || 0) * m).toFixed(2)}</td>
+                <td style={{ color: "#3b82f6" }}>{((c.segunda_calidad || 0) * m).toFixed(2)}</td>
+                <td style={{ color: "#f59e0b" }}>{((c.tercera_calidad || 0) * m).toFixed(2)}</td>
+                <td style={{ color: "#dc2626" }}>{((c.descarte || 0) * m).toFixed(2)}</td>
+                <td style={{ fontWeight: 700 }}>{(totalDe(c) * m).toFixed(2)}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
