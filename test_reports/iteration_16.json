@@ -1,0 +1,26 @@
+{
+  "summary": "Frontend-only test of the new 'Totales por variedad (todas las fechas)' consolidated card in PlantacionDetail → Cosechas tab. All 6 acceptance criteria PASSED: card exists with correct testids, columns, rows and footer; values are correct (albion=40, san andreas=12, Total general=52.00 cestas); filter independence verified (variedad=albion and periodo=año do not affect the consolidated card — still shows both rows); kg toggle multiplies x14 correctly (albion=560 kg, san andreas=168 kg); cross-date sum verified by creating an additional albion harvest in lote l1 on 2024-07-15 with 7 cestas → albion total went 40→47 in the consolidado and 560→658 in kg. Test data was cleaned up (deleted) and totals restored to baseline (40.00).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "PlantacionDetail · Cosechas (Calidades del lote chart)", "issues": ["Recurring console warnings: 'The width(-1) and height(-1) of chart should be greater than 0'. Recharts ResponsiveContainer container has no size during initial render. Cosmetic only — chart renders correctly afterwards. Consider adding minWidth/minHeight or fixed size."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PlantacionDetail.jsx is 740+ lines; consider splitting CosechasTab into a separate file.",
+    "consolidado total testid uses raw variedad string (e.g. 'plant-consolidado-total-san andreas') — works but a slug would be more robust if variedads contained special characters.",
+    "Recharts ResponsiveContainer in Calidades del lote occasionally renders with 0 width (console warnings on every nav)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (not tested)", "frontend": "100%"},
+  "test_credentials": "Admin: oswaldabarca@gmail.com / 123456",
+  "seed_data_creation": "Created a temporary cosecha (l1, Fresa/albion, 7 cestas 1ª, fecha 2024-07-15) to validate cross-date sum. DELETED after verification — DB restored to original state (Cosechas · 2, Total 52.00 cestas).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Feature works end-to-end. consolidado uses 'items' (unfiltered) and respects unidadVista. Verified totals: albion 20+10+5+5=40, san andreas 5+4+2+1=12, Total general 52.00. KG conversion factor KG_POR_CESTA=14 confirmed (40→560, 12→168, 47→658).",
+  "rca of the issue": "No bug found. Implementation in /app/frontend/src/pages/PlantacionDetail.jsx lines 511-526 correctly iterates over the unfiltered 'items' array, groups by tipo+variedad, applies multDe (unit-aware multiplier), and renders independently of the filters that affect itemsF."
+}

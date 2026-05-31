@@ -187,6 +187,11 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - "Calidades del lote" (donut reducido 190px) y "Rendimiento por planta" ahora van **lado a lado** en una fila flex, cada uno ~mitad del ancho (`flex: 1 1 320px`). Las gráficas "Calidades por variedad" quedan debajo a todo el ancho.
 - Testing frontend 100% (iteration_14.json): medido a 1920px → calidades-chart (x=590, w=479) y rendimiento-card (x=1087, w=479) en la misma fila (top=355); variedad-chart full-width debajo (top=659). Donut 728 kg, leyendas y tabla de rendimiento correctas. Warning cosmético de recharts (no afecta UX).
 
+## Implementado (Plantación · filtros en pestaña Cosechas — 31/05/2026)
+- En la pestaña **Cosechas** del detalle de plantación se agregó una barra de filtros: **Período** (Hoy/Semana/Mes/Año/Todo con selector de mes/año específico, `cosecha-filtro-periodo-*` + `cosecha-filtro-picker-mes/anio`) y **Variedad** (`cosecha-filtro-variedad`), más botón **"Limpiar filtros"**.
+- Los filtros aplican a `itemsF` y afectan coherentemente la **tabla** (filas `cosecha-row`, encabezado "X de Y"), los **totales**, el **gráfico "Calidades del lote"**, los **"Calidades por variedad"** y la tabla **"Rendimiento por planta"**. Estado vacío "Sin cosechas para los filtros aplicados" (oculta gráficos cuando no hay datos). Compatible con el toggle Cestas/kg.
+- Cambio 100% frontend (`PlantacionDetail.jsx`, reutiliza `PeriodPicker`). Testing frontend 100% (iteration_15.json).
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.

@@ -508,6 +508,23 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
     return { variedad: v.variedad, total, data: CAL_DEFS.map((d) => ({ key: d.key, name: d.name, value: v[d.key] })).filter((d) => d.value > 0) };
   });
 
+  // Totales consolidados por variedad — suma TODAS las cosechas sin importar la fecha (ignora los filtros)
+  const consolidado = {};
+  items.forEach((c) => {
+    const tipo = labelTipo(c);
+    const variedad = labelVar(c);
+    const key = `${tipo}||${variedad}`;
+    const m = multDe(c);
+    if (!consolidado[key]) consolidado[key] = { tipo, variedad, primera: 0, segunda: 0, tercera: 0, descarte: 0, total: 0 };
+    consolidado[key].primera += (c.primera_calidad || 0) * m;
+    consolidado[key].segunda += (c.segunda_calidad || 0) * m;
+    consolidado[key].tercera += (c.tercera_calidad || 0) * m;
+    consolidado[key].descarte += (c.descarte || 0) * m;
+    consolidado[key].total += totalDe(c) * m;
+  });
+  const consolidadoRows = Object.values(consolidado).sort((a, b) => b.total - a.total);
+  const consolidadoTotal = consolidadoRows.reduce((s, r) => s + r.total, 0);
+
   return (
     <>
       <div className="card">
@@ -574,6 +591,41 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
           </tbody>
         </table>
         {itemsF.length === 0 && <div className="empty-state">Sin cosechas para los filtros aplicados</div>}
+      </div>
+
+      {/* Totales por variedad (todas las fechas, sin importar filtros) */}
+      <div className="card" style={{ marginTop: 18 }} data-testid="plant-cosecha-consolidado">
+        <h3 style={{ marginTop: 0, marginBottom: 2 }}>Totales por variedad (todas las fechas)</h3>
+        <p style={{ color: "#64748b", marginTop: 0, marginBottom: 14, fontSize: 12 }}>
+          Suma de todas las cosechas de cada variedad sin importar la fecha (no afectado por los filtros de arriba). Cantidades en <b>{u}</b>.
+        </p>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Tipo de fruta</th><th>Variedad</th>
+              <th>1ª ({u})</th><th>2ª ({u})</th><th>3ª ({u})</th><th>Descarte ({u})</th><th>Total ({u})</th>
+            </tr>
+          </thead>
+          <tbody>
+            {consolidadoRows.map((r, i) => (
+              <tr key={i} data-testid="plant-consolidado-row">
+                <td>{r.tipo}</td>
+                <td><span className="badge badge-purple">{r.variedad}</span></td>
+                <td style={{ color: "#16a34a", fontWeight: 600 }}>{r.primera.toFixed(2)}</td>
+                <td style={{ color: "#3b82f6" }}>{r.segunda.toFixed(2)}</td>
+                <td style={{ color: "#f59e0b" }}>{r.tercera.toFixed(2)}</td>
+                <td style={{ color: "#dc2626" }}>{r.descarte.toFixed(2)}</td>
+                <td style={{ fontWeight: 700 }} data-testid={`plant-consolidado-total-${r.variedad}`}>{r.total.toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 800 }}>
+              <td colSpan={6} style={{ textAlign: "right" }}>Total general</td>
+              <td>{consolidadoTotal.toFixed(2)} {u}</td>
+            </tr>
+          </tfoot>
+        </table>
       </div>
 
       {/* Fila: Calidades del lote (mitad) + Rendimiento por planta (mitad) */}
