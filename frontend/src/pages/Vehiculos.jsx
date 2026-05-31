@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
-import { Car, Plus, Pencil, Trash2, Fuel, Wrench, Users as UsersIcon, ArrowLeft, DollarSign } from "lucide-react";
+import { Car, Plus, Pencil, Trash2, Fuel, Wrench, Users as UsersIcon, ArrowLeft, Eye } from "lucide-react";
 import { todayLocal } from "../lib/dates";
 
 const COMBUSTIBLES = ["gasolina", "diesel", "electrico", "hibrido"];
@@ -21,6 +21,8 @@ export default function Vehiculos() {
   const [gastos, setGastos] = useState([]);
   const [editing, setEditing] = useState(null);
   const [selected, setSelected] = useState(null);  // vehículo seleccionado para detalle
+  const [editingGasto, setEditingGasto] = useState(null);  // gasto a crear/editar
+  const [viewingGasto, setViewingGasto] = useState(null);  // gasto a ver (solo lectura)
 
   const load = async () => {
     const [v, g] = await Promise.all([api.get("/vehiculos"), api.get("/gastos-vehiculos")]);
@@ -33,6 +35,13 @@ export default function Vehiculos() {
     if (!window.confirm(`¿Eliminar vehículo "${v.nombre}"? Los gastos asociados no se borran.`)) return;
     await api.delete(`/vehiculos/${v._id}`);
     toast.show("Eliminado");
+    load();
+  };
+
+  const removeGasto = async (g) => {
+    if (!window.confirm("¿Eliminar este gasto operativo?")) return;
+    await api.delete(`/gastos-vehiculos/${g._id}`);
+    toast.show("Gasto eliminado");
     load();
   };
 
@@ -91,27 +100,40 @@ export default function Vehiculos() {
         </div>
 
         <div className="card">
-          <h3 style={{ marginTop: 0 }}>Historial de gastos</h3>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 10 }}>
+            <div>
+              <h3 style={{ margin: 0 }}>Historial de gastos operativos</h3>
+              <div style={{ color: "#64748b", fontSize: 13, marginTop: 2 }}>{gastosVehiculo.length} gasto(s) · Total ${totals.total.toFixed(2)}</div>
+            </div>
+            {canEdit("equipos") && <button className="btn btn-primary" onClick={() => setEditingGasto({ vehiculo_id: selected._id })} data-testid="gasto-new-btn"><Plus size={16} /> Registrar gasto</button>}
+          </div>
           <table className="table">
-            <thead><tr><th>Fecha</th><th>Categoría</th><th>Descripción</th><th>Monto</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Categoría</th><th>Descripción</th><th>Monto</th><th style={{ textAlign: "right" }}>Acciones</th></tr></thead>
             <tbody>
               {gastosVehiculo.map((g) => {
                 const c = CATS_GASTO.find((x) => x.key === g.categoria);
                 return (
-                  <tr key={g._id}>
+                  <tr key={g._id} data-testid="gasto-row">
                     <td>{new Date(g.fecha).toLocaleDateString()}</td>
                     <td><span className="badge" style={{ background: c?.bg, color: c?.color }}>{c?.label || g.categoria}</span></td>
                     <td>{g.descripcion || "—"}</td>
                     <td style={{ fontWeight: 700, color: c?.color }}>${g.monto?.toFixed(2)}</td>
+                    <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                      <button className="btn-icon" style={{ color: "#3b82f6" }} title="Ver" onClick={() => setViewingGasto(g)} data-testid="gasto-ver"><Eye size={16} /></button>
+                      {canEdit("equipos") && <button className="btn-icon" style={{ color: "#f59e0b" }} title="Editar" onClick={() => setEditingGasto(g)} data-testid="gasto-editar"><Pencil size={16} /></button>}
+                      {canDelete("equipos") && <button className="btn-icon" style={{ color: "#dc2626" }} title="Eliminar" onClick={() => removeGasto(g)} data-testid="gasto-eliminar"><Trash2 size={16} /></button>}
+                    </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
-          {gastosVehiculo.length === 0 && <div className="empty-state">Sin gastos. Registra desde el módulo Compras → "Gastos de vehículo".</div>}
+          {gastosVehiculo.length === 0 && <div className="empty-state">Sin gastos operativos. Registrá uno con "Registrar gasto" o desde Compras → "Gastos de vehículo".</div>}
         </div>
 
         {editing && <VehiculoModal initial={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
+        {editingGasto && <GastoModal vehiculoId={selected._id} initial={editingGasto} onClose={() => setEditingGasto(null)} onSaved={() => { setEditingGasto(null); load(); }} />}
+        {viewingGasto && <GastoViewModal gasto={viewingGasto} onClose={() => setViewingGasto(null)} />}
       </div>
     );
   }
@@ -122,7 +144,7 @@ export default function Vehiculos() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
         <div>
           <h1 className="page-title"><Car size={24} style={{ verticalAlign: "middle", color: "#3b82f6" }} /> Vehículos</h1>
-          <p className="page-subtitle">Registro de vehículos y control de sus gastos. Los gastos se registran desde Compras → "Gastos de vehículo".</p>
+          <p className="page-subtitle">Registro de vehículos y control de sus gastos operativos. Podés registrar gastos directamente en cada vehículo o desde Compras → "Gastos de vehículo".</p>
         </div>
         <button className="btn btn-primary" onClick={() => setEditing({})} data-testid="vehiculo-new-btn"><Plus size={16} /> Nuevo vehículo</button>
       </div>
@@ -259,3 +281,79 @@ function VehiculoModal({ initial, onClose, onSaved }) {
     </div>
   );
 }
+
+function GastoModal({ vehiculoId, initial, onClose, onSaved }) {
+  const toast = useToast();
+  const isNew = !initial._id;
+  const [form, setForm] = useState({
+    categoria: initial.categoria || "gasolina",
+    monto: initial.monto ?? "",
+    fecha: (initial.fecha || todayLocal()).slice(0, 10),
+    descripcion: initial.descripcion || "",
+  });
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!Number(form.monto)) { toast.show("El monto es obligatorio y debe ser mayor a 0", "error"); return; }
+    setBusy(true);
+    try {
+      const payload = {
+        vehiculo_id: vehiculoId,
+        categoria: form.categoria,
+        monto: Number(form.monto),
+        fecha: form.fecha + "T12:00:00.000Z",
+        descripcion: form.descripcion,
+      };
+      if (isNew) await api.post("/gastos-vehiculos", payload);
+      else await api.put(`/gastos-vehiculos/${initial._id}`, payload);
+      toast.show(isNew ? "Gasto registrado" : "Gasto actualizado");
+      onSaved();
+    } catch { toast.show("Error", "error"); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <form className="modal" style={{ maxWidth: 520 }} onClick={(e) => e.stopPropagation()} onSubmit={submit} data-testid="gasto-modal">
+        <h2 className="modal-title">{isNew ? "Registrar gasto operativo" : "Editar gasto operativo"}</h2>
+        <div className="form-grid">
+          <div className="field"><label>Categoría</label>
+            <select className="select" value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })} data-testid="gasto-form-categoria">
+              {CATS_GASTO.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+            </select>
+          </div>
+          <div className="field"><label>Monto ($)</label><input type="number" step="0.01" min="0" className="input" placeholder="0.00" value={form.monto} onChange={(e) => setForm({ ...form, monto: e.target.value })} required data-testid="gasto-form-monto" /></div>
+          <div className="field"><label>Fecha</label><input type="date" className="input" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} required data-testid="gasto-form-fecha" /></div>
+        </div>
+        <div className="field" style={{ marginTop: 12 }}><label>Descripción</label><textarea className="textarea" placeholder="Detalle del gasto..." value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} data-testid="gasto-form-descripcion" /></div>
+        <div className="modal-footer">
+          <button type="button" className="btn" onClick={onClose}>Cancelar</button>
+          <button type="submit" className="btn btn-primary" disabled={busy} data-testid="gasto-form-submit">{busy ? "..." : "Guardar"}</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function GastoViewModal({ gasto, onClose }) {
+  const c = CATS_GASTO.find((x) => x.key === gasto.categoria);
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 460 }} onClick={(e) => e.stopPropagation()} data-testid="gasto-view-modal">
+        <h2 className="modal-title">Detalle del gasto operativo</h2>
+        <div style={{ display: "grid", gap: 14 }}>
+          <div><div style={{ color: "#64748b", fontSize: 12, marginBottom: 4 }}>Categoría</div><span className="badge" style={{ background: c?.bg, color: c?.color }}>{c?.label || gasto.categoria}</span></div>
+          <div><div style={{ color: "#64748b", fontSize: 12, marginBottom: 4 }}>Monto</div><div style={{ fontSize: 24, fontWeight: 800, color: c?.color }}>${gasto.monto?.toFixed(2)}</div></div>
+          <div><div style={{ color: "#64748b", fontSize: 12, marginBottom: 4 }}>Fecha</div><div>{new Date(gasto.fecha).toLocaleDateString()}</div></div>
+          <div><div style={{ color: "#64748b", fontSize: 12, marginBottom: 4 }}>Descripción</div><div>{gasto.descripcion || "—"}</div></div>
+          {gasto.usuario_name && <div><div style={{ color: "#64748b", fontSize: 12, marginBottom: 4 }}>Registrado por</div><div>{gasto.usuario_name}</div></div>}
+        </div>
+        <div className="modal-footer">
+          <button type="button" className="btn btn-primary" onClick={onClose} data-testid="gasto-view-close">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+

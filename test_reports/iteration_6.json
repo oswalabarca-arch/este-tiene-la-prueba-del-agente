@@ -1,0 +1,35 @@
+{
+  "summary": "Frontend E2E testing of new 'Historial de gastos operativos' CRUD inside Vehículo detail. All flows (Registrar, Ver, Editar, Eliminar) and validations (monto=0 / vacío) PASSED. Backend integration (POST/GET/PUT/DELETE /api/gastos-vehiculos) works correctly through the UI; KPIs (Gasolina/Repuestos/Mano de Obra/Total) update reactively after each operation.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/vehiculo_gastos_final.png"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Note: the route for Vehículos is /dashboard/equipos/vehiculos (not /dashboard/vehiculos as stated in the PRD). The sidebar link is correct. PRD wording could be tightened.",
+    "Vehiculos.jsx is ~360 lines and contains three modal subcomponents (VehiculoModal, GastoModal, GastoViewModal). Still acceptable, but consider extracting modals into /pages/vehiculos/ for maintainability if the file keeps growing.",
+    "Validation 'monto > 0' is enforced only on submit via toast; consider adding HTML5 min=0.01 + disabling submit button when invalid to give earlier feedback (UX nicety, not a bug)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only request)", "frontend": "100%"},
+  "test_credentials": "Admin oswaldabarca@gmail.com / 123456 (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Created TEST_Vehiculo_Gastos (with adquisición $10000) for testing because no vehicle existed for the admin. CLEANED UP afterwards via DELETE /api/vehiculos/{id}. The gasto created during the test was also deleted as part of the DELETE flow validation.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Vehículos page route = /dashboard/equipos/vehiculos. Detail page is rendered conditionally when a vehicle card is clicked (no separate route). data-testids used: vehiculos-page, vehiculo-new-btn, vehiculo-card-<id>, vehiculo-detail-page, gasto-new-btn, gasto-modal, gasto-form-categoria, gasto-form-monto, gasto-form-fecha, gasto-form-descripcion, gasto-form-submit, gasto-row, gasto-ver, gasto-editar, gasto-eliminar, gasto-view-modal, gasto-view-close. Delete uses window.confirm — listen for dialog and accept.",
+  "test_cases_executed": [
+    "Login admin OK",
+    "Navigate to /dashboard/equipos/vehiculos OK",
+    "Create vehicle (TEST_Vehiculo_Gastos) OK",
+    "Click vehicle card opens detail page OK",
+    "Validation: monto=0 keeps modal open and does NOT create row OK",
+    "Validation: monto vacío blocked by HTML5 required OK",
+    "Create gasto (gasolina $150.50) → row appears, KPI Gasolina shows $150.50 OK",
+    "VER opens read-only modal with categoria/monto/descripcion correct, close works OK",
+    "EDIT preloads data, change to repuestos $275.00 → table reflects update OK",
+    "DELETE confirm → row removed, total decreases OK"
+  ]
+}
