@@ -1,11 +1,10 @@
 import { useEffect, useState, Fragment } from "react";
 import { api } from "../lib/api";
-import { Boxes, Search } from "lucide-react";
+import { Boxes } from "lucide-react";
 import { catBadge } from "../lib/categoryColors";
 
 export default function Inventario() {
   const [items, setItems] = useState([]);
-  const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState("");
 
   const load = () => api.get("/inventario").then((r) => setItems(r.data.inventario));
@@ -14,7 +13,6 @@ export default function Inventario() {
   const categorias = Array.from(new Set(items.map((i) => i.categoria))).sort();
   const filtered = items.filter((i) => {
     if (filterCat && i.categoria !== filterCat) return false;
-    if (search && !i.nombre_producto.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
 
@@ -34,16 +32,13 @@ export default function Inventario() {
 
       <div className="card" style={{ marginBottom: 18 }}>
         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-          <div style={{ position: "relative", flex: 1, minWidth: 240 }}>
-            <Search size={16} style={{ position: "absolute", left: 12, top: 12, color: "#94a3b8" }} />
-            <input className="input" style={{ paddingLeft: 36, width: "100%" }} placeholder="Buscar producto..." value={search} onChange={(e) => setSearch(e.target.value)} data-testid="inventario-search" />
-          </div>
-          <select className="select" value={filterCat} onChange={(e) => setFilterCat(e.target.value)} data-testid="inventario-filter-cat" style={{ minWidth: 200 }}>
+          <div style={{ fontSize: 13, color: "#64748b", fontWeight: 600 }}>Filtrar por categoría:</div>
+          <select className="select" value={filterCat} onChange={(e) => setFilterCat(e.target.value)} data-testid="inventario-filter-cat" style={{ minWidth: 220 }}>
             <option value="">Todas las categorías</option>
             {categorias.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
-          {(search || filterCat) && (
-            <button type="button" className="btn" onClick={() => { setSearch(""); setFilterCat(""); }} data-testid="inventario-limpiar">Limpiar</button>
+          {filterCat && (
+            <button type="button" className="btn" onClick={() => setFilterCat("")} data-testid="inventario-limpiar">Limpiar</button>
           )}
         </div>
       </div>
