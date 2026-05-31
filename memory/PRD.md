@@ -277,6 +277,13 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - Al cambiar de tipo se **resetean** los productos seleccionados. El label muestra "solo de categoría <cat>" y hay aviso (`aplic-productos-vacio`) cuando no hay productos de esa categoría. Selects con `aplic-producto-{i}`.
 - Cambio 100% frontend (`Aplicaciones.jsx` → `AplicacionForm`). Lint OK. Testing frontend **100% (8/8)** (iteration_29.json): plaguicida→spiral, herbicida→gramonson, fertilización→magnesio/hierro, fungicida→vacío, reset al cambiar tipo, y creación (POST) OK.
 
+## Implementado (Responsive móvil/tablet · sidebar colapsable — 31/05/2026)
+- **App adaptada a teléfonos y tablets.** El sidebar dejó de ser fijo en pantallas ≤1024px: ahora es un **drawer off-canvas** que se abre/cierra sin ocupar espacio fijo, aprovechando toda la pantalla.
+- **Barra superior móvil (`topbar`)** con botón hamburguesa (`sidebar-open-btn`) + marca "ERP Agrícola"; visible solo en ≤1024px (sticky).
+- **Sidebar drawer**: `transform: translateX(-100%)` por defecto en móvil/tablet, se desliza con `.sidebar-open`; incluye botón de cierre **X** (`sidebar-close-btn`) y **backdrop** (`sidebar-backdrop`, cierra al tocar). Se **cierra automáticamente al navegar** (onClick en NavLinks). En ≤640px ancho 84vw (máx 320px) y tipografía/padding reducidos.
+- En **desktop (>1024px)** el sidebar fijo de 256px se mantiene **sin cambios** (sin topbar/hamburguesa). Cambio 100% frontend (`Layout.jsx` + `index.css`). Lint OK.
+- Verificado en vivo: móvil 390px, tablet 768px (hamburguesa + backdrop cierran) y desktop 1920px (sin regresión).
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.

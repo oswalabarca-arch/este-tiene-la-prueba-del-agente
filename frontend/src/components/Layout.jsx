@@ -5,7 +5,7 @@ import {
   DollarSign, Snowflake, Boxes, ShoppingCart, BarChart3, ChevronDown,
   ChevronUp, Briefcase, Leaf, LogOut, Car, Cog, Wrench,
   Home, Building2, AlertCircle, Heart, Clock, PlusCircle,
-  UserCheck, Wallet,
+  UserCheck, Wallet, Menu, X,
 } from "lucide-react";
 import { Strawberry } from "./icons/Strawberry";
 import { useState } from "react";
@@ -60,21 +60,54 @@ export default function Layout() {
   const nav = useNavigate();
   const loc = useLocation();
   const [open, setOpen] = useState({});
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   if (!user) return null;
 
   const toggle = (label) => setOpen((o) => ({ ...o, [label]: !o[label] }));
   const isActive = (to) => loc.pathname === to;
+  const closeMobile = () => setMobileOpen(false);
 
   return (
     <div className="App">
-      <aside className="sidebar" data-testid="sidebar">
+      <header className="topbar" data-testid="mobile-topbar">
+        <button
+          className="topbar-burger"
+          onClick={() => setMobileOpen(true)}
+          aria-label="Abrir menú"
+          data-testid="sidebar-open-btn"
+        >
+          <Menu size={22} />
+        </button>
+        <div className="topbar-brand">
+          <div className="topbar-brand-icon"><Leaf size={18} /></div>
+          <span className="topbar-brand-text">ERP Agrícola</span>
+        </div>
+      </header>
+
+      {mobileOpen && (
+        <div
+          className="sidebar-backdrop"
+          onClick={closeMobile}
+          data-testid="sidebar-backdrop"
+        />
+      )}
+
+      <aside className={`sidebar ${mobileOpen ? "sidebar-open" : ""}`} data-testid="sidebar">
         <div className="sidebar-brand">
           <div className="sidebar-brand-icon"><Leaf size={22} /></div>
-          <div>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div className="sidebar-brand-text">ERP Agrícola</div>
             <div className="sidebar-brand-sub">Sistema Premium</div>
           </div>
+          <button
+            className="sidebar-close"
+            onClick={closeMobile}
+            aria-label="Cerrar menú"
+            data-testid="sidebar-close-btn"
+          >
+            <X size={20} />
+          </button>
         </div>
 
         <nav className="sidebar-nav">
@@ -100,6 +133,7 @@ export default function Layout() {
                         key={s.to}
                         to={s.to}
                         end
+                        onClick={closeMobile}
                         className={({ isActive }) => `sidebar-item sidebar-sub ${isActive ? "active" : ""}`}
                         data-testid={`sidebar-link-${s.label.toLowerCase().replace(/\s/g, "-")}`}
                       >
@@ -116,6 +150,7 @@ export default function Layout() {
                 key={n.to}
                 to={n.to}
                 end={n.to === "/dashboard"}
+                onClick={closeMobile}
                 className={({ isActive }) => `sidebar-item ${isActive ? "active" : ""}`}
                 data-testid={`sidebar-link-${n.label.toLowerCase().replace(/\s/g, "-")}`}
               >
