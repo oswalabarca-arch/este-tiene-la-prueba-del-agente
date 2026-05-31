@@ -120,6 +120,13 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - Testing frontend 100% (iteration_5.json): camino negativo (Disponible 0 → bloqueado), exceso (bloqueado), monto exacto (permitido, Disponible→0).
 - Pendiente de endurecimiento (futuro): la validación es solo frontend; un guard de backend debe excluir los POST con `origen=asignacion_destino` (que crean el stock) para no romper la trazabilidad.
 
+## Implementado (Equipos · Vehículos · historial de gastos operativos CRUD — 31/05/2026)
+- En el detalle de cada vehículo (módulo Equipos → Vehículos, ruta /dashboard/equipos/vehiculos), la sección "Historial de gastos operativos" ahora permite **Registrar, Ver, Editar y Eliminar** gastos directamente (antes era solo lectura; se cargaban únicamente desde Compras).
+- Botón "Registrar gasto" (`gasto-new-btn`) abre `GastoModal` (Categoría: gasolina/repuestos/mano_obra, Monto, Fecha, Descripción). Validación: monto > 0 obligatorio.
+- Cada fila (`gasto-row`) tiene acciones **Ver** (`gasto-ver` → `GastoViewModal` solo lectura), **Editar** (`gasto-editar` → reusa GastoModal) y **Eliminar** (`gasto-eliminar` → confirm + DELETE). Los KPIs (Gasolina/Repuestos/Mano de Obra/Total) se actualizan reactivamente.
+- Backend ya tenía CRUD completo en `/api/gastos-vehiculos` (GET/POST/PUT/DELETE) — verificado por curl. Cambio 100% frontend en `Vehiculos.jsx`.
+- Testing frontend 100% (iteration_6.json): registrar/ver/editar/eliminar + validación monto=0/vacío.
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.
