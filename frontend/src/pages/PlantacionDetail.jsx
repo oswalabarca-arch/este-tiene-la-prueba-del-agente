@@ -439,7 +439,10 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
   const [mesSel, setMesSel] = useState(currentMonthStr);
   const [anioSel, setAnioSel] = useState(currentYearStr);
   const [filtroVariedad, setFiltroVariedad] = useState("");
-  const [granularidad, setGranularidad] = useState("mes"); // semana | mes | año (serie de tiempo)
+  const [serieGran, setSerieGran] = useState("mes"); // semana | mes
+  const [serieAnio, setSerieAnio] = useState(currentYearStr);
+  const [serieVariedad, setSerieVariedad] = useState("");
+  const [calVisible, setCalVisible] = useState({ primera: true, segunda: true, tercera: true, descarte: true });
   const labelTipo = (c) => c.tipo_fruta || tipos.find((t) => t._id === c.tipo_fruta_id)?.nombre || "—";
   const labelVar = (c) => c.variedad || variedades.find((v) => v._id === c.variedad_id)?.nombre || "—";
 
@@ -527,31 +530,45 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
   const consolidadoRows = Object.values(consolidado).sort((a, b) => b.total - a.total);
   const consolidadoTotal = consolidadoRows.reduce((s, r) => s + r.total, 0);
 
-  // Serie de tiempo: total de CESTAS por período (semana/mes/año), usando todos los registros
-  const cestasDe = (c) => (c.unidad === "kg" ? totalDe(c) / KG_POR_CESTA : totalDe(c));
-  const serieMap = {};
-  items.forEach((c) => {
+  // ── Producción en el tiempo: kg apilados por calidad, del año seleccionado ──
+  const MES_CAP = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+  const CAL_LEG = { primera: "1ª calidad", segunda: "2ª calidad", tercera: "3ª calidad", descarte: "Descarte" };
+  const fmtKg = (n) => Number(n || 0).toLocaleString("es-ES", { maximumFractionDigits: 2 });
+  const serieVariedadesOpts = variedadesDisponibles;
+  const serieItems = items.filter((c) => {
     const d = new Date(c.fecha_cosecha);
-    if (isNaN(d.getTime())) return;
-    let key, label, sortVal;
-    if (granularidad === "año") {
-      key = String(d.getFullYear());
-      label = key;
-      sortVal = d.getFullYear();
-    } else if (granularidad === "semana") {
-      const s = new Date(d); s.setDate(d.getDate() - d.getDay()); s.setHours(0, 0, 0, 0);
-      key = s.toISOString().slice(0, 10);
-      label = `${String(s.getDate()).padStart(2, "0")}/${String(s.getMonth() + 1).padStart(2, "0")}/${String(s.getFullYear()).slice(2)}`;
-      sortVal = s.getTime();
-    } else {
-      key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      label = `${MESES_CORTOS[d.getMonth()]} ${d.getFullYear()}`;
-      sortVal = d.getFullYear() * 100 + (d.getMonth() + 1);
-    }
-    if (!serieMap[key]) serieMap[key] = { key, label, sortVal, cestas: 0 };
-    serieMap[key].cestas += cestasDe(c);
+    if (isNaN(d.getTime())) return false;
+    if (String(d.getFullYear()) !== String(serieAnio)) return false;
+    if (serieVariedad && labelVar(c) !== serieVariedad) return false;
+    return true;
   });
-  const serie = Object.values(serieMap).sort((a, b) => a.sortVal - b.sortVal).map((s) => ({ label: s.label, cestas: Number(s.cestas.toFixed(2)) }));
+  const nBuckets = serieGran === "semana" ? 52 : 12;
+  const buckets = Array.from({ length: nBuckets }, (_, i) => ({
+    idx: i,
+    label: serieGran === "semana" ? `S${i + 1}` : MES_CAP[i],
+    nombre: serieGran === "semana" ? `Semana ${i + 1}` : MES_CAP[i],
+    primera: 0, segunda: 0, tercera: 0, descarte: 0,
+  }));
+  serieItems.forEach((c) => {
+    const d = new Date(c.fecha_cosecha);
+    let bi;
+    if (serieGran === "semana") {
+      const soY = new Date(d.getFullYear(), 0, 1);
+      bi = Math.max(0, Math.min(51, Math.floor((d - soY) / (7 * 86400000))));
+    } else {
+      bi = d.getMonth();
+    }
+    CAL_DEFS.forEach((def) => { buckets[bi][def.key] += (c[def.field] || 0) * fKg(c); });
+  });
+  buckets.forEach((b) => {
+    CAL_DEFS.forEach((def) => { b[def.key] = Number(b[def.key].toFixed(2)); });
+    b.total = Number(CAL_DEFS.reduce((s, def) => s + b[def.key], 0).toFixed(2));
+  });
+  const bucketsConDatos = buckets.filter((b) => b.total > 0);
+  const serieTotalAnio = buckets.reduce((s, b) => s + b.total, 0);
+  const picoBucket = bucketsConDatos.reduce((m, b) => (!m || b.total > m.total ? b : m), null);
+  const minBucket = bucketsConDatos.reduce((m, b) => (!m || b.total < m.total ? b : m), null);
+  const promedioConDatos = bucketsConDatos.length > 0 ? serieTotalAnio / bucketsConDatos.length : 0;
 
   return (
     <>
@@ -590,33 +607,86 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
         </table>
       </div>
 
-      {/* Producción de cestas en el tiempo (eje X tiempo, eje Y cestas) */}
+      {/* Producción en el tiempo — áreas apiladas por calidad (kg) */}
       <div className="card" style={{ marginTop: 18 }} data-testid="plant-cosecha-serie">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
-          <h3 style={{ margin: 0 }}>Producción de cestas en el tiempo</h3>
-          <div className="pill-group" style={{ display: "inline-flex", gap: 6 }} data-testid="cosecha-serie-granularidad">
-            {[["semana", "Semana"], ["mes", "Mes"], ["año", "Año"]].map(([k, l]) => (
-              <button key={k} type="button" className={`pill ${granularidad === k ? "active" : ""}`} onClick={() => setGranularidad(k)} data-testid={`cosecha-serie-${k}`}>{l}</button>
+          <h3 style={{ margin: 0, display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <TrendingUp size={18} color="#16a34a" /> Producción en el tiempo
+          </h3>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 600 }}>Año:</span>
+              <select className="select" value={serieAnio} onChange={(e) => setSerieAnio(e.target.value)} data-testid="cosecha-serie-anio" style={{ minWidth: 90 }}>
+                {years.map((y) => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
+            <div className="pill-group" style={{ display: "inline-flex", gap: 6 }} data-testid="cosecha-serie-granularidad">
+              <button type="button" className={`pill ${serieGran === "semana" ? "active" : ""}`} onClick={() => setSerieGran("semana")} data-testid="cosecha-serie-semana">Por semana (52)</button>
+              <button type="button" className={`pill ${serieGran === "mes" ? "active" : ""}`} onClick={() => setSerieGran("mes")} data-testid="cosecha-serie-mes">Por mes (12)</button>
+            </div>
+          </div>
+        </div>
+        <p style={{ color: "#64748b", marginTop: 4, marginBottom: 10, fontSize: 12 }}>
+          Producción acumulada (kg) por calidad a lo largo de {serieAnio}. Usá los filtros para ver una variedad o aislar calidades.
+        </p>
+
+        {/* Filtro de variedad + toggles de calidad */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 18, alignItems: "center", marginBottom: 10 }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 600 }}>Variedad:</span>
+            <select className="select" value={serieVariedad} onChange={(e) => setSerieVariedad(e.target.value)} data-testid="cosecha-serie-variedad" style={{ minWidth: 160 }}>
+              <option value="">Todas</option>
+              {serieVariedadesOpts.map((v) => <option key={v} value={v}>{v}</option>)}
+            </select>
+          </div>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 600 }}>Calidad:</span>
+            {CAL_DEFS.map((d) => (
+              <button key={d.key} type="button" onClick={() => setCalVisible((p) => ({ ...p, [d.key]: !p[d.key] }))}
+                data-testid={`cosecha-serie-cal-${d.key}`}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 999, border: "1px solid var(--border)", cursor: "pointer", background: calVisible[d.key] ? "#fff" : "#f1f5f9", opacity: calVisible[d.key] ? 1 : 0.5, fontSize: 12 }}>
+                <span style={{ width: 10, height: 10, borderRadius: 3, background: CAL_COLORS[d.key] }} />
+                {CAL_LEG[d.key]}
+              </button>
             ))}
           </div>
         </div>
-        <p style={{ color: "#64748b", marginTop: 4, marginBottom: 12, fontSize: 12 }}>
-          Total de cestas cosechadas por {granularidad === "año" ? "año" : granularidad === "semana" ? "semana" : "mes"} (datos del registro de cosecha de este lote).
-        </p>
-        {serie.length > 0 ? (
-          <div style={{ width: "100%", height: 300 }} data-testid="cosecha-serie-chart">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={serie} margin={{ top: 10, right: 20, bottom: 10, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#64748b" }} />
-                <YAxis tick={{ fontSize: 12, fill: "#64748b" }} allowDecimals={false} label={{ value: "Cestas", angle: -90, position: "insideLeft", fontSize: 12, fill: "#64748b" }} />
-                <Tooltip formatter={(val) => [`${Number(val).toFixed(2)} cestas`, "Cestas"]} cursor={{ fill: "rgba(22,163,74,0.06)" }} />
-                <Bar dataKey="cestas" fill="#16a34a" radius={[4, 4, 0, 0]} maxBarSize={64} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+
+        {serieTotalAnio > 0 ? (
+          <>
+            <div style={{ width: "100%", height: 320 }} data-testid="cosecha-serie-chart">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={buckets} margin={{ top: 10, right: 20, bottom: 0, left: 8 }}>
+                  <defs>
+                    {CAL_DEFS.map((d) => (
+                      <linearGradient key={d.key} id={`grad-${d.key}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={CAL_COLORS[d.key]} stopOpacity={0.7} />
+                        <stop offset="95%" stopColor={CAL_COLORS[d.key]} stopOpacity={0.08} />
+                      </linearGradient>
+                    ))}
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748b" }} interval={serieGran === "semana" ? 3 : 0} />
+                  <YAxis tick={{ fontSize: 12, fill: "#64748b" }} allowDecimals={false} label={{ value: "Producción (kg)", angle: -90, position: "insideLeft", fontSize: 12, fill: "#64748b", style: { textAnchor: "middle" } }} />
+                  <Tooltip formatter={(val, name) => [`${Number(val).toFixed(2)} kg`, name]} labelFormatter={(l) => buckets.find((b) => b.label === l)?.nombre || l} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  {CAL_DEFS.filter((d) => calVisible[d.key]).map((d) => (
+                    <Area key={d.key} type="monotone" dataKey={d.key} name={CAL_LEG[d.key]} stackId="1" stroke={CAL_COLORS[d.key]} strokeWidth={2} fill={`url(#grad-${d.key})`} />
+                  ))}
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* 4 tarjetas resumen */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginTop: 16 }} data-testid="cosecha-serie-resumen">
+              <ResumenCard label="PICO MÁXIMO" value={picoBucket ? `${picoBucket.label} · ${fmtKg(picoBucket.total)} kg` : "—"} color="#16a34a" testid="cosecha-serie-pico" />
+              <ResumenCard label="MÍNIMO (CON DATOS)" value={minBucket ? `${minBucket.label} · ${fmtKg(minBucket.total)} kg` : "—"} color="#dc2626" testid="cosecha-serie-minimo" />
+              <ResumenCard label="PROMEDIO (PERÍODOS CON DATOS)" value={`${fmtKg(promedioConDatos)} kg`} color="#3b82f6" testid="cosecha-serie-promedio" />
+              <ResumenCard label={`TOTAL ${serieAnio}`} value={`${fmtKg(serieTotalAnio)} kg`} color="#f59e0b" testid="cosecha-serie-total" />
+            </div>
+          </>
         ) : (
-          <div className="empty-state">Sin datos de cosecha para graficar</div>
+          <div className="empty-state" data-testid="cosecha-serie-empty">Sin datos de cosecha para {serieAnio}{serieVariedad ? ` · ${serieVariedad}` : ""}</div>
         )}
       </div>
 
@@ -794,3 +864,13 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
     </>
   );
 }
+
+function ResumenCard({ label, value, color, testid }) {
+  return (
+    <div style={{ background: "#f8fafc", border: "1px solid #eef2f7", borderRadius: 10, padding: "12px 14px" }} data-testid={testid}>
+      <div style={{ fontSize: 10.5, color: "#64748b", textTransform: "uppercase", fontWeight: 700, letterSpacing: 0.4, lineHeight: 1.3 }}>{label}</div>
+      <div style={{ fontSize: 18, fontWeight: 800, color, marginTop: 6 }}>{value}</div>
+    </div>
+  );
+}
+

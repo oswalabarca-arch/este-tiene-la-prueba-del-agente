@@ -1,0 +1,35 @@
+{
+  "summary": "Bug fix verificado: la pestaña 'Cosechas' del detalle de Plantación ya NO crashea. El nuevo gráfico AreaChart apilado por calidad (Producción en el tiempo) renderiza correctamente con todos sus controles (selector de año, granularidad semana/mes, filtro de variedad, toggles de calidad) y las 4 tarjetas resumen (PICO/MÍNIMO/PROMEDIO/TOTAL). Regresión OK: consolidado por variedad, calidades del lote, rendimiento por planta, toggle cestas/kg y filas de cosecha. Probado en lote l1 (2 cosechas) y l2 (3 cosechas), ambos del año 2026.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_results": {
+    "tab_no_crash": "PASS - plant-cosecha-serie, plant-cosecha-consolidado, plant-rendimiento-card visibles",
+    "area_chart_render": "PASS - cosecha-serie-chart visible con datos de 2026",
+    "year_selector_default": "PASS - año por defecto = 2026",
+    "year_no_data_empty_state": "PASS - al seleccionar 2024 (sin datos) muestra cosecha-serie-empty",
+    "toggle_granularidad": "PASS - Por semana (52) y Por mes (12) cambian sin romper el chart",
+    "filtro_variedad_serie": "PASS - filtro por 'albion' aplica al chart",
+    "toggle_calidad": "PASS - botones cal-primera/segunda/tercera/descarte funcionan",
+    "tarjetas_resumen": "PASS - PICO=Abr·560 kg, MIN=May·168 kg, PROM=364 kg, TOTAL 2026=728 kg (lote l1)",
+    "regresion_unidades": "PASS - toggle cestas/kg funciona",
+    "regresion_tabla_cosecha": "PASS - 2 cosecha-row en l1, 3 en l2",
+    "regresion_calidades_lote": "PASS - plant-calidades-chart visible"
+  },
+  "test_report_links": ["/app/test_reports/cosechas_default.png", "/app/test_reports/cosechas_l2.png"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PlantacionDetail.jsx tiene 877 líneas - se recomienda dividir (CosechasTab, GeneralTab, etc.) en archivos separados para mantenibilidad (>700 líneas).",
+    "Los imports de recharts (AreaChart, Area, XAxis, YAxis, CartesianGrid, Legend) ahora están todos correctamente presentes - bug raíz resuelto."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "skip (no requested)", "frontend": "100%"},
+  "test_credentials": "oswaldabarca@gmail.com / 123456 (admin)",
+  "seed_data_creation": "Ninguna - datos seed existentes (l1: 2 cosechas 2026, l2: 3 cosechas 2026)",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "El submódulo Cosechas funciona end-to-end. Si se modifica PlantacionDetail.jsx en el futuro, verificar que los imports de recharts (AreaChart/Area) sigan presentes en línea 11. Datos de cosecha solo en 2026."
+}
