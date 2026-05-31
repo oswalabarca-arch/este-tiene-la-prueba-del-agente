@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { catBadge, actBadge } from "../lib/categoryColors";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
+import { PeriodPicker, currentMonthStr, currentYearStr } from "../components/PeriodPicker";
 
 const TABS = [
   { key: "general",      label: "General",            icon: Sprout,    color: "#16a34a" },
@@ -433,15 +434,42 @@ function LaboresTab({ items }) {
 
 function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
   const [unidadVista, setUnidadVista] = useState("cestas");
-  if (items.length === 0) return <div className="card empty-state">Sin cosechas registradas en este lote</div>;
+  const [period, setPeriod] = useState("todo");
+  const [mesSel, setMesSel] = useState(currentMonthStr);
+  const [anioSel, setAnioSel] = useState(currentYearStr);
+  const [filtroVariedad, setFiltroVariedad] = useState("");
   const labelTipo = (c) => c.tipo_fruta || tipos.find((t) => t._id === c.tipo_fruta_id)?.nombre || "—";
   const labelVar = (c) => c.variedad || variedades.find((v) => v._id === c.variedad_id)?.nombre || "—";
+
+  if (items.length === 0) return <div className="card empty-state">Sin cosechas registradas en este lote</div>;
+
+  // Opciones para los filtros
+  const variedadesDisponibles = Array.from(new Set(items.map(labelVar).filter((v) => v && v !== "—"))).sort();
+  const yearSet = new Set(items.map((c) => { const d = new Date(c.fecha_cosecha); return isNaN(d.getTime()) ? null : String(d.getFullYear()); }).filter(Boolean));
+  yearSet.add(currentYearStr());
+  const years = [...yearSet].sort((a, b) => b.localeCompare(a));
+
+  // Filtro por período + variedad sobre los registros
+  const inPeriodo = (fechaStr) => {
+    if (period === "todo") return true;
+    const f = new Date(fechaStr);
+    if (isNaN(f.getTime())) return false;
+    const now = new Date();
+    if (period === "hoy") return f.toDateString() === now.toDateString();
+    if (period === "semana") { const s = new Date(now); s.setDate(now.getDate() - now.getDay()); s.setHours(0, 0, 0, 0); const e = new Date(s); e.setDate(s.getDate() + 7); return f >= s && f < e; }
+    if (period === "mes") return f.getFullYear() === Number(mesSel.slice(0, 4)) && (f.getMonth() + 1) === Number(mesSel.slice(5, 7));
+    if (period === "año") return f.getFullYear() === Number(anioSel);
+    return true;
+  };
+  const limpiarFiltros = () => { setPeriod("todo"); setFiltroVariedad(""); };
+  const itemsF = items.filter((c) => inPeriodo(c.fecha_cosecha) && (filtroVariedad ? labelVar(c) === filtroVariedad : true));
+
   // Factor de conversión según la unidad en que se guardó la cosecha vs la que se quiere ver
   const multDe = (c) => (c.unidad === "kg" && unidadVista === "cestas") ? 1 / KG_POR_CESTA
                       : (c.unidad === "cestas" && unidadVista === "kg") ? KG_POR_CESTA : 1;
   const totalDe = (c) => (c.primera_calidad || 0) + (c.segunda_calidad || 0) + (c.tercera_calidad || 0) + (c.descarte || 0);
   const u = unidadVista === "kg" ? "kg" : "cestas";
-  const totalGeneral = items.reduce((s, c) => s + totalDe(c) * multDe(c), 0);
+  const totalGeneral = itemsF.reduce((s, c) => s + totalDe(c) * multDe(c), 0);
 
   // Rendimiento por planta: kg totales de cada (tipo de fruta + variedad) ÷ plantas registradas de esa variedad
   const kgDe = (c) => (c.unidad === "kg") ? totalDe(c) : totalDe(c) * KG_POR_CESTA;
@@ -449,7 +477,7 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
   const plantasNorm = {};
   Object.entries(plantasPorVar || {}).forEach(([k, v]) => { plantasNorm[k.trim().toLowerCase()] = Number(v) || 0; });
   const grupos = {};
-  items.forEach((c) => {
+  itemsF.forEach((c) => {
     const tipo = labelTipo(c);
     const variedad = labelVar(c);
     const key = `${tipo}||${variedad}`;
@@ -464,13 +492,13 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
   // Calidades del lote (en kg) para el gráfico principal
   const fKg = (c) => (c.unidad === "kg") ? 1 : KG_POR_CESTA;
   const loteCal = { primera: 0, segunda: 0, tercera: 0, descarte: 0 };
-  items.forEach((c) => { CAL_DEFS.forEach((d) => { loteCal[d.key] += (c[d.field] || 0) * fKg(c); }); });
+  itemsF.forEach((c) => { CAL_DEFS.forEach((d) => { loteCal[d.key] += (c[d.field] || 0) * fKg(c); }); });
   const loteTotalKg = CAL_DEFS.reduce((s, d) => s + loteCal[d.key], 0);
   const mainData = CAL_DEFS.map((d) => ({ key: d.key, name: d.name, value: loteCal[d.key] })).filter((d) => d.value > 0);
 
   // Calidades por variedad (en kg) para los gráficos secundarios
   const porVariedad = {};
-  items.forEach((c) => {
+  itemsF.forEach((c) => {
     const variedad = labelVar(c);
     if (!porVariedad[variedad]) porVariedad[variedad] = { variedad, primera: 0, segunda: 0, tercera: 0, descarte: 0 };
     CAL_DEFS.forEach((d) => { porVariedad[variedad][d.key] += (c[d.field] || 0) * fKg(c); });
@@ -484,7 +512,7 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
     <>
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <h3 style={{ margin: 0 }}>Cosechas · {items.length}</h3>
+          <h3 style={{ margin: 0 }}>Cosechas · {itemsF.length}{itemsF.length !== items.length ? ` de ${items.length}` : ""}</h3>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <span style={{ color: "#dc2626", fontSize: 16, fontWeight: 700 }} data-testid="plant-cosecha-total">Total: {totalGeneral.toFixed(2)} {u}</span>
             <div className="pill-group" style={{ display: "inline-flex", gap: 6 }}>
@@ -496,6 +524,30 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
         <p style={{ color: "#64748b", marginTop: 6, marginBottom: 14, fontSize: 12 }}>
           Registros de cosecha de este lote (provenientes del módulo Cosecha). Cantidades mostradas en <b>{u}</b>.
         </p>
+
+        {/* Filtros: período + variedad */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-end", marginBottom: 14, padding: 12, background: "#f8fafc", borderRadius: 8 }}>
+          <div>
+            <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 600, marginBottom: 6 }}>Periodo</div>
+            <div className="pill-group" data-testid="cosecha-filtro-periodo" style={{ display: "inline-flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+              {[["hoy", "Hoy"], ["semana", "Semana"], ["mes", "Mes"], ["año", "Año"], ["todo", "Todo"]].map(([k, l]) => (
+                <button key={k} type="button" className={`pill ${period === k ? "active" : ""}`} onClick={() => setPeriod(k)} data-testid={`cosecha-filtro-periodo-${k}`}>{l}</button>
+              ))}
+              <PeriodPicker isMonth={period === "mes"} isYear={period === "año"} mes={mesSel} setMes={setMesSel} anio={anioSel} setAnio={setAnioSel} years={years} testidPrefix="cosecha-filtro" />
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 600, marginBottom: 6 }}>Variedad</div>
+            <select className="select" value={filtroVariedad} onChange={(e) => setFiltroVariedad(e.target.value)} data-testid="cosecha-filtro-variedad" style={{ minWidth: 180 }}>
+              <option value="">Todas las variedades</option>
+              {variedadesDisponibles.map((v) => <option key={v} value={v}>{v}</option>)}
+            </select>
+          </div>
+          {(period !== "todo" || filtroVariedad) && (
+            <button type="button" className="btn btn-sm" onClick={limpiarFiltros} data-testid="cosecha-filtro-limpiar">Limpiar filtros</button>
+          )}
+        </div>
+
         <table className="table">
           <thead>
             <tr>
@@ -504,10 +556,10 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
             </tr>
           </thead>
           <tbody>
-            {items.map((c) => {
+            {itemsF.map((c) => {
               const m = multDe(c);
               return (
-                <tr key={c._id}>
+                <tr key={c._id} data-testid="cosecha-row">
                   <td>{c.fecha_cosecha ? new Date(c.fecha_cosecha).toLocaleDateString() : "—"}</td>
                   <td>{labelTipo(c)}</td>
                   <td>{labelVar(c)}</td>
@@ -521,6 +573,7 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
             })}
           </tbody>
         </table>
+        {itemsF.length === 0 && <div className="empty-state">Sin cosechas para los filtros aplicados</div>}
       </div>
 
       {/* Fila: Calidades del lote (mitad) + Rendimiento por planta (mitad) */}

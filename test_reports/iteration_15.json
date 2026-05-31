@@ -1,0 +1,37 @@
+{
+  "summary": "Frontend testing of Cosechas filters (Periodo + Variedad) in PlantacionDetail > pestaña Cosechas. All flows pass: pills hoy/semana/mes/año/todo, month/year pickers show/hide correctly, variedad select filters rows, combination period+variedad works, 'Limpiar filtros' resets, charts/rendimiento/totales react to filters, empty-state shown when filter yields 0 rows and gráficos hidden, toggle Cestas/kg works with filters active.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "tested_scenarios": [
+    "Login admin OK; navegación a /dashboard/plantaciones/76fc64ae-... y apertura de pestaña Cosechas",
+    "Barra de filtros visible: pills cosecha-filtro-periodo-{hoy,semana,mes,año,todo}, select cosecha-filtro-variedad, default Periodo=Todo y Variedad='Todas las variedades'",
+    "Variedad=albion: filas 1 de 2, header 'Cosechas · 1 de 2', tabla rendimiento solo albion (1 fila), 'Calidades por variedad' solo 1 chart (albion), total recalculado 40 cestas, botón 'Limpiar filtros' visible",
+    "Mes pill: muestra cosecha-filtro-picker-mes, oculta picker-anio",
+    "Año pill: muestra cosecha-filtro-picker-anio (opciones 2021-2027), oculta picker-mes",
+    "Año=2021 (sin datos): rows=0, header 'Cosechas · 0 de 2', mensaje 'Sin cosechas para los filtros aplicados', gráficos Calidades del lote y Calidades por variedad ocultos (loteTotalKg=0), Total=0.00 cestas",
+    "Combinación Año=2026 + Variedad=san andreas: rows=1 de 2",
+    "Hoy: rows=1 (cosecha de hoy 5/31/2026 - san andreas)",
+    "Limpiar filtros: resetea period a Todo, variedad a '', rows vuelve a 2",
+    "Toggle Cestas/kg con filtro activo (albion): 40.00 cestas ↔ 560.00 kg (consistente)"
+  ],
+  "test_report_links": [
+    "/app/test_reports/cosechas_filtros.png",
+    "/app/test_reports/cosechas_filtros_2.png"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PlantacionDetail.jsx ya supera 680 líneas; sugerencia (no bloqueante) extraer CosechasTab y subcomponentes a archivos propios para mantenibilidad.",
+    "El picker de año solo ofrece currentYear-5 .. currentYear+1. Si los datos contienen registros más antiguos, esos años se añaden por yearSet (correcto). OK."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "N/A (frontend only)", "frontend": "100%" },
+  "test_credentials": "oswaldabarca@gmail.com / 123456 (admin)",
+  "seed_data_creation": "Ninguno; se usaron datos existentes del lote l1 (2 cosechas: albion y san andreas).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Filtros de Cosechas en pestaña del detalle de Plantaciones funcionan correctamente extremo a extremo (UI, derivaciones y gráficos). Reutilizan PeriodPicker compartido."
+}
