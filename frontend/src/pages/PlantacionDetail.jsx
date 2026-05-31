@@ -501,6 +501,8 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
   const [serieAnio, setSerieAnio] = useState(currentYearStr);
   const [serieVariedad, setSerieVariedad] = useState("");
   const [calVisible, setCalVisible] = useState({ primera: true, segunda: true, tercera: true, descarte: true });
+  const [calUnidad, setCalUnidad] = useState("kg"); // kg | cestas | pct (gráficos circulares)
+  const [serieUnidad, setSerieUnidad] = useState("kg"); // kg | cestas (producción en el tiempo)
   const labelTipo = (c) => c.tipo_fruta || tipos.find((t) => t._id === c.tipo_fruta_id)?.nombre || "—";
   const labelVar = (c) => c.variedad || variedades.find((v) => v._id === c.variedad_id)?.nombre || "—";
 
@@ -558,6 +560,21 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
   itemsF.forEach((c) => { CAL_DEFS.forEach((d) => { loteCal[d.key] += (c[d.field] || 0) * fKg(c); }); });
   const loteTotalKg = CAL_DEFS.reduce((s, d) => s + loteCal[d.key], 0);
   const mainData = CAL_DEFS.map((d) => ({ key: d.key, name: d.name, value: loteCal[d.key] })).filter((d) => d.value > 0);
+
+  // Formato de los gráficos circulares según la unidad activa (kg | cestas | %)
+  const fmtCal = (kgVal, totalKg) => {
+    if (calUnidad === "cestas") return `${(kgVal / KG_POR_CESTA).toFixed(2)} cestas`;
+    if (calUnidad === "pct") return `${totalKg > 0 ? ((kgVal / totalKg) * 100).toFixed(1) : "0"}%`;
+    return `${kgVal.toFixed(2)} kg`;
+  };
+  const calNum = (totalKg) => (calUnidad === "cestas" ? (totalKg / KG_POR_CESTA).toFixed(0) : totalKg.toFixed(0));
+  const calToggle = (
+    <div className="pill-group" style={{ display: "inline-flex", gap: 6 }} data-testid="plant-calidades-unidad">
+      {[["kg", "kg"], ["cestas", "Cestas"], ["pct", "%"]].map(([k, l]) => (
+        <button key={k} type="button" className={`pill ${calUnidad === k ? "active" : ""}`} onClick={() => setCalUnidad(k)} data-testid={`plant-calidades-unidad-${k}`}>{l}</button>
+      ))}
+    </div>
+  );
 
   // Calidades por variedad (en kg) para los gráficos secundarios
   const porVariedad = {};
@@ -628,6 +645,23 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
   const minBucket = bucketsConDatos.reduce((m, b) => (!m || b.total < m.total ? b : m), null);
   const promedioConDatos = bucketsConDatos.length > 0 ? serieTotalAnio / bucketsConDatos.length : 0;
 
+  // Unidad de la serie (kg | cestas): los buckets están en kg; escalamos para mostrar
+  const serieFactor = serieUnidad === "cestas" ? 1 / KG_POR_CESTA : 1;
+  const uSerie = serieUnidad === "cestas" ? "cestas" : "kg";
+  const bucketsDisplay = buckets.map((b) => {
+    const o = { label: b.label, nombre: b.nombre };
+    CAL_DEFS.forEach((def) => { o[def.key] = Number((b[def.key] * serieFactor).toFixed(2)); });
+    o.total = Number((b.total * serieFactor).toFixed(2));
+    return o;
+  });
+  const serieToggle = (
+    <div className="pill-group" style={{ display: "inline-flex", gap: 6 }} data-testid="plant-serie-unidad">
+      {[["kg", "kg"], ["cestas", "Cestas"]].map(([k, l]) => (
+        <button key={k} type="button" className={`pill ${serieUnidad === k ? "active" : ""}`} onClick={() => setSerieUnidad(k)} data-testid={`plant-serie-unidad-${k}`}>{l}</button>
+      ))}
+    </div>
+  );
+
   return (
     <>
       {/* Totales por variedad (todas las fechas, sin importar filtros) */}
@@ -682,10 +716,11 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
               <button type="button" className={`pill ${serieGran === "semana" ? "active" : ""}`} onClick={() => setSerieGran("semana")} data-testid="cosecha-serie-semana">Por semana (52)</button>
               <button type="button" className={`pill ${serieGran === "mes" ? "active" : ""}`} onClick={() => setSerieGran("mes")} data-testid="cosecha-serie-mes">Por mes (12)</button>
             </div>
+            {serieToggle}
           </div>
         </div>
         <p style={{ color: "#64748b", marginTop: 4, marginBottom: 10, fontSize: 12 }}>
-          Producción acumulada (kg) por calidad a lo largo de {serieAnio}. Usá los filtros para ver una variedad o aislar calidades.
+          Producción acumulada ({uSerie}) por calidad a lo largo de {serieAnio}. Usá los filtros para ver una variedad o aislar calidades.
         </p>
 
         {/* Filtro de variedad + toggles de calidad */}
@@ -714,7 +749,7 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
           <>
             <div style={{ width: "100%", height: 320 }} data-testid="cosecha-serie-chart">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={buckets} margin={{ top: 10, right: 20, bottom: 0, left: 8 }}>
+                <AreaChart data={bucketsDisplay} margin={{ top: 10, right: 20, bottom: 0, left: 8 }}>
                   <defs>
                     {CAL_DEFS.map((d) => (
                       <linearGradient key={d.key} id={`grad-${d.key}`} x1="0" y1="0" x2="0" y2="1">
@@ -725,8 +760,8 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" vertical={false} />
                   <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748b" }} interval={serieGran === "semana" ? 3 : 0} />
-                  <YAxis tick={{ fontSize: 12, fill: "#64748b" }} allowDecimals={false} label={{ value: "Producción (kg)", angle: -90, position: "insideLeft", fontSize: 12, fill: "#64748b", style: { textAnchor: "middle" } }} />
-                  <Tooltip formatter={(val, name) => [`${Number(val).toFixed(2)} kg`, name]} labelFormatter={(l) => buckets.find((b) => b.label === l)?.nombre || l} />
+                  <YAxis tick={{ fontSize: 12, fill: "#64748b" }} allowDecimals={false} label={{ value: `Producción (${uSerie})`, angle: -90, position: "insideLeft", fontSize: 12, fill: "#64748b", style: { textAnchor: "middle" } }} />
+                  <Tooltip formatter={(val, name) => [`${Number(val).toFixed(2)} ${uSerie}`, name]} labelFormatter={(l) => bucketsDisplay.find((b) => b.label === l)?.nombre || l} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                   {CAL_DEFS.filter((d) => calVisible[d.key]).map((d) => (
                     <Area key={d.key} type="monotone" dataKey={d.key} name={CAL_LEG[d.key]} stackId="1" stroke={CAL_COLORS[d.key]} strokeWidth={2} fill={`url(#grad-${d.key})`} />
@@ -737,10 +772,10 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
 
             {/* 4 tarjetas resumen */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginTop: 16 }} data-testid="cosecha-serie-resumen">
-              <ResumenCard label="PICO MÁXIMO" value={picoBucket ? `${picoBucket.label} · ${fmtKg(picoBucket.total)} kg` : "—"} color="#16a34a" testid="cosecha-serie-pico" />
-              <ResumenCard label="MÍNIMO (CON DATOS)" value={minBucket ? `${minBucket.label} · ${fmtKg(minBucket.total)} kg` : "—"} color="#dc2626" testid="cosecha-serie-minimo" />
-              <ResumenCard label="PROMEDIO (PERÍODOS CON DATOS)" value={`${fmtKg(promedioConDatos)} kg`} color="#3b82f6" testid="cosecha-serie-promedio" />
-              <ResumenCard label={`TOTAL ${serieAnio}`} value={`${fmtKg(serieTotalAnio)} kg`} color="#f59e0b" testid="cosecha-serie-total" />
+              <ResumenCard label="PICO MÁXIMO" value={picoBucket ? `${picoBucket.label} · ${fmtKg(picoBucket.total * serieFactor)} ${uSerie}` : "—"} color="#16a34a" testid="cosecha-serie-pico" />
+              <ResumenCard label="MÍNIMO (CON DATOS)" value={minBucket ? `${minBucket.label} · ${fmtKg(minBucket.total * serieFactor)} ${uSerie}` : "—"} color="#dc2626" testid="cosecha-serie-minimo" />
+              <ResumenCard label="PROMEDIO (PERÍODOS CON DATOS)" value={`${fmtKg(promedioConDatos * serieFactor)} ${uSerie}`} color="#3b82f6" testid="cosecha-serie-promedio" />
+              <ResumenCard label={`TOTAL ${serieAnio}`} value={`${fmtKg(serieTotalAnio * serieFactor)} ${uSerie}`} color="#f59e0b" testid="cosecha-serie-total" />
             </div>
           </>
         ) : (
@@ -752,18 +787,18 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
       <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginTop: 18, alignItems: "stretch" }}>
         {loteTotalKg > 0 && (
           <div className="card" style={{ flex: "1 1 320px", minWidth: 0, marginTop: 0, padding: 0, overflow: "hidden", border: "1px solid #e2e8f0" }} data-testid="plant-calidades-chart">
-            <ChartHeader icon={Apple} iconBg="#dc2626" title="Calidades del lote" subtitle={`Distribución de calidades del lote. Rendimiento total: ${loteTotalKg.toFixed(2)} kg.`} />
+            <ChartHeader icon={Apple} iconBg="#dc2626" title="Calidades del lote" subtitle={`Distribución de calidades del lote. Rendimiento total: ${loteTotalKg.toFixed(2)} kg.`} right={calToggle} />
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 24, padding: 24 }}>
               <div style={{ width: 200, height: 200, position: "relative", flexShrink: 0, margin: "0 auto" }}>
                 <PieChart width={200} height={200}>
                   <Pie data={mainData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={92} paddingAngle={3} stroke="#fff" strokeWidth={2} cornerRadius={6}>
                     {mainData.map((d) => <Cell key={d.key} fill={CAL_COLORS[d.key]} />)}
                   </Pie>
-                  <Tooltip formatter={(val, _n, p) => [`${Number(val).toFixed(2)} kg`, p?.payload?.name]} contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12 }} />
+                  <Tooltip formatter={(val, _n, p) => [fmtCal(Number(val), loteTotalKg), p?.payload?.name]} contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12 }} />
                 </PieChart>
                 <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", textAlign: "center", pointerEvents: "none" }}>
-                  <div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a", lineHeight: 1 }}>{loteTotalKg.toFixed(0)}</div>
-                  <div style={{ fontSize: 11, color: "#64748b", marginTop: 3, textTransform: "uppercase", letterSpacing: 0.5 }}>kg totales</div>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a", lineHeight: 1 }}>{calNum(loteTotalKg)}</div>
+                  <div style={{ fontSize: 11, color: "#64748b", marginTop: 3, textTransform: "uppercase", letterSpacing: 0.5 }}>{calUnidad === "cestas" ? "cestas" : "kg"} totales</div>
                 </div>
               </div>
               <div style={{ flex: 1, minWidth: 200, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -775,7 +810,7 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
                           <span style={{ fontWeight: 600, fontSize: 13.5, color: "#334155" }}>{d.name}</span>
-                          <span style={{ fontSize: 12.5, color: "#0f172a", fontWeight: 700 }}>{d.value.toFixed(2)} kg</span>
+                          <span style={{ fontSize: 12.5, color: "#0f172a", fontWeight: 700 }}>{fmtCal(d.value, loteTotalKg)}</span>
                         </div>
                         <div style={{ height: 6, borderRadius: 999, background: "#f1f5f9", overflow: "hidden" }}>
                           <div style={{ width: `${ratio}%`, height: "100%", borderRadius: 999, background: CAL_COLORS[d.key], transition: "width .4s ease" }} />
@@ -823,7 +858,7 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
       {/* Gráficos secundarios: calidades por variedad */}
       {variedadCharts.some((v) => v.total > 0) && (
         <div className="card" style={{ marginTop: 18, padding: 0, overflow: "hidden", border: "1px solid #e2e8f0" }} data-testid="plant-calidades-variedad-chart">
-          <ChartHeader icon={Apple} iconBg="#dc2626" title="Calidades por variedad" subtitle="Distribución de calidades (1ª, 2ª, 3ª y descarte) por cada variedad." />
+          <ChartHeader icon={Apple} iconBg="#dc2626" title="Calidades por variedad" subtitle="Distribución de calidades (1ª, 2ª, 3ª y descarte) por cada variedad." right={calToggle} />
           <div style={{ padding: 24 }}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 16 }}>
               {variedadCharts.filter((v) => v.total > 0).map((v) => (
@@ -834,14 +869,14 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
                       <Pie data={v.data} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={44} outerRadius={68} paddingAngle={3} stroke="#fff" strokeWidth={2} cornerRadius={5}>
                         {v.data.map((d) => <Cell key={d.key} fill={CAL_COLORS[d.key]} />)}
                       </Pie>
-                      <Tooltip formatter={(val, _n, p) => [`${Number(val).toFixed(2)} kg`, p?.payload?.name]} contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12 }} />
+                      <Tooltip formatter={(val, _n, p) => [fmtCal(Number(val), v.total), p?.payload?.name]} contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12 }} />
                     </PieChart>
                     <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", textAlign: "center", pointerEvents: "none" }}>
-                      <div style={{ fontSize: 16, fontWeight: 800, color: "#0f172a", lineHeight: 1 }}>{v.total.toFixed(0)}</div>
-                      <div style={{ fontSize: 9.5, color: "#64748b", textTransform: "uppercase" }}>kg</div>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: "#0f172a", lineHeight: 1 }}>{calNum(v.total)}</div>
+                      <div style={{ fontSize: 9.5, color: "#64748b", textTransform: "uppercase" }}>{calUnidad === "cestas" ? "cestas" : "kg"}</div>
                     </div>
                   </div>
-                  {/* Desglose de kg por calidad (fuera del gráfico) */}
+                  {/* Desglose por calidad (fuera del gráfico), en la unidad activa */}
                   <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 14 }}>
                     {v.data.map((d) => {
                       const ratio = v.total > 0 ? (d.value / v.total) * 100 : 0;
@@ -851,7 +886,7 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 3 }}>
                               <span style={{ fontWeight: 600, fontSize: 12.5, color: "#334155" }}>{d.name}</span>
-                              <span style={{ fontSize: 12, color: "#0f172a", fontWeight: 700 }}>{d.value.toFixed(2)} kg</span>
+                              <span style={{ fontSize: 12, color: "#0f172a", fontWeight: 700 }}>{fmtCal(d.value, v.total)}</span>
                             </div>
                             <div style={{ height: 5, borderRadius: 999, background: "#f1f5f9", overflow: "hidden" }}>
                               <div style={{ width: `${ratio}%`, height: "100%", borderRadius: 999, background: CAL_COLORS[d.key], transition: "width .4s ease" }} />
@@ -947,16 +982,19 @@ function ResumenCard({ label, value, color, testid }) {
   );
 }
 
-function ChartHeader({ icon: Icon, iconBg, title, subtitle }) {
+function ChartHeader({ icon: Icon, iconBg, title, subtitle, right }) {
   return (
-    <div style={{ background: "linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%)", padding: "18px 24px", borderBottom: "1px solid #e2e8f0" }}>
-      <h3 style={{ margin: 0, display: "inline-flex", alignItems: "center", gap: 9, fontSize: 16, color: "#0f172a" }}>
-        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 9, background: iconBg, color: "#fff" }}>
-          <Icon size={17} />
-        </span>
-        {title}
-      </h3>
-      {subtitle && <p style={{ margin: "6px 0 0 39px", color: "#64748b", fontSize: 12.5 }}>{subtitle}</p>}
+    <div style={{ background: "linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%)", padding: "18px 24px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+      <div style={{ minWidth: 0 }}>
+        <h3 style={{ margin: 0, display: "inline-flex", alignItems: "center", gap: 9, fontSize: 16, color: "#0f172a" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 9, background: iconBg, color: "#fff" }}>
+            <Icon size={17} />
+          </span>
+          {title}
+        </h3>
+        {subtitle && <p style={{ margin: "6px 0 0 39px", color: "#64748b", fontSize: 12.5 }}>{subtitle}</p>}
+      </div>
+      {right && <div style={{ flexShrink: 0 }}>{right}</div>}
     </div>
   );
 }

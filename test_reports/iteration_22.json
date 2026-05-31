@@ -1,0 +1,32 @@
+{
+  "summary": "Validación frontend de los nuevos selectores de unidad en la pestaña Cosechas (PlantacionDetail.jsx). Probado en tafy/L3 (3 cosechas, 3304 kg). Los 3 modos (kg / cestas / %) en los gráficos circulares ('Calidades del lote' y 'Calidades por variedad') y los 2 modos (kg / cestas) en 'Producción en el tiempo' funcionan correctamente, con conversión 1 cesta = 14 kg coherente y sin regresiones en la tabla de registro de cosecha.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PlantacionDetail.jsx ya supera holgadamente las ~900 líneas; sería deseable extraer CosechasTab a su propio archivo/módulo para mantenibilidad (no bloqueante).",
+    "El factor KG_POR_CESTA=14 está repetido en varias rutas (fmtCal, calNum, serieFactor, bucketsDisplay, multDe, kgDe, fKg). Se podría centralizar en helpers cestasToKg(kg)/kgToCestas(kg) para reducir duplicación."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "100%"},
+  "test_credentials": "oswaldabarca@gmail.com / 123456",
+  "seed_data_creation": "Ninguna; se usaron las 3 cosechas existentes en tafy/L3 (total 3304 kg, año 2026).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Plantación de referencia: tafy / L3 (id aea86fdd-a316-4c17-8fbd-277d266da4f5). Total lote 3304 kg → 236 cestas. Variedades: albion 2380 kg (1680/350/182/168) y alturas 924 kg. Datos solo en 2026. Selectores clave: plant-calidades-unidad-(kg|cestas|pct), plant-serie-unidad-(kg|cestas), plant-cosecha-unidad-(kg|cestas), plant-calidades-chart, plant-calidades-variedad-chart, plant-variedad-legend-{variedad}-{key}, cosecha-serie-(pico|minimo|promedio|total), cosecha-row.",
+  "validations_performed": {
+    "calidades_lote_kg": "centro '3304 KG TOTALES'; Primera 2170.00 kg, Segunda 644.00 kg, Tercera 252.00 kg, Descarte 238.00 kg (suma=3304 ✓)",
+    "calidades_lote_cestas": "centro '236 CESTAS TOTALES'; Primera 155.00, Segunda 46.00, Tercera 18.00, Descarte 17.00 (cada valor = kg/14 ✓)",
+    "calidades_lote_pct": "Primera 65.7%, Segunda 19.5%, Tercera 7.6%, Descarte 7.2% (suma=100% ✓); centro mantiene '3304 KG TOTALES' como referencia (acorde a spec)",
+    "calidades_variedad_albion": "kg: 1680/350/182/168 (2380 total) → cestas: 120/25/13/12 → %: 70.6/14.7/7.6/7.1 (sums correctos) ✓ ambos charts comparten estado",
+    "serie_kg": "Y-axis 'Producción (kg)'; pico May 1960 kg, min Feb 1344 kg, prom 1652 kg, total 3304 kg",
+    "serie_cestas": "Y-axis 'Producción (cestas)'; pico May 140, min Feb 96, prom 118, total 236 (cada valor = kg/14 ✓)",
+    "regresion_tabla": "toggle plant-cosecha-unidad independiente: row 5/31 muestra kg 1400/280/140/140/1960 y cestas 100/20/10/10/140",
+    "console_errors": "Ninguno detectado"
+  }
+}
