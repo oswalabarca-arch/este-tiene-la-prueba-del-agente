@@ -1184,6 +1184,8 @@ class VentaIn(BaseModel):
     precio_unitario: float = 0
     total: float = 0
     cliente: str = ""
+    telefono: str = ""
+    abono_inicial: float = 0
     observaciones: str = ""
     origen: str = ""
     asignacion_id: str = ""
