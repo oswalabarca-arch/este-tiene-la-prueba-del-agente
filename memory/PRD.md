@@ -183,6 +183,10 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - Bug corregido (por testing agent): el instrumentador del visual-editor envolvía la expresión JSX en un `<span>` dentro del `<text>` SVG (los `<span>` HTML no renderizan dentro de SVG), mostrando solo "%". Fix: usar un único template literal `{\`${...}%\`}` en el `<text>`. (Regla: dentro de `<text>` SVG NO mezclar `{expr}` + texto literal; usar template literal o `<tspan>`.)
 - Testing frontend 100% (iteration_13.json), con screenshots de verificación.
 
+## Ajustes (Plantación · Cosechas · 31/05/2026 — v3 layout)
+- "Calidades del lote" (donut reducido 190px) y "Rendimiento por planta" ahora van **lado a lado** en una fila flex, cada uno ~mitad del ancho (`flex: 1 1 320px`). Las gráficas "Calidades por variedad" quedan debajo a todo el ancho.
+- Testing frontend 100% (iteration_14.json): medido a 1920px → calidades-chart (x=590, w=479) y rendimiento-card (x=1087, w=479) en la misma fila (top=355); variedad-chart full-width debajo (top=659). Donut 728 kg, leyendas y tabla de rendimiento correctas. Warning cosmético de recharts (no afecta UX).
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.
