@@ -266,6 +266,12 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - **Frontend** (`Inventario.jsx`): botón **"Registrar producto"** + `EntradaModal` (fecha, categoría, nombre con autocompletado, cantidad, valor opcional, descripción) + tarjeta **"Entradas manuales"** (lista con eliminar). Columna de la tabla principal renombrada "Comprado"→"Ingresado".
 - Lint OK (backend y frontend). Testing **100%**: backend 7/7 pytest (`test_inventario_entradas.py`), frontend 100% (iteration_27.json) end-to-end; validaciones 422 y seguridad del DELETE verificadas por curl. Un producto solo ingresado manualmente queda disponible para aplicaciones.
 
+## Fix (Inventario · entradas manuales · PEPS + inversión — 01/02/2026)
+- **Bug PEPS:** una entrada manual con **fecha pasada** perdía su valor porque aplicaciones más recientes "se la comían" (FIFO). Fix (decisión del usuario): las entradas manuales (`origen="ajuste"`) **quedan FUERA de la línea de tiempo cronológica** y se aplican en una **segunda pasada**: cubren el sobreconsumo/"sin cobertura" de las compras reales y el resto queda como **stock disponible hoy**. Implementado en `_compute_peps_remaining_per_product` y `_compute_fifo_costs_per_aplicacion` (server.py). Resultado verificado: hierro disponible 835, valor_remanente **$835** (antes $29), lote @ $1.
+- **Inversión/gasto:** `GET /api/analiticas/resumen` ahora devuelve `inversion_compras`, `inversion_entradas_manuales` e `inversion_insumos_total`. El frontend `Analiticas.jsx` muestra la sección **"Inversión en insumos"** (`analiticas-inversion`) con 3 KPIs. La entrada manual cuenta como inversión.
+- Tests: `test_peps_manual_entry.py` (2/2) + `test_peps_regression.py` (5/5, creado por testing agent) + `test_inventario_entradas.py` (7/7) = **14/14**. Testing **backend 100% + frontend 100%** (iteration_28.json), sin regresiones. Lint OK.
+- Nota: `test_asignacion_destino.py` falla por falta de stock de cosecha (cestas=0) — flujo cosecha→ventas ajeno a este cambio (preexistente/ambiental).
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.
