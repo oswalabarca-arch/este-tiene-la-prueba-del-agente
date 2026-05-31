@@ -239,6 +239,12 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - `ChartHeader` ahora acepta prop `right` para alojar controles. Cambio 100% frontend. Lint OK.
 - Testing frontend **100%** (iteration_22.json) en tafy/L3 (3304 kg): lote kg (2170/644/252/238), cestas (155/46/18/17), % (65.7/19.5/7.6/7.2=100); variedad albion coherente; serie en kg (total 3304) y cestas (total 236); regresión de la tabla (toggle independiente) OK.
 
+## Implementado (Plantación · Aplicaciones · costo en $/% + filtros de tabla — 01/02/2026)
+- **Gráfica circular "Aplicaciones por tipo"**: nuevo **toggle de métrica** (`plant-aplicaciones-metric`) con **Cantidad / Costo $ / Costo %**. En "Costo $" el donut se pondera por `costo_insumos` y la leyenda/centro muestran montos en $; en "Costo %" la leyenda muestra el % del costo por tipo (centro mantiene el costo total $ como referencia). La gráfica usa TODAS las aplicaciones del lote.
+- **Filtros en los registros (tabla)**: barra con **Período** (`aplic-filtro-periodo` → Semana/Mes/Año/Todo + `PeriodPicker` testidPrefix `aplic-filtro`) y **Tipo** (`aplic-filtro-tipo`) + **Limpiar** (`aplic-filtro-limpiar`). Filtran SOLO la tabla (`aplic-row`); el encabezado muestra "Aplicaciones · X de Y" y el "Costo total (PEPS)" del subconjunto filtrado. Estado vacío incluido.
+- `AplicacionesTab` reescrito (hooks antes del early-return). Cambio 100% frontend. Lint OK.
+- Testing frontend **100%** (iteration_23.json, 11/11): donut Cantidad (3), Costo $ (fert $44.59 + herb $8.00 = $52.59), Costo % (85%/15%); filtros período/tipo y Limpiar OK; donut no se filtra; sin regresiones.
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.
