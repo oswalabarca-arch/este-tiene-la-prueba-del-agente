@@ -3,6 +3,7 @@ import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
 import { Briefcase, Plus, Pencil, Trash2, DollarSign } from "lucide-react";
+import { actBadge } from "../lib/categoryColors";
 
 export function Trabajadores() {
   const toast = useToast();
@@ -191,7 +192,7 @@ export function Nomina() {
             {actividades.map((a) => (
               <tr key={a._id}>
                 <td>{new Date(a.fecha_actividad).toLocaleDateString()}</td>
-                <td><span className="badge badge-purple">{a.tipo_personalizado || a.tipo}</span></td>
+                <td><span className="badge" style={actBadge(a.tipo_personalizado || a.tipo)}>{a.tipo_personalizado || a.tipo}</span></td>
                 <td><span className="badge badge-primary">{a.lote || "—"}</span></td>
                 <td>{Number(a.cantidad_trabajadores || 0).toFixed(2)}</td>
                 <td>{a.horas_trabajo || 0}</td>

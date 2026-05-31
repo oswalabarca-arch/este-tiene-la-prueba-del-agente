@@ -6,7 +6,7 @@ import {
   Activity, Plus, Trash2, CheckCircle, Calendar, MapPin, Users as UsersIcon,
   Clock, Droplets, Eye, X, DollarSign, Sprout, Leaf, Droplet, Wrench, Apple,
 } from "lucide-react";
-import { catBadge } from "../lib/categoryColors";
+import { catBadge, actBadge, actTile } from "../lib/categoryColors";
 
 const TIPOS_REGISTRAR = [
   { key: "abonar",     label: "Abonar",          icon: Sprout },
@@ -91,7 +91,7 @@ function ActividadesBase({ filtro }) {
                 {items.map((a) => (
                   <tr key={a._id}>
                     <td>{new Date(a.fecha_actividad).toLocaleDateString()}</td>
-                    <td><span className="badge badge-purple">{a.tipo_personalizado || a.tipo}</span></td>
+                    <td><span className="badge" style={actBadge(a.tipo_personalizado || a.tipo)}>{a.tipo_personalizado || a.tipo}</span></td>
                     <td><span className="badge badge-primary">{a.lote}</span></td>
                     <td>{Number(a.cantidad_trabajadores || 0).toFixed(2)}</td>
                     <td>{a.horas_trabajo}</td>
@@ -501,11 +501,9 @@ function RegistrarActividadForm({ plantaciones, onSaved }) {
                 style={{
                   display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
                   gap: 8, padding: "20px 12px", borderRadius: 12, cursor: "pointer",
-                  background: active ? "#16a34a" : "#fff",
-                  color: active ? "#fff" : "#475569",
-                  border: active ? "2px solid #16a34a" : "1.5px solid #d1fae5",
                   fontWeight: active ? 700 : 500,
                   transition: "all 0.15s",
+                  ...actTile(t.key, active),
                 }}
               >
                 <Icon size={28} strokeWidth={1.5} />

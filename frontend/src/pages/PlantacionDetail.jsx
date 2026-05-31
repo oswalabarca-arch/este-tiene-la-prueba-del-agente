@@ -7,7 +7,7 @@ import {
   ArrowLeft, Pencil, Trash2, MapPin, Calendar, Droplet, Sprout, ImageOff,
   Droplets, Users as UsersIcon, Apple, Info,
 } from "lucide-react";
-import { catBadge } from "../lib/categoryColors";
+import { catBadge, actBadge } from "../lib/categoryColors";
 
 const TABS = [
   { key: "general", label: "Información general", icon: Info, color: "#16a34a" },
@@ -251,7 +251,7 @@ function LaboresTab({ items }) {
             {items.map((a) => (
               <tr key={a._id}>
                 <td>{new Date(a.fecha_actividad).toLocaleDateString()}</td>
-                <td><span className="badge badge-purple">{a.tipo_personalizado || a.tipo}</span></td>
+                <td><span className="badge" style={actBadge(a.tipo_personalizado || a.tipo)}>{a.tipo_personalizado || a.tipo}</span></td>
                 <td>{Number(a.cantidad_trabajadores || 0).toFixed(2)}</td>
                 <td>{a.horas_trabajo}</td>
                 <td>${Number(a.precio_hora || 0).toFixed(2)}</td>

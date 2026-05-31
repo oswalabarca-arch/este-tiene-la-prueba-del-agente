@@ -42,3 +42,49 @@ export const catPill = (categoria, isActive) => {
     ? { background: color, color: "#fff", border: `1px solid ${color}` }
     : { background: bg, color, border: `1px solid ${border}` };
 };
+
+// ============================================================
+// Paleta para tipos de ACTIVIDAD (Registrar)
+// abonar → marrón tierra / cosechar → granate fruta / deshierbar → verde planta
+// riego → azul agua / otra → gris neutro
+// ============================================================
+const ACT_PALETTE = {
+  abonar:     { bg: "#fef3c7", color: "#92400e", border: "#fcd34d" }, // marrón tierra
+  cosechar:   { bg: "#fee2e2", color: "#b91c1c", border: "#fca5a5" }, // granate fruta
+  deshierbar: { bg: "#dcfce7", color: "#15803d", border: "#86efac" }, // verde planta
+  riego:      { bg: "#dbeafe", color: "#1d4ed8", border: "#93c5fd" }, // azul agua
+  otra:       { bg: "#f1f5f9", color: "#475569", border: "#cbd5e1" }, // gris
+};
+
+const ACT_ALIASES = {
+  abono:        "abonar",
+  fertilizar:   "abonar",
+  cosecha:      "cosechar",
+  cosechando:   "cosechar",
+  deshierbe:    "deshierbar",
+  desyerbar:    "deshierbar",
+  riegos:       "riego",
+  regar:        "riego",
+  otro:         "otra",
+  otros:        "otra",
+};
+
+const actNorm = (raw) => {
+  const k = String(raw || "").toLowerCase().trim();
+  return ACT_ALIASES[k] || k;
+};
+
+export const actColor = (tipo) => ACT_PALETTE[actNorm(tipo)] || ACT_PALETTE.otra;
+
+export const actBadge = (tipo) => {
+  const { bg, color } = actColor(tipo);
+  return { background: bg, color };
+};
+
+// Para tiles del formulario "Registrar"
+export const actTile = (tipo, isActive) => {
+  const { bg, color, border } = actColor(tipo);
+  return isActive
+    ? { background: color, color: "#fff", border: `2px solid ${color}` }
+    : { background: bg, color, border: `1.5px solid ${border}` };
+};
