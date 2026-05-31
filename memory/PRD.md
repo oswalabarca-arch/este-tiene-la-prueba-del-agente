@@ -62,6 +62,11 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - **P2** Generación de equipos automáticos en compras: validar UI muestra inmediatamente el equipo creado
 - **P2** Endpoint de validación de stock antes de crear aplicación
 
+## Implementado (Mejora Cosecha — 31/05/2026)
+- En "Nueva cosecha", los campos **Tipo de Fruta** y **Variedad** ahora son inputs de texto con autocompletado (`datalist`).
+- Las sugerencias provienen de los **cultivos** y **variedades** registrados en el módulo Plantaciones. Si se selecciona un lote, se filtran a los de esa plantación; si no, se muestran todos.
+- Backend `CosechaIn`: ahora guarda `tipo_fruta`/`variedad` como strings (campos `tipo_fruta_id`/`variedad_id` quedan opcionales por compatibilidad). Display y filtros con fallback a registros legacy.
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.

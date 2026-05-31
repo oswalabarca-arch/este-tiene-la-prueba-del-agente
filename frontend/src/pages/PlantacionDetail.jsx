@@ -405,8 +405,8 @@ function CosechasTab({ items, tipos, variedades }) {
           {items.map((c) => (
             <tr key={c._id}>
               <td>{new Date(c.fecha).toLocaleDateString()}</td>
-              <td>{labelTipo(c.tipo_fruta_id)}</td>
-              <td>{labelVar(c.variedad_id)}</td>
+              <td>{c.tipo_fruta || labelTipo(c.tipo_fruta_id)}</td>
+              <td>{c.variedad || labelVar(c.variedad_id)}</td>
               <td>{c.cantidad_cestas}</td>
               <td>{c.peso_kg}</td>
             </tr>

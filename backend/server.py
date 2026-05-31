@@ -375,8 +375,10 @@ async def delete_plantacion(pid: str, _: dict = Depends(get_current_user)):
 # COSECHAS
 # ============================================================
 class CosechaIn(BaseModel):
-    tipo_fruta_id: str
-    variedad_id: str
+    tipo_fruta: str = ""        # nombre del cultivo (tomado de Plantaciones)
+    variedad: str = ""          # nombre de la variedad (tomado de Plantaciones)
+    tipo_fruta_id: str = ""     # legacy / opcional por compatibilidad
+    variedad_id: str = ""       # legacy / opcional por compatibilidad
     primera_calidad: float = 0
     segunda_calidad: float = 0
     tercera_calidad: float = 0

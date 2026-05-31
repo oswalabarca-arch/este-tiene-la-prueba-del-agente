@@ -38,7 +38,13 @@ export default function Cosecha() {
 
   const today = todayLocal();
 
+  // Nombre del cultivo/variedad: prioriza el string nuevo, con fallback a catálogos legacy.
+  const cosTipoName = (c) => c.tipo_fruta || tipos.find((t) => t._id === c.tipo_fruta_id)?.nombre || "";
+  const cosVarName = (c) => c.variedad || variedades.find((v) => v._id === c.variedad_id)?.nombre || "";
+
   const filtered = useMemo(() => {
+    const tipoName = (c) => c.tipo_fruta || tipos.find((t) => t._id === c.tipo_fruta_id)?.nombre || "";
+    const varName = (c) => c.variedad || variedades.find((v) => v._id === c.variedad_id)?.nombre || "";
     const now = new Date();
     return cosechas.filter((c) => {
       const d = new Date(c.fecha_cosecha);
@@ -46,13 +52,11 @@ export default function Cosecha() {
       else if (period === "semana") { const diff = (now - d) / 86400000; if (diff > 7) return false; }
       else if (period === "mes") { const diff = (now - d) / 86400000; if (diff > 31) return false; }
       else if (period === "año") { if (d.getFullYear() !== now.getFullYear()) return false; }
-      if (filtroTipo && c.tipo_fruta_id !== filtroTipo) return false;
-      if (filtroVariedad && c.variedad_id !== filtroVariedad) return false;
+      if (filtroTipo && tipoName(c) !== filtroTipo) return false;
+      if (filtroVariedad && varName(c) !== filtroVariedad) return false;
       if (filtroLote && c.lote !== filtroLote) return false;
       if (search) {
-        const tipo = tipos.find((t) => t._id === c.tipo_fruta_id)?.nombre || "";
-        const variedad = variedades.find((v) => v._id === c.variedad_id)?.nombre || "";
-        if (!`${tipo} ${variedad} ${c.lote}`.toLowerCase().includes(search.toLowerCase())) return false;
+        if (!`${tipoName(c)} ${varName(c)} ${c.lote}`.toLowerCase().includes(search.toLowerCase())) return false;
       }
       return true;
     });
@@ -85,7 +89,17 @@ export default function Cosecha() {
     loadAll();
   };
 
-  const variedadesFiltradas = filtroTipo ? variedades.filter((v) => v.tipo_fruta_id === filtroTipo) : variedades;
+  const cultivosDe = (p) => (p.cultivos?.length ? p.cultivos : (p.cultivo ? [p.cultivo] : []));
+  const variedadesDe = (p) => (p.variedades?.length ? p.variedades : (p.variedad ? [p.variedad] : []));
+  // Opciones de filtro: cultivos/variedades de Plantaciones + los ya usados en cosechas (legacy).
+  const tipoOptions = Array.from(new Set([
+    ...plantaciones.flatMap(cultivosDe),
+    ...cosechas.map(cosTipoName),
+  ])).filter(Boolean).sort();
+  const variedadOptions = Array.from(new Set([
+    ...plantaciones.flatMap(variedadesDe),
+    ...cosechas.map(cosVarName),
+  ])).filter(Boolean).sort();
   const lotes = Array.from(new Set(plantaciones.map((p) => p.lote).filter(Boolean)));
 
   return (
@@ -131,14 +145,14 @@ export default function Cosecha() {
             <label>Tipo de Fruta</label>
             <select className="select" value={filtroTipo} onChange={(e) => { setFiltroTipo(e.target.value); setFiltroVariedad(""); }} data-testid="cosecha-filtro-tipo">
               <option value="">Todas las frutas</option>
-              {tipos.map((t) => <option key={t._id} value={t._id}>{t.nombre}</option>)}
+              {tipoOptions.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
           <div className="field">
             <label>Variedad</label>
             <select className="select" value={filtroVariedad} onChange={(e) => setFiltroVariedad(e.target.value)} data-testid="cosecha-filtro-variedad">
               <option value="">Todas las variedades</option>
-              {variedadesFiltradas.map((v) => <option key={v._id} value={v._id}>{v.nombre}</option>)}
+              {variedadOptions.map((v) => <option key={v} value={v}>{v}</option>)}
             </select>
           </div>
           <div className="field">
@@ -176,14 +190,12 @@ export default function Cosecha() {
                          : (c.unidad === "cestas" && unidadVista === "kg") ? KG_POR_CESTA : 1;
               const conv = (v) => ((v || 0) * mult).toFixed(2);
               const total = (c.primera_calidad + c.segunda_calidad + c.tercera_calidad + c.descarte) * mult;
-              const tipo = tipos.find((t) => t._id === c.tipo_fruta_id);
-              const variedad = variedades.find((v) => v._id === c.variedad_id);
               return (
                 <tr key={c._id} data-testid={`cosecha-row-${c._id}`}>
                   <td>{new Date(c.fecha_cosecha).toLocaleDateString()}</td>
                   <td><span className="badge badge-primary">{c.lote}</span></td>
-                  <td>{tipo?.nombre || "—"}</td>
-                  <td>{variedad?.nombre || "—"}</td>
+                  <td>{cosTipoName(c) || "—"}</td>
+                  <td>{cosVarName(c) || "—"}</td>
                   <td style={{ color: "#16a34a", fontWeight: 600 }}>{conv(c.primera_calidad)}</td>
                   <td style={{ color: "#3b82f6" }}>{conv(c.segunda_calidad)}</td>
                   <td style={{ color: "#f59e0b" }}>{conv(c.tercera_calidad)}</td>
@@ -209,7 +221,6 @@ export default function Cosecha() {
           plantaciones={plantaciones}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); loadAll(); }}
-          onCatalogRefresh={loadAll}
         />
       )}
     </div>
@@ -248,13 +259,13 @@ function CalidadBoxes({ label, totals, sum, unidad, compact }) {
   );
 }
 
-function CosechaModal({ initial, tipos, variedades, plantaciones, onClose, onSaved, onCatalogRefresh }) {
+function CosechaModal({ initial, tipos, variedades, plantaciones, onClose, onSaved }) {
   const toast = useToast();
   const isNew = !initial._id;
   const today = todayLocal();
   const [form, setForm] = useState({
-    tipo_fruta_id: initial.tipo_fruta_id || "",
-    variedad_id: initial.variedad_id || "",
+    tipo_fruta: initial.tipo_fruta || tipos.find((t) => t._id === initial.tipo_fruta_id)?.nombre || "",
+    variedad: initial.variedad || variedades.find((v) => v._id === initial.variedad_id)?.nombre || "",
     primera_calidad: initial.primera_calidad || 0,
     segunda_calidad: initial.segunda_calidad || 0,
     tercera_calidad: initial.tercera_calidad || 0,
@@ -264,10 +275,19 @@ function CosechaModal({ initial, tipos, variedades, plantaciones, onClose, onSav
     lote: initial.lote || "",
   });
   const [busy, setBusy] = useState(false);
-  const [newTipo, setNewTipo] = useState("");
-  const [newVariedad, setNewVariedad] = useState("");
 
-  const variedadesFiltradas = form.tipo_fruta_id ? variedades.filter((v) => v.tipo_fruta_id === form.tipo_fruta_id) : [];
+  // Sugerencias de Tipo de Fruta y Variedad tomadas del módulo Plantaciones.
+  // Si hay un lote seleccionado, se muestran los cultivos/variedades de esa plantación;
+  // de lo contrario, la unión de todos los registrados en Plantaciones.
+  const cultivosDe = (p) => (p.cultivos?.length ? p.cultivos : (p.cultivo ? [p.cultivo] : []));
+  const variedadesDe = (p) => (p.variedades?.length ? p.variedades : (p.variedad ? [p.variedad] : []));
+  const plantSel = plantaciones.find((p) => p.lote === form.lote);
+  const cultivoOptions = Array.from(new Set(
+    (plantSel ? cultivosDe(plantSel) : plantaciones.flatMap(cultivosDe))
+  )).filter(Boolean);
+  const variedadOptions = Array.from(new Set(
+    (plantSel ? variedadesDe(plantSel) : plantaciones.flatMap(variedadesDe))
+  )).filter(Boolean);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -281,21 +301,6 @@ function CosechaModal({ initial, tipos, variedades, plantaciones, onClose, onSav
     } catch (err) {
       toast.show("Error", "error");
     } finally { setBusy(false); }
-  };
-
-  const crearTipo = async () => {
-    if (!newTipo.trim()) return;
-    await api.post("/tipos-fruta", { nombre: newTipo.trim() });
-    setNewTipo("");
-    onCatalogRefresh();
-    toast.show("Tipo creado");
-  };
-  const crearVariedad = async () => {
-    if (!newVariedad.trim() || !form.tipo_fruta_id) return;
-    await api.post("/variedades-fruta", { tipo_fruta_id: form.tipo_fruta_id, nombre: newVariedad.trim() });
-    setNewVariedad("");
-    onCatalogRefresh();
-    toast.show("Variedad creada");
   };
 
   const lotes = Array.from(new Set(plantaciones.map((p) => p.lote).filter(Boolean)));
@@ -325,24 +330,38 @@ function CosechaModal({ initial, tipos, variedades, plantaciones, onClose, onSav
           </div>
           <div className="field">
             <label>Tipo de Fruta</label>
-            <select className="select" value={form.tipo_fruta_id} onChange={(e) => setForm({ ...form, tipo_fruta_id: e.target.value, variedad_id: "" })} required data-testid="cos-form-tipo">
-              <option value="">Selecciona...</option>
-              {tipos.map((t) => <option key={t._id} value={t._id}>{t.nombre}</option>)}
-            </select>
-            <div style={{ display: "flex", gap: 6 }}>
-              <input className="input" placeholder="+ nuevo tipo" value={newTipo} onChange={(e) => setNewTipo(e.target.value)} style={{ flex: 1, fontSize: 12, padding: "6px 8px" }} />
-              <button type="button" className="btn btn-sm" onClick={crearTipo}>+</button>
+            <input
+              className="input"
+              list="cosecha-cultivos-list"
+              placeholder="Escribe o selecciona un cultivo..."
+              value={form.tipo_fruta}
+              onChange={(e) => setForm({ ...form, tipo_fruta: e.target.value })}
+              required
+              data-testid="cos-form-tipo"
+            />
+            <datalist id="cosecha-cultivos-list">
+              {cultivoOptions.map((c) => <option key={c} value={c} />)}
+            </datalist>
+            <div style={{ color: "#94a3b8", fontSize: 11, marginTop: 2 }}>
+              {plantSel ? `Cultivos del lote ${form.lote}` : "Cultivos registrados en Plantaciones"}
             </div>
           </div>
           <div className="field">
             <label>Variedad</label>
-            <select className="select" value={form.variedad_id} onChange={(e) => setForm({ ...form, variedad_id: e.target.value })} required data-testid="cos-form-variedad">
-              <option value="">Selecciona...</option>
-              {variedadesFiltradas.map((v) => <option key={v._id} value={v._id}>{v.nombre}</option>)}
-            </select>
-            <div style={{ display: "flex", gap: 6 }}>
-              <input className="input" placeholder="+ nueva variedad" value={newVariedad} onChange={(e) => setNewVariedad(e.target.value)} style={{ flex: 1, fontSize: 12, padding: "6px 8px" }} />
-              <button type="button" className="btn btn-sm" onClick={crearVariedad} disabled={!form.tipo_fruta_id}>+</button>
+            <input
+              className="input"
+              list="cosecha-variedades-list"
+              placeholder="Escribe o selecciona una variedad..."
+              value={form.variedad}
+              onChange={(e) => setForm({ ...form, variedad: e.target.value })}
+              required
+              data-testid="cos-form-variedad"
+            />
+            <datalist id="cosecha-variedades-list">
+              {variedadOptions.map((v) => <option key={v} value={v} />)}
+            </datalist>
+            <div style={{ color: "#94a3b8", fontSize: 11, marginTop: 2 }}>
+              {plantSel ? `Variedades del lote ${form.lote}` : "Variedades registradas en Plantaciones"}
             </div>
           </div>
         </div>
