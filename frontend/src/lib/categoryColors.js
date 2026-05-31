@@ -1,15 +1,18 @@
 // Paleta única para categorías de productos / tipos de aplicación.
 // Acepta indistintamente forma singular o plural.
 
+// Paleta para CATEGORÍAS de productos / tipos de aplicación.
+// Hues escogidos para NO chocar con los colores de actividades (abonar/cosechar/deshierbar/riego).
+// Sigue siendo coherente con la naturaleza del producto.
 const CAT_PALETTE = {
-  fertilizantes: { bg: "#dcfce7", color: "#15803d", border: "#86efac" }, // verde
-  plaguicidas:   { bg: "#fee2e2", color: "#b91c1c", border: "#fca5a5" }, // rojo
-  fungicidas:    { bg: "#ede9fe", color: "#6d28d9", border: "#c4b5fd" }, // morado
-  herbicidas:    { bg: "#fef3c7", color: "#b45309", border: "#fcd34d" }, // ámbar
-  tratamiento:   { bg: "#e0f2fe", color: "#0369a1", border: "#7dd3fc" }, // azul
-  gasolina:      { bg: "#fef3c7", color: "#92400e", border: "#fcd34d" }, // marrón
-  semillas:      { bg: "#fef9c3", color: "#854d0e", border: "#fde047" }, // amarillo
-  otros:         { bg: "#f1f5f9", color: "#475569", border: "#cbd5e1" }, // gris
+  fertilizantes: { bg: "#ccfbf1", color: "#0f766e", border: "#5eead4" }, // teal — nutrición vegetal
+  plaguicidas:   { bg: "#fce7f3", color: "#9d174d", border: "#f9a8d4" }, // fucsia — peligro / insecticida
+  fungicidas:    { bg: "#ede9fe", color: "#6d28d9", border: "#c4b5fd" }, // violeta — anti-hongo
+  herbicidas:    { bg: "#ffedd5", color: "#c2410c", border: "#fdba74" }, // naranja vivo — quema-hierba
+  tratamiento:   { bg: "#cffafe", color: "#0e7490", border: "#67e8f9" }, // cian — curativo
+  gasolina:      { bg: "#fef9c3", color: "#713f12", border: "#fde047" }, // amarillo ocre — combustible
+  semillas:      { bg: "#fef3c7", color: "#a16207", border: "#fcd34d" }, // dorado — granos
+  otros:         { bg: "#f1f5f9", color: "#475569", border: "#cbd5e1" }, // gris — genérico
 };
 
 // Mapa de alias singular ↔ plural y variantes
