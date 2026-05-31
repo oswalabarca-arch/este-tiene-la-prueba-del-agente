@@ -1,0 +1,29 @@
+{
+  "summary": "Frontend-only visual regression test of Cosechas pie charts in Plantaciones (PlantacionDetail.jsx). Verified both 'Calidades del lote' and 'Calidades por variedad' adopt the modern style used in Aplicaciones (gradient header + Apple icon, donuts with rounded corners/paddingAngle, center kg total, progress-bar legend). Verified NO percentage (%) text is shown anywhere in those two charts. Verified no regressions on the rest of the Cosechas tab.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/cosechas_charts.png"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PlantacionDetail.jsx is ~951 lines — recommended to split CosechasTab and the reusable ChartHeader into separate files for maintainability (>700 line guideline).",
+    "Recharts emits a 'width(-1)/height(-1)' warning on initial render (visible in console). Not blocking, but ResponsiveContainer parents in the page may briefly be 0px before layout. Consider auditing minWidth/minHeight to silence warnings."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "100%"},
+  "test_credentials": "oswaldabarca@gmail.com / 123456 (admin)",
+  "seed_data_creation": "None. Used existing seeded plantation with cosecha data (Albion 2380 kg, Alturas 924 kg, lote total 3304 kg).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iteration 20 validated the visual-only refactor of the two donut charts in the Cosechas subtab of Plantaciones. Login → /dashboard/plantaciones → open first card → click data-testid='plant-tab-cosechas'. The charts to inspect are data-testid='plant-calidades-chart' and data-testid='plant-calidades-variedad-chart'. Both must show modern ChartHeader (blue→green gradient) + rounded donuts + kg labels only (NO '%' text). Regression elements verified working: plant-cosecha-unidad-cestas/kg toggles, cosecha-row table, plant-cosecha-consolidado, plant-rendimiento-card, plant-cosecha-serie/cosecha-serie-chart.",
+  "evidence": {
+    "calidades_lote_text_dump": "Calidades del lote · Distribución de calidades del lote. Rendimiento total: 3304.00 kg · 3304 KG TOTALES · Primera 2170.00 kg · Segunda 644.00 kg · Tercera 252.00 kg · Descarte 238.00 kg — NO '%' present",
+    "calidades_variedad_text_dump": "Calidades por variedad · Albion 2380 KG · Alturas 924 KG · Leyenda compartida (Primera/Segunda/Tercera/Descarte) — NO '%' present",
+    "legend_testids_found": ["plant-calidad-legend-primera", "plant-calidad-legend-segunda", "plant-calidad-legend-tercera", "plant-calidad-legend-descarte"],
+    "mini_donut_testids_found": ["plant-variedad-chart-albion", "plant-variedad-chart-alturas"],
+    "regression_passes": ["toggle Cestas↔kg", "cosecha-row=3", "plant-cosecha-consolidado present", "plant-rendimiento-card present", "cosecha-serie-chart present"]
+  }
+}

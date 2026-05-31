@@ -29,20 +29,6 @@ const CAL_DEFS = [
   { key: "descarte", name: "Descarte", field: "descarte" },
 ];
 
-// Etiqueta de porcentaje DENTRO de cada porción (evita que el recuadro corte los % afuera)
-const renderPctLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
-  if (!percent || percent < 0.06) return null;
-  const RADIAN = Math.PI / 180;
-  const r = innerRadius + (outerRadius - innerRadius) * 0.6;
-  const x = cx + r * Math.cos(-midAngle * RADIAN);
-  const y = cy + r * Math.sin(-midAngle * RADIAN);
-  return (
-    <text x={x} y={y} fill="#fff" fontSize={11} fontWeight={700} textAnchor="middle" dominantBaseline="central">
-      {`${(percent * 100).toFixed(0)}%`}
-    </text>
-  );
-};
-
 export default function PlantacionDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -765,34 +751,36 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
       {/* Fila: Calidades del lote (mitad) + Rendimiento por planta (mitad) */}
       <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginTop: 18, alignItems: "stretch" }}>
         {loteTotalKg > 0 && (
-          <div className="card" style={{ flex: "1 1 320px", minWidth: 0, marginTop: 0 }} data-testid="plant-calidades-chart">
-            <h3 style={{ marginTop: 0, marginBottom: 2 }}>Calidades del lote</h3>
-            <p style={{ color: "#64748b", marginTop: 0, marginBottom: 10, fontSize: 12 }}>
-              Distribución de calidades en porcentaje. Rendimiento total: <b style={{ color: "#16a34a" }}>{loteTotalKg.toFixed(2)} kg</b>.
-            </p>
-            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 18 }}>
-              <div style={{ width: 190, height: 190, position: "relative", flexShrink: 0 }}>
-                <PieChart width={190} height={190}>
-                  <Pie data={mainData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={52} outerRadius={84} paddingAngle={2} stroke="none">
+          <div className="card" style={{ flex: "1 1 320px", minWidth: 0, marginTop: 0, padding: 0, overflow: "hidden", border: "1px solid #e2e8f0" }} data-testid="plant-calidades-chart">
+            <ChartHeader icon={Apple} iconBg="#dc2626" title="Calidades del lote" subtitle={`Distribución de calidades del lote. Rendimiento total: ${loteTotalKg.toFixed(2)} kg.`} />
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 24, padding: 24 }}>
+              <div style={{ width: 200, height: 200, position: "relative", flexShrink: 0, margin: "0 auto" }}>
+                <PieChart width={200} height={200}>
+                  <Pie data={mainData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={92} paddingAngle={3} stroke="#fff" strokeWidth={2} cornerRadius={6}>
                     {mainData.map((d) => <Cell key={d.key} fill={CAL_COLORS[d.key]} />)}
                   </Pie>
-                  <Tooltip formatter={(val) => [`${Number(val).toFixed(2)} kg (${((Number(val) / loteTotalKg) * 100).toFixed(1)}%)`, ""]} />
+                  <Tooltip formatter={(val, _n, p) => [`${Number(val).toFixed(2)} kg`, p?.payload?.name]} contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12 }} />
                 </PieChart>
                 <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", textAlign: "center", pointerEvents: "none" }}>
-                  <div style={{ fontSize: 10, color: "#64748b" }}>Rendimiento</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: "#16a34a" }}>{loteTotalKg.toFixed(0)}</div>
-                  <div style={{ fontSize: 10, color: "#64748b" }}>kg</div>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a", lineHeight: 1 }}>{loteTotalKg.toFixed(0)}</div>
+                  <div style={{ fontSize: 11, color: "#64748b", marginTop: 3, textTransform: "uppercase", letterSpacing: 0.5 }}>kg totales</div>
                 </div>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 160, flex: 1 }}>
+              <div style={{ flex: 1, minWidth: 200, display: "flex", flexDirection: "column", gap: 10 }}>
                 {mainData.map((d) => {
-                  const pct = loteTotalKg > 0 ? (d.value / loteTotalKg) * 100 : 0;
+                  const ratio = loteTotalKg > 0 ? (d.value / loteTotalKg) * 100 : 0;
                   return (
-                    <div key={d.key} style={{ display: "flex", alignItems: "center", gap: 8 }} data-testid={`plant-calidad-legend-${d.key}`}>
-                      <span style={{ width: 12, height: 12, borderRadius: 3, background: CAL_COLORS[d.key], flexShrink: 0 }} />
-                      <span style={{ fontWeight: 600, fontSize: 13 }}>{d.name}</span>
-                      <span style={{ marginLeft: "auto", color: "#475569", fontWeight: 600, fontSize: 13 }}>{pct.toFixed(1)}%</span>
-                      <span style={{ color: "#94a3b8", minWidth: 66, textAlign: "right", fontSize: 12 }}>{d.value.toFixed(2)} kg</span>
+                    <div key={d.key} data-testid={`plant-calidad-legend-${d.key}`} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <span style={{ width: 12, height: 12, borderRadius: 4, background: CAL_COLORS[d.key], flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
+                          <span style={{ fontWeight: 600, fontSize: 13.5, color: "#334155" }}>{d.name}</span>
+                          <span style={{ fontSize: 12.5, color: "#0f172a", fontWeight: 700 }}>{d.value.toFixed(2)} kg</span>
+                        </div>
+                        <div style={{ height: 6, borderRadius: 999, background: "#f1f5f9", overflow: "hidden" }}>
+                          <div style={{ width: `${ratio}%`, height: "100%", borderRadius: 999, background: CAL_COLORS[d.key], transition: "width .4s ease" }} />
+                        </div>
+                      </div>
                     </div>
                   );
                 })}
@@ -834,35 +822,37 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
 
       {/* Gráficos secundarios: calidades por variedad */}
       {variedadCharts.some((v) => v.total > 0) && (
-        <div className="card" style={{ marginTop: 18 }} data-testid="plant-calidades-variedad-chart">
-          <h3 style={{ marginTop: 0, marginBottom: 2 }}>Calidades por variedad</h3>
-          <p style={{ color: "#64748b", marginTop: 0, marginBottom: 12, fontSize: 12 }}>Porcentaje de cada calidad (1ª, 2ª, 3ª y descarte) por variedad.</p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>
-            {variedadCharts.filter((v) => v.total > 0).map((v) => (
-              <div key={v.variedad} style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 12 }} data-testid={`plant-variedad-chart-${v.variedad}`}>
-                <div style={{ fontWeight: 700, marginBottom: 6, textAlign: "center", color: "#7c3aed" }}>{v.variedad}</div>
-                <div style={{ width: "100%", height: 180 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart margin={{ top: 6, right: 6, bottom: 6, left: 6 }}>
-                      <Pie data={v.data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={72} label={renderPctLabel} labelLine={false} stroke="#fff" strokeWidth={1}>
+        <div className="card" style={{ marginTop: 18, padding: 0, overflow: "hidden", border: "1px solid #e2e8f0" }} data-testid="plant-calidades-variedad-chart">
+          <ChartHeader icon={Apple} iconBg="#dc2626" title="Calidades por variedad" subtitle="Distribución de calidades (1ª, 2ª, 3ª y descarte) por cada variedad." />
+          <div style={{ padding: 24 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>
+              {variedadCharts.filter((v) => v.total > 0).map((v) => (
+                <div key={v.variedad} style={{ border: "1px solid #e2e8f0", borderRadius: 12, padding: 14, background: "#fff" }} data-testid={`plant-variedad-chart-${v.variedad}`}>
+                  <div style={{ fontWeight: 700, marginBottom: 8, textAlign: "center", color: "#7c3aed", textTransform: "capitalize" }}>{v.variedad}</div>
+                  <div style={{ width: 150, height: 150, position: "relative", margin: "0 auto" }}>
+                    <PieChart width={150} height={150}>
+                      <Pie data={v.data} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={44} outerRadius={68} paddingAngle={3} stroke="#fff" strokeWidth={2} cornerRadius={5}>
                         {v.data.map((d) => <Cell key={d.key} fill={CAL_COLORS[d.key]} />)}
                       </Pie>
-                      <Tooltip formatter={(val, name) => [`${Number(val).toFixed(2)} kg (${((Number(val) / v.total) * 100).toFixed(1)}%)`, name]} />
+                      <Tooltip formatter={(val, _n, p) => [`${Number(val).toFixed(2)} kg`, p?.payload?.name]} contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12 }} />
                     </PieChart>
-                  </ResponsiveContainer>
+                    <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", textAlign: "center", pointerEvents: "none" }}>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: "#0f172a", lineHeight: 1 }}>{v.total.toFixed(0)}</div>
+                      <div style={{ fontSize: 9.5, color: "#64748b", textTransform: "uppercase" }}>kg</div>
+                    </div>
+                  </div>
                 </div>
-                <div style={{ fontSize: 11, color: "#64748b", textAlign: "center", marginTop: 4 }}>Total: {v.total.toFixed(2)} kg</div>
-              </div>
-            ))}
-          </div>
-          {/* Leyenda compartida */}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 14, justifyContent: "center", marginTop: 14 }}>
-            {CAL_DEFS.map((d) => (
-              <div key={d.key} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                <span style={{ width: 12, height: 12, borderRadius: 3, background: CAL_COLORS[d.key] }} />
-                <span style={{ fontSize: 12, color: "#475569" }}>{d.name}</span>
-              </div>
-            ))}
+              ))}
+            </div>
+            {/* Leyenda compartida */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 16, justifyContent: "center", marginTop: 18 }}>
+              {CAL_DEFS.map((d) => (
+                <div key={d.key} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ width: 12, height: 12, borderRadius: 4, background: CAL_COLORS[d.key] }} />
+                  <span style={{ fontSize: 12.5, color: "#475569" }}>{d.name}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -946,3 +936,16 @@ function ResumenCard({ label, value, color, testid }) {
   );
 }
 
+function ChartHeader({ icon: Icon, iconBg, title, subtitle }) {
+  return (
+    <div style={{ background: "linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%)", padding: "18px 24px", borderBottom: "1px solid #e2e8f0" }}>
+      <h3 style={{ margin: 0, display: "inline-flex", alignItems: "center", gap: 9, fontSize: 16, color: "#0f172a" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 9, background: iconBg, color: "#fff" }}>
+          <Icon size={17} />
+        </span>
+        {title}
+      </h3>
+      {subtitle && <p style={{ margin: "6px 0 0 39px", color: "#64748b", fontSize: 12.5 }}>{subtitle}</p>}
+    </div>
+  );
+}
