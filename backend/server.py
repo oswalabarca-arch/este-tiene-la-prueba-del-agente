@@ -543,23 +543,25 @@ async def get_inventario(_: dict = Depends(get_current_user)):
 
     # Consumos en aplicaciones (subarray insumos: nombre, cantidad, unidad)
     # Solo se descuenta cuando la aplicación está confirmada (ejecutada en campo).
+    # Match por nombre de producto (case-insensitive), ignorando la unidad,
+    # para que pequeñas diferencias de formato no bloqueen el descuento.
     pipeline_aplicaciones = [
         {"$match": {"estado": "confirmada"}},
         {"$unwind": {"path": "$insumos", "preserveNullAndEmptyArrays": False}},
         {"$group": {
-            "_id": {"nombre_producto": "$insumos.nombre_producto", "unidad": "$insumos.unidad"},
+            "_id": {"$toLower": "$insumos.nombre_producto"},
             "total_enviado": {"$sum": "$insumos.cantidad"},
         }},
     ]
     apl_agg = await db.aplicaciones.aggregate(pipeline_aplicaciones).to_list(5000)
-    enviado_map = {(a["_id"].get("nombre_producto"), a["_id"].get("unidad")): a["total_enviado"] for a in apl_agg}
+    enviado_map = {a["_id"]: a["total_enviado"] for a in apl_agg}
 
     inventario = []
     for c in compras_agg:
         nombre = c["_id"]["nombre_producto"]
         unidad = c["_id"]["unidad"]
         comprado = c["total_comprado"]
-        enviado = enviado_map.get((nombre, unidad), 0)
+        enviado = enviado_map.get(nombre.lower() if nombre else "", 0)
         disponible = comprado - enviado
         inventario.append({
             "categoria": c["_id"]["categoria"],

@@ -385,12 +385,18 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
             <label style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>Productos (máx. 3)</label>
             {productoRows.map((row, i) => (
               <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 8, marginTop: 8, alignItems: "center" }}>
-                <select className="select" value={row.nombre_producto} onChange={(e) => updateRow(i, "nombre_producto", e.target.value)}>
+                <select className="select" value={row.nombre_producto} onChange={(e) => {
+                  const nombre = e.target.value;
+                  const inv = inventario.find((x) => x.nombre_producto === nombre);
+                  const rows = [...productoRows];
+                  rows[i] = { ...rows[i], nombre_producto: nombre, unidad: inv?.unidad || rows[i].unidad };
+                  setProductoRows(rows);
+                }}>
                   <option value="">Producto</option>
                   {inventario.filter((x) => x.existencia).map((p, idx) => <option key={idx} value={p.nombre_producto}>{p.nombre_producto} ({p.total_disponible} {p.unidad})</option>)}
                 </select>
                 <input type="number" className="input" placeholder="Cantidad" value={row.cantidad || ""} onChange={(e) => updateRow(i, "cantidad", e.target.value)} />
-                <select className="select" value={row.unidad} onChange={(e) => updateRow(i, "unidad", e.target.value)}>
+                <select className="select" value={row.unidad} onChange={(e) => updateRow(i, "unidad", e.target.value)} title="La unidad se hereda del producto del inventario">
                   {UNIDADES.map((u) => <option key={u} value={u}>{u}</option>)}
                 </select>
                 {i === productoRows.length - 1 && productoRows.length < 3 ? (
