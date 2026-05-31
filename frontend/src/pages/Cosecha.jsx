@@ -227,7 +227,7 @@ export default function Cosecha() {
   );
 }
 
-export function CalidadBoxes({ label, totals, sum, unidad, compact }) {
+function CalidadBoxes({ label, totals, sum, unidad, compact }) {
   const items = [
     { key: "primera_calidad", label: "Primera Calidad", color: "#16a34a", bg: "#dcfce7", icon: Award },
     { key: "segunda_calidad", label: "Segunda Calidad", color: "#3b82f6", bg: "#dbeafe", icon: TrendingUp },
