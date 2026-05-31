@@ -394,21 +394,38 @@ function LaboresTab({ items }) {
 
 function CosechasTab({ items, tipos, variedades }) {
   if (items.length === 0) return <div className="card empty-state">Sin cosechas registradas en este lote</div>;
-  const labelTipo = (id) => tipos.find((t) => t._id === id)?.nombre || id;
-  const labelVar = (id) => variedades.find((v) => v._id === id)?.nombre || id;
+  const labelTipo = (c) => c.tipo_fruta || tipos.find((t) => t._id === c.tipo_fruta_id)?.nombre || "—";
+  const labelVar = (c) => c.variedad || variedades.find((v) => v._id === c.variedad_id)?.nombre || "—";
+  const totalDe = (c) => (c.primera_calidad || 0) + (c.segunda_calidad || 0) + (c.tercera_calidad || 0) + (c.descarte || 0);
+  const totalCestas = items.reduce((s, c) => s + (c.unidad === "kg" ? totalDe(c) / 14 : totalDe(c)), 0);
   return (
     <div className="card">
-      <h3 style={{ marginTop: 0 }}>Cosechas · {items.length}</h3>
+      <h3 style={{ marginTop: 0 }}>
+        Cosechas · {items.length}
+        <span style={{ float: "right", color: "#dc2626", fontSize: 16 }}>Total: {totalCestas.toFixed(2)} cestas</span>
+      </h3>
+      <p style={{ color: "#64748b", marginTop: -4, fontSize: 12 }}>
+        Registros de cosecha de este lote (provenientes del módulo Cosecha).
+      </p>
       <table className="table">
-        <thead><tr><th>Fecha</th><th>Tipo</th><th>Variedad</th><th>Cestas</th><th>Peso (Kg)</th></tr></thead>
+        <thead>
+          <tr>
+            <th>Fecha</th><th>Tipo Fruta</th><th>Variedad</th>
+            <th>1ª</th><th>2ª</th><th>3ª</th><th>Descarte</th><th>Total</th><th>Unidad</th>
+          </tr>
+        </thead>
         <tbody>
           {items.map((c) => (
             <tr key={c._id}>
-              <td>{new Date(c.fecha).toLocaleDateString()}</td>
-              <td>{c.tipo_fruta || labelTipo(c.tipo_fruta_id)}</td>
-              <td>{c.variedad || labelVar(c.variedad_id)}</td>
-              <td>{c.cantidad_cestas}</td>
-              <td>{c.peso_kg}</td>
+              <td>{c.fecha_cosecha ? new Date(c.fecha_cosecha).toLocaleDateString() : "—"}</td>
+              <td>{labelTipo(c)}</td>
+              <td>{labelVar(c)}</td>
+              <td style={{ color: "#16a34a", fontWeight: 600 }}>{(c.primera_calidad || 0).toFixed(2)}</td>
+              <td style={{ color: "#3b82f6" }}>{(c.segunda_calidad || 0).toFixed(2)}</td>
+              <td style={{ color: "#f59e0b" }}>{(c.tercera_calidad || 0).toFixed(2)}</td>
+              <td style={{ color: "#dc2626" }}>{(c.descarte || 0).toFixed(2)}</td>
+              <td style={{ fontWeight: 700 }}>{totalDe(c).toFixed(2)}</td>
+              <td>{c.unidad}</td>
             </tr>
           ))}
         </tbody>
