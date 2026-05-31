@@ -98,17 +98,13 @@ function TrabajadorModal({ initial, onClose, onSaved }) {
 }
 
 export function Nomina() {
-  const [trabajadores, setTrabajadores] = useState([]);
   const [actividades, setActividades] = useState([]);
   const [filtroTipo, setFiltroTipo] = useState("");
   const [filtroLote, setFiltroLote] = useState("");
   const [filtroPeriodo, setFiltroPeriodo] = useState("todos");
 
   useEffect(() => {
-    Promise.all([api.get("/trabajadores"), api.get("/actividades")]).then(([t, a]) => {
-      setTrabajadores(t.data.trabajadores);
-      setActividades(a.data.actividades);
-    });
+    api.get("/actividades").then((r) => setActividades(r.data.actividades));
   }, []);
 
   // Filtro por periodo
@@ -144,7 +140,6 @@ export function Nomina() {
   // Resumen general (sobre datos filtrados, así KPIs reflejan los filtros activos)
   const horasTotales = actividadesFiltradas.reduce((s, a) => s + (a.horas_hombre || 0), 0);
   const costoTotal = actividadesFiltradas.reduce((s, a) => s + (a.costo_total || 0), 0);
-  const trabajadoresActivos = trabajadores.filter((t) => t.activo);
 
   // Agrupar costos por origen
   const costoPorOrigen = actividadesFiltradas.reduce((acc, a) => {
@@ -175,7 +170,6 @@ export function Nomina() {
       <p className="page-subtitle">Resumen de mano de obra basado en las aplicaciones confirmadas y actividades registradas.</p>
 
       <div className="kpi-grid" style={{ marginBottom: 18 }}>
-        <div className="card kpi-card"><div className="kpi-label">Trabajadores activos</div><div className="kpi-value">{trabajadoresActivos.length}</div></div>
         <div className="card kpi-card"><div className="kpi-label">Horas-hombre {filtrosActivos ? "(filtradas)" : "acumuladas"}</div><div className="kpi-value">{horasTotales.toFixed(1)} h</div></div>
         <div className="card kpi-card"><div className="kpi-label">Costo {filtrosActivos ? "(filtrado)" : "total"} mano de obra</div><div className="kpi-value" style={{ color: "#16a34a" }}>${costoTotal.toFixed(2)}</div></div>
         <div className="card kpi-card"><div className="kpi-label">Actividades {filtrosActivos ? "(filtradas)" : "registradas"}</div><div className="kpi-value">{actividadesFiltradas.length}</div></div>
@@ -283,24 +277,6 @@ export function Nomina() {
               : "No hay actividades que coincidan con los filtros seleccionados."}
           </div>
         )}
-      </div>
-
-      <div className="card" style={{ marginTop: 18 }}>
-        <h3 style={{ marginTop: 0 }}>Trabajadores</h3>
-        <table className="table">
-          <thead><tr><th>Nombre</th><th>Cargo</th><th>Salario diario</th><th>Estado</th></tr></thead>
-          <tbody>
-            {trabajadores.map((t) => (
-              <tr key={t._id}>
-                <td>{t.nombre_completo}</td>
-                <td>{t.cargo}</td>
-                <td>${t.salario_diario}</td>
-                <td>{t.activo ? <span className="badge badge-primary">Activo</span> : <span className="badge badge-rose">Inactivo</span>}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {trabajadores.length === 0 && <div className="empty-state">Sin trabajadores. Crea algunos en Recursos Humanos &gt; Trabajadores.</div>}
       </div>
     </div>
   );
