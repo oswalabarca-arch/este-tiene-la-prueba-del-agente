@@ -338,7 +338,15 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
         toast.show("Aplicación creada");
       }
       onSaved();
-    } catch { toast.show("Error", "error"); }
+    } catch (err) {
+      const detail = err?.response?.data?.detail;
+      if (detail) {
+        window.alert(detail);
+        toast.show("No se pudo guardar: revisa el inventario", "error");
+      } else {
+        toast.show("Error", "error");
+      }
+    }
     finally { setBusy(false); }
   };
 

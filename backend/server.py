@@ -849,13 +849,32 @@ async def list_aplicaciones(_: dict = Depends(get_current_user)):
 @api.post("/aplicaciones")
 async def create_aplicacion(payload: AplicacionIn, user: dict = Depends(get_current_user)):
     data = payload.model_dump()
+    await _validate_inventory_for_aplicacion(None, data.get("insumos") or [])
     return await _create("aplicaciones", data, user)
 
 
-async def _validate_inventory_for_confirmation(aid: str, payload_insumos: List[Dict[str, Any]]):
+@api.put("/aplicaciones/{aid}")
+async def update_aplicacion(aid: str, payload: AplicacionIn, _: dict = Depends(get_current_user)):
+    data = payload.model_dump()
+    # Validar inventario tanto al editar pendientes como al confirmar.
+    await _validate_inventory_for_aplicacion(aid, data.get("insumos") or [])
+    return await _update("aplicaciones", aid, data)
+
+
+@api.delete("/aplicaciones/{aid}")
+async def delete_aplicacion(aid: str, _: dict = Depends(get_current_user)):
+    return await _delete("aplicaciones", aid)
+
+
+async def _validate_inventory_for_aplicacion(aid: Optional[str], payload_insumos: List[Dict[str, Any]]):
     """
-    Antes de confirmar una aplicación, verifica que el inventario disponible
-    cubra todos los insumos solicitados. Match por nombre de producto (case-insensitive).
+    Antes de crear o modificar una aplicación, verifica que el inventario
+    cubra todos los insumos. Las aplicaciones existentes (confirmadas O pendientes)
+    se cuentan como "reservadas" — así nunca se podrá crear/editar una aplicación
+    que después no se pudiera confirmar.
+
+    Si `aid` se pasa, se excluye esa aplicación del cálculo (caso edición).
+    Match por nombre de producto (case-insensitive).
     Lanza HTTPException 400 con el detalle del faltante.
     """
     # Total comprado por producto
@@ -869,19 +888,25 @@ async def _validate_inventory_for_confirmation(aid: str, payload_insumos: List[D
     comprado = {c["_id"]: c["total_comprado"]
                 for c in await db.compras.aggregate(pipeline_compras).to_list(5000)}
 
-    # Total consumido por OTRAS aplicaciones confirmadas (excluye la actual aid)
-    pipeline_usado = [
-        {"$match": {"estado": "confirmada", "_id": {"$ne": aid}}},
+    # Total reservado: TODAS las aplicaciones existentes (pendientes + confirmadas),
+    # excluyendo la actual si estamos editando.
+    match_stage: Dict[str, Any] = {}
+    if aid:
+        match_stage["_id"] = {"$ne": aid}
+    pipeline_usado: List[Dict[str, Any]] = []
+    if match_stage:
+        pipeline_usado.append({"$match": match_stage})
+    pipeline_usado += [
         {"$unwind": "$insumos"},
         {"$group": {
             "_id": {"$toLower": "$insumos.nombre_producto"},
             "total_usado": {"$sum": "$insumos.cantidad"},
         }},
     ]
-    usado = {a["_id"]: a["total_usado"]
-             for a in await db.aplicaciones.aggregate(pipeline_usado).to_list(5000)}
+    reservado = {a["_id"]: a["total_usado"]
+                 for a in await db.aplicaciones.aggregate(pipeline_usado).to_list(5000)}
 
-    # Sumar las cantidades del payload por producto (puede haber el mismo producto repetido)
+    # Sumar las cantidades del payload por producto
     pedido: Dict[str, float] = {}
     for ins in (payload_insumos or []):
         nombre = (ins.get("nombre_producto") or "").strip().lower()
@@ -891,7 +916,7 @@ async def _validate_inventory_for_confirmation(aid: str, payload_insumos: List[D
 
     faltantes = []
     for nombre, cant in pedido.items():
-        disponible = comprado.get(nombre, 0) - usado.get(nombre, 0)
+        disponible = comprado.get(nombre, 0) - reservado.get(nombre, 0)
         if cant > disponible + 1e-9:
             faltantes.append({
                 "producto": nombre,
@@ -901,26 +926,14 @@ async def _validate_inventory_for_confirmation(aid: str, payload_insumos: List[D
             })
 
     if faltantes:
-        msg_lines = ["No hay inventario suficiente para confirmar esta aplicación:"]
+        msg_lines = ["No hay suficiente inventario disponible:"]
         for f in faltantes:
             msg_lines.append(
                 f"• {f['producto']}: pedido {f['solicitado']}, disponible {f['disponible']}, faltante {f['faltante']}"
             )
+        msg_lines.append("")
+        msg_lines.append("Registra una compra antes de crear esta aplicación.")
         raise HTTPException(status_code=400, detail="\n".join(msg_lines))
-
-
-@api.put("/aplicaciones/{aid}")
-async def update_aplicacion(aid: str, payload: AplicacionIn, _: dict = Depends(get_current_user)):
-    data = payload.model_dump()
-    # Si se está pasando a "confirmada", validar stock — el inventario no puede quedar negativo
-    if data.get("estado") == "confirmada":
-        await _validate_inventory_for_confirmation(aid, data.get("insumos") or [])
-    return await _update("aplicaciones", aid, data)
-
-
-@api.delete("/aplicaciones/{aid}")
-async def delete_aplicacion(aid: str, _: dict = Depends(get_current_user)):
-    return await _delete("aplicaciones", aid)
 
 
 class RecetaIn(BaseModel):
