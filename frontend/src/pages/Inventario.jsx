@@ -7,16 +7,13 @@ export default function Inventario() {
   const [items, setItems] = useState([]);
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState("");
-  const [filterProd, setFilterProd] = useState("");
 
   const load = () => api.get("/inventario").then((r) => setItems(r.data.inventario));
   useEffect(() => { load(); }, []);
 
   const categorias = Array.from(new Set(items.map((i) => i.categoria))).sort();
-  const productos = Array.from(new Set(items.map((i) => i.nombre_producto).filter(Boolean))).sort();
   const filtered = items.filter((i) => {
     if (filterCat && i.categoria !== filterCat) return false;
-    if (filterProd && i.nombre_producto !== filterProd) return false;
     if (search && !i.nombre_producto.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
@@ -41,16 +38,12 @@ export default function Inventario() {
             <Search size={16} style={{ position: "absolute", left: 12, top: 12, color: "#94a3b8" }} />
             <input className="input" style={{ paddingLeft: 36, width: "100%" }} placeholder="Buscar producto..." value={search} onChange={(e) => setSearch(e.target.value)} data-testid="inventario-search" />
           </div>
-          <select className="select" value={filterProd} onChange={(e) => setFilterProd(e.target.value)} data-testid="inventario-filter-prod" style={{ minWidth: 180 }}>
-            <option value="">Todos los productos</option>
-            {productos.map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
           <select className="select" value={filterCat} onChange={(e) => setFilterCat(e.target.value)} data-testid="inventario-filter-cat" style={{ minWidth: 200 }}>
             <option value="">Todas las categorías</option>
             {categorias.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
-          {(search || filterProd || filterCat) && (
-            <button type="button" className="btn" onClick={() => { setSearch(""); setFilterProd(""); setFilterCat(""); }} data-testid="inventario-limpiar">Limpiar</button>
+          {(search || filterCat) && (
+            <button type="button" className="btn" onClick={() => { setSearch(""); setFilterCat(""); }} data-testid="inventario-limpiar">Limpiar</button>
           )}
         </div>
       </div>
