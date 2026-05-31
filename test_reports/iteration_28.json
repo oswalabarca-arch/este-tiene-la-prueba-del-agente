@@ -1,0 +1,32 @@
+{
+  "summary": "Validado el fix PEPS para entradas manuales (fecha pasada conserva valor, manual se consume DESPUÉS de compras reales, manual cubre 'sin cobertura' de aplicaciones) y los nuevos KPIs de inversión en Analíticas. Backend: 14/14 pytest pasando (test_peps_manual_entry.py 2/2, test_inventario_entradas.py 7/7, test_peps_regression.py 5/5 — agregado). Live: hierro disponible=835, valor_remanente=835, lote remanente @ $1.0 (manual); analíticas inversion_compras=261, inversion_entradas_manuales=1000, inversion_insumos_total=1261. Frontend: sección 'Inversión en insumos' (data-testid='analiticas-inversion') con 3 KPIs muestra valores que coinciden 1:1 con /api/analiticas/resumen; /dashboard/inventario sigue mostrando botón 'Registrar producto', tarjeta 'Entradas manuales' y tabla principal (5 productos visibles). Sin regresiones detectadas.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_peps_manual_entry.py",
+    "/app/backend/tests/test_peps_regression.py",
+    "/app/backend/tests/test_inventario_entradas.py",
+    "/app/test_reports/pytest/iter28_full.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py supera ~1700 líneas; partir endpoints por dominio (inventario/compras/aplicaciones/analiticas) mejoraría mantenibilidad. No bloqueante.",
+    "_compute_peps_remaining_per_product y _compute_fifo_costs_per_aplicacion comparten lógica de 'timeline cronológico + segunda pasada con manuales'; considerar extraer un helper común para evitar drift entre ambas implementaciones.",
+    "EntradaInventarioIn aún permite precio negativo (Field(ge=0) sugerido) y cantidad sin validación >0 — mejora menor.",
+    "DELETE /api/inventario/entradas/{eid} debería filtrar por origen='ajuste' en el query del delete para evitar borrar accidentalmente una compra real con mismo id (defensa en profundidad)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_peps_regression.py (creado)"
+  ],
+  "success_rate": {"backend": "100% (14/14)", "frontend": "100%"},
+  "test_credentials": "oswaldabarca@gmail.com / 123456 (admin)",
+  "seed_data_creation": "Solo entradas temporales TEST_PEPS_/TEST_INV_/TEST_EntradaManual_ creadas y eliminadas dentro de los propios pytest (try/finally + fixture teardown). No queda data sucia.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "El fix PEPS funciona como esperado: entradas manuales (origen='ajuste') quedan FUERA del timeline cronológico de consumos y solo se aplican como segunda pasada para cubrir overflow/sin-cobertura. Esto preserva el valor de la entrada manual incluso si su fecha es muy pasada. KPIs nuevos en /api/analiticas/resumen: inversion_compras, inversion_entradas_manuales, inversion_insumos_total. Frontend testid: 'analiticas-inversion'. Tests regresión disponibles en /app/backend/tests/test_peps_regression.py para reuso.",
+  "rca of the issue": "N/A — feature/fix implementado correctamente. Los tests cubren tanto el comportamiento positivo (manual conserva valor con fecha pasada) como la regresión (compras reales sin manual mantienen costeo PEPS por fecha)."
+}

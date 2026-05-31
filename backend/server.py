@@ -716,24 +716,31 @@ async def _compute_peps_remaining_per_product() -> Dict[str, Dict[str, Any]]:
                  "valor_remanente": float,
                  "precio_unitario_promedio": float } }
     """
-    # 1. Compras ordenadas asc
-    compras = await db.compras.find({"es_equipo": {"$ne": True}}).to_list(20000)
-    compras.sort(key=lambda c: (c.get("fecha_compra") or "9999-12-31"))
+    # 1. Compras reales (no ajustes) ordenadas asc; entradas manuales aparte
+    all_compras = await db.compras.find({"es_equipo": {"$ne": True}}).to_list(20000)
+    real_compras = [c for c in all_compras if c.get("origen") != "ajuste"]
+    manual_entries = [c for c in all_compras if c.get("origen") == "ajuste"]
+    real_compras.sort(key=lambda c: (c.get("fecha_compra") or "9999-12-31"))
+    manual_entries.sort(key=lambda c: (c.get("fecha_compra") or "0000", c.get("createdAt") or ""))
 
     # 2. Aplicaciones CONFIRMADAS ordenadas asc (solo confirmadas consumen real stock)
     aplicaciones = await db.aplicaciones.find({"estado": "confirmada"}).to_list(20000)
     aplicaciones.sort(key=lambda a: (a.get("fecha") or "9999-12-31"))
 
     # 3. Eventos en orden cronológico (compras antes que aplicaciones en la misma fecha)
+    #    Las entradas manuales NO entran en la línea de tiempo: se aplican al final
+    #    (cuentan como stock disponible HOY, sin importar su fecha) y solo se consumen
+    #    después de agotar las compras reales.
     eventos: List[Dict[str, Any]] = []
-    for c in compras:
+    for c in real_compras:
         eventos.append({"kind": "compra", "fecha": c.get("fecha_compra") or "9999-12-31", "data": c})
     for a in aplicaciones:
         eventos.append({"kind": "aplicacion", "fecha": a.get("fecha") or "9999-12-31", "data": a})
     eventos.sort(key=lambda e: (e["fecha"], 0 if e["kind"] == "compra" else 1))
 
-    # 4. Procesar
+    # 4. Procesar compras reales y consumos; registrar el consumo NO cubierto (overflow)
     lotes: Dict[str, List[Dict[str, Any]]] = {}
+    overflow: Dict[str, float] = {}
     for ev in eventos:
         if ev["kind"] == "compra":
             c = ev["data"]
@@ -760,6 +767,29 @@ async def _compute_peps_remaining_per_product() -> Dict[str, Dict[str, Any]]:
                     qty_needed -= take
                     if lot["cantidad"] <= 1e-9:
                         queue.pop(0)
+                if qty_needed > 1e-9:
+                    overflow[nombre] = overflow.get(nombre, 0) + qty_needed
+
+    # 4b. Aplicar entradas manuales: primero cubren el consumo no cubierto (overflow),
+    #     el resto queda como stock remanente disponible.
+    for c in manual_entries:
+        nombre = (c.get("nombre_producto") or "").strip().lower()
+        cantidad = float(c.get("cantidad") or 0)
+        precio = float(c.get("precio") or 0)
+        if cantidad <= 0 or not nombre:
+            continue
+        unit = precio / cantidad if cantidad else 0
+        ov = overflow.get(nombre, 0)
+        if ov > 0:
+            consumido = min(ov, cantidad)
+            overflow[nombre] = ov - consumido
+            cantidad -= consumido
+        if cantidad > 1e-9:
+            lotes.setdefault(nombre, []).append({
+                "cantidad": cantidad,
+                "precio_unitario": unit,
+                "fecha_compra": c.get("fecha_compra"),
+            })
 
     # 5. Empaquetar resultado
     out: Dict[str, Dict[str, Any]] = {}
@@ -1011,37 +1041,32 @@ async def _compute_fifo_costs_per_aplicacion() -> Dict[str, Dict[str, Any]]:
     Retorna: { aplicacion_id: { "total_costo": float,
                                  "insumos_costo": [{"nombre", "cantidad", "unidad", "costo", "precio_unitario_promedio"}] } }
     """
-    # 1. Cargar compras (solo insumos, no equipos)
-    compras_cur = db.compras.find({"es_equipo": {"$ne": True}})
-    compras = await compras_cur.to_list(20000)
-    # ordenar por fecha_compra asc; si falta fecha, va al final
-    compras.sort(key=lambda c: (c.get("fecha_compra") or "9999-12-31"))
+    # 1. Cargar compras (solo insumos, no equipos); separar reales de entradas manuales
+    all_compras = await db.compras.find({"es_equipo": {"$ne": True}}).to_list(20000)
+    real_compras = [c for c in all_compras if c.get("origen") != "ajuste"]
+    manual_entries = [c for c in all_compras if c.get("origen") == "ajuste"]
+    real_compras.sort(key=lambda c: (c.get("fecha_compra") or "9999-12-31"))
+    manual_entries.sort(key=lambda c: (c.get("fecha_compra") or "0000", c.get("createdAt") or ""))
 
     # 2. Cargar aplicaciones ordenadas por fecha asc
     aplic_cur = db.aplicaciones.find({})
     aplicaciones = await aplic_cur.to_list(20000)
     aplicaciones.sort(key=lambda a: (a.get("fecha") or "9999-12-31"))
 
-    # 3. Construir línea de tiempo: cada compra y cada aplicación con su fecha
+    # 3. Construir línea de tiempo con compras REALES + aplicaciones.
+    #    Las entradas manuales se aplican al final (cubren faltantes), por lo que se
+    #    consumen solo después de agotar las compras reales y no inflan costos pasados.
     eventos: List[Dict[str, Any]] = []
-    for c in compras:
-        eventos.append({
-            "kind": "compra",
-            "fecha": c.get("fecha_compra") or "9999-12-31",
-            "data": c,
-        })
+    for c in real_compras:
+        eventos.append({"kind": "compra", "fecha": c.get("fecha_compra") or "9999-12-31", "data": c})
     for a in aplicaciones:
-        eventos.append({
-            "kind": "aplicacion",
-            "fecha": a.get("fecha") or "9999-12-31",
-            "data": a,
-        })
-    # estabilidad: compras antes que aplicaciones en la misma fecha
+        eventos.append({"kind": "aplicacion", "fecha": a.get("fecha") or "9999-12-31", "data": a})
     eventos.sort(key=lambda e: (e["fecha"], 0 if e["kind"] == "compra" else 1))
 
     # 4. Lotes FIFO por nombre de producto (case-insensitive)
-    lotes: Dict[str, List[Dict[str, float]]] = {}  # nombre.lower() -> [{cantidad, precio_unitario}]
+    lotes: Dict[str, List[Dict[str, float]]] = {}
     resultados: Dict[str, Dict[str, Any]] = {}
+    pendientes: List[Dict[str, Any]] = []  # insumos sin cobertura, en orden cronológico
 
     for ev in eventos:
         if ev["kind"] == "compra":
@@ -1057,7 +1082,6 @@ async def _compute_fifo_costs_per_aplicacion() -> Dict[str, Dict[str, Any]]:
             a = ev["data"]
             aid = a.get("_id")
             insumos = a.get("insumos") or []
-            total_costo = 0.0
             insumos_cost: List[Dict[str, Any]] = []
             for ins in insumos:
                 nombre = (ins.get("nombre_producto") or "").strip().lower()
@@ -1074,21 +1098,59 @@ async def _compute_fifo_costs_per_aplicacion() -> Dict[str, Dict[str, Any]]:
                     qty_needed -= take
                     if lot["cantidad"] <= 1e-9:
                         queue.pop(0)
-                # si queda demanda no cubierta (sin stock comprado), el costo de esa parte queda en 0
-                insumos_cost.append({
+                ic = {
                     "nombre_producto": ins.get("nombre_producto"),
                     "cantidad": qty_orig,
                     "unidad": ins.get("unidad"),
-                    "costo": round(cost, 2),
-                    "precio_unitario_promedio": round(cost / qty_orig, 4) if qty_orig else 0,
-                    "cantidad_sin_cobertura": round(qty_needed, 4),  # qty que se aplicó pero no había stock
-                })
-                total_costo += cost
-            resultados[aid] = {
-                "total_costo": round(total_costo, 2),
-                "insumos_costo": insumos_cost,
-            }
-    return resultados
+                    "_costo": cost,            # sin redondear hasta el final
+                    "_sin_cobertura": qty_needed,
+                    "_nombre": nombre,
+                }
+                insumos_cost.append(ic)
+                if qty_needed > 1e-9:
+                    pendientes.append(ic)
+            resultados[aid] = {"_insumos": insumos_cost}
+
+    # 4b. Las entradas manuales cubren las cantidades sin cobertura, en orden
+    #     cronológico de las aplicaciones (FIFO de entradas manuales por producto).
+    manual_lotes: Dict[str, List[Dict[str, float]]] = {}
+    for c in manual_entries:
+        nombre = (c.get("nombre_producto") or "").strip().lower()
+        cantidad = float(c.get("cantidad") or 0)
+        precio = float(c.get("precio") or 0)
+        if cantidad <= 0 or not nombre:
+            continue
+        manual_lotes.setdefault(nombre, []).append({"cantidad": cantidad, "precio_unitario": precio / cantidad if cantidad else 0})
+    for ic in pendientes:
+        nombre = ic["_nombre"]
+        queue = manual_lotes.get(nombre, [])
+        while ic["_sin_cobertura"] > 1e-9 and queue:
+            lot = queue[0]
+            take = min(lot["cantidad"], ic["_sin_cobertura"])
+            ic["_costo"] += take * lot["precio_unitario"]
+            ic["_sin_cobertura"] -= take
+            lot["cantidad"] -= take
+            if lot["cantidad"] <= 1e-9:
+                queue.pop(0)
+
+    # 5. Empaquetar resultados finales (con redondeo)
+    final: Dict[str, Dict[str, Any]] = {}
+    for aid, r in resultados.items():
+        insumos_cost: List[Dict[str, Any]] = []
+        total_costo = 0.0
+        for ic in r["_insumos"]:
+            qty_orig = ic["cantidad"]
+            insumos_cost.append({
+                "nombre_producto": ic["nombre_producto"],
+                "cantidad": qty_orig,
+                "unidad": ic["unidad"],
+                "costo": round(ic["_costo"], 2),
+                "precio_unitario_promedio": round(ic["_costo"] / qty_orig, 4) if qty_orig else 0,
+                "cantidad_sin_cobertura": round(ic["_sin_cobertura"], 4),
+            })
+            total_costo += ic["_costo"]
+        final[aid] = {"total_costo": round(total_costo, 2), "insumos_costo": insumos_cost}
+    return final
 
 
 @api.get("/aplicaciones")
@@ -1425,6 +1487,12 @@ async def analiticas_resumen(_: dict = Depends(get_current_user)):
     n_plant = await db.plantaciones.count_documents({})
     n_aplic = await db.aplicaciones.count_documents({})
     n_act = await db.actividades.count_documents({})
+
+    # Inversión en insumos: compras reales + entradas manuales de inventario
+    compras_ins = await db.compras.find({"es_equipo": {"$ne": True}}).to_list(20000)
+    inv_compras = sum(float(c.get("precio") or 0) for c in compras_ins if c.get("origen") != "ajuste")
+    inv_manual = sum(float(c.get("precio") or 0) for c in compras_ins if c.get("origen") == "ajuste")
+
     return {
         "total_kg_cosechado": round(total_kg, 2),
         "total_primera_calidad_kg": round(total_primera, 2),
@@ -1433,6 +1501,9 @@ async def analiticas_resumen(_: dict = Depends(get_current_user)):
         "n_plantaciones": n_plant,
         "n_aplicaciones": n_aplic,
         "n_actividades": n_act,
+        "inversion_compras": round(inv_compras, 2),
+        "inversion_entradas_manuales": round(inv_manual, 2),
+        "inversion_insumos_total": round(inv_compras + inv_manual, 2),
     }
 
 

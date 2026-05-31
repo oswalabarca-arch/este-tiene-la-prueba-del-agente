@@ -39,6 +39,19 @@ export default function Analiticas() {
         <Box label="Actividades registradas" value={resumen.n_actividades} color="#f59e0b" />
       </div>
 
+      {/* Inversión en insumos */}
+      <div style={{ marginTop: 28 }}>
+        <h2 style={{ display: "flex", alignItems: "center", gap: 8, margin: "0 0 4px" }}>
+          <Wallet size={22} style={{ color: "#16a34a" }} /> Inversión en insumos
+        </h2>
+        <p className="page-subtitle" style={{ marginTop: 0 }}>Gasto en insumos: compras + entradas manuales de inventario.</p>
+        <div className="kpi-grid" data-testid="analiticas-inversion">
+          <Box label="Inversión total en insumos" value={fmtMoney(resumen.inversion_insumos_total)} color="#16a34a" />
+          <Box label="Compras de insumos" value={fmtMoney(resumen.inversion_compras)} color="#3b82f6" />
+          <Box label="Entradas manuales" value={fmtMoney(resumen.inversion_entradas_manuales)} color="#7c3aed" />
+        </div>
+      </div>
+
       {/* Cuentas por cobrar */}
       <div style={{ marginTop: 28 }}>
         <h2 style={{ display: "flex", alignItems: "center", gap: 8, margin: "0 0 4px" }}>
