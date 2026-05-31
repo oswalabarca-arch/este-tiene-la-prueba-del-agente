@@ -255,6 +255,11 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - La gráfica tiene un **toggle de métrica** (`plant-labores-metric` → `horas` / `costo` / `pct`): en Horas-H pondera por horas-hombre (centro = total horas), en Costo $ por costo (centro = costo total $), en % muestra el porcentaje del costo por tipo. Leyenda con barras de progreso (`plant-labores-legend-<tipo>`), colores por `actColor`.
 - Cambio 100% frontend. Lint OK. Testing frontend **100%** (iteration_25.json): tabla 3 columnas, layout media columna + gráfica en la misma fila, 3 modos coherentes (29.33 h / $101.67 / % suma 100), sin regresiones.
 
+## Ajuste (Plantación · Aplicaciones · totales 2-col + gráfica a media columna — 01/02/2026)
+- En la pestaña **Aplicaciones**: la **gráfica circular** se redujo a **media columna** (donut 180px, flex 1 1 320px) y quedó a la **derecha**, conservando su **filtro de métrica** (`plant-aplicaciones-metric`: Cantidad / Costo $ / Costo %) que permite verla "por tipo" y "por costo real".
+- A la **izquierda** se agregó una tabla **"Totales por tipo"** (`plant-aplicaciones-totales-tipo`) con **solo 2 columnas: Tipo y Costo real** (filas `plant-aplicaciones-totales-row`) + fila Total general. No se filtra.
+- Cambio 100% frontend. Lint OK. Testing frontend **100%** (iteration_26.json): totales izquierda (x=590) / gráfica derecha (x=1077), Total general $52.59 = centro del donut en Costo $, sin regresiones en la tabla de registros inferior.
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.
