@@ -638,14 +638,12 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 18 }}>
               <div style={{ width: 190, height: 190, position: "relative", flexShrink: 0 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={mainData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={52} outerRadius={84} paddingAngle={2} stroke="none">
-                      {mainData.map((d) => <Cell key={d.key} fill={CAL_COLORS[d.key]} />)}
-                    </Pie>
-                    <Tooltip formatter={(val) => [`${Number(val).toFixed(2)} kg (${((Number(val) / loteTotalKg) * 100).toFixed(1)}%)`, ""]} />
-                  </PieChart>
-                </ResponsiveContainer>
+                <PieChart width={190} height={190}>
+                  <Pie data={mainData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={52} outerRadius={84} paddingAngle={2} stroke="none">
+                    {mainData.map((d) => <Cell key={d.key} fill={CAL_COLORS[d.key]} />)}
+                  </Pie>
+                  <Tooltip formatter={(val) => [`${Number(val).toFixed(2)} kg (${((Number(val) / loteTotalKg) * 100).toFixed(1)}%)`, ""]} />
+                </PieChart>
                 <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", textAlign: "center", pointerEvents: "none" }}>
                   <div style={{ fontSize: 10, color: "#64748b" }}>Rendimiento</div>
                   <div style={{ fontSize: 18, fontWeight: 800, color: "#16a34a" }}>{loteTotalKg.toFixed(0)}</div>

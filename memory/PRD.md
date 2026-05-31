@@ -192,6 +192,12 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - Los filtros aplican a `itemsF` y afectan coherentemente la **tabla** (filas `cosecha-row`, encabezado "X de Y"), los **totales**, el **gráfico "Calidades del lote"**, los **"Calidades por variedad"** y la tabla **"Rendimiento por planta"**. Estado vacío "Sin cosechas para los filtros aplicados" (oculta gráficos cuando no hay datos). Compatible con el toggle Cestas/kg.
 - Cambio 100% frontend (`PlantacionDetail.jsx`, reutiliza `PeriodPicker`). Testing frontend 100% (iteration_15.json).
 
+## Implementado (Plantación · Cosechas · totales consolidados por variedad — 31/05/2026)
+- En la pestaña **Cosechas** se agregó la tarjeta **"Totales por variedad (todas las fechas)"** (`plant-cosecha-consolidado`) que suma TODAS las cosechas de cada variedad sin importar la fecha (ej. 5 cestas albion enero + 5 albion marzo = 10). Columnas: Tipo de fruta, Variedad, 1ª, 2ª, 3ª, Descarte, Total + fila "Total general".
+- **Independiente de los filtros** de período/variedad (usa `items` completos), pero **respeta el toggle Cestas/kg** (multDe).
+- Testing frontend 100% (iteration_16.json): totales (albion 40, san andreas 12, total 52 cestas), independencia de filtros, conversión kg (×14), y **suma entre fechas** verificada (albion 40→47 al agregar cosecha en otra fecha, luego restaurado).
+- Adicional: se eliminó el warning recurrente de recharts en "Calidades del lote" usando `<PieChart width={190} height={190}>` fijo (su contenedor ya era de tamaño fijo).
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.
