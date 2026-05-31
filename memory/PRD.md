@@ -138,6 +138,11 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - Cambio 100% frontend. Testing frontend 100% en los 4 módulos (iteration_7.json).
 - Pendiente menor (backlog): unificar testids de pills entre módulos ('año' vs 'ano', 'todo' vs 'todos').
 
+## Implementado (Actividades · filtros del historial — 31/05/2026)
+- En el módulo **Actividades** (página "Registrar Actividad"), la tabla **"Historial de actividades"** ahora tiene una barra de filtros: **Período** (Hoy / Semana / Mes / Año / Todo) con el selector de mes/año (`PeriodPicker`, testidPrefix `actividades`) y **filtro por Tipo** (`actividades-filtro-tipo`).
+- Filtra por `fecha_actividad` y por `tipo_personalizado || tipo`; combinables. Muestra "X de Y actividad(es)" y estado vacío "Sin actividades para los filtros aplicados".
+- Cambio 100% frontend en `Actividades.jsx`. Testing frontend 100% (iteration_8.json): visibilidad de pickers, filtrado por período/tipo, combinación y estado vacío.
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.
