@@ -971,8 +971,8 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
                   <defs>
                     {CAL_DEFS.map((d) => (
                       <linearGradient key={d.key} id={`grad-${d.key}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={CAL_COLORS[d.key]} stopOpacity={0.7} />
-                        <stop offset="95%" stopColor={CAL_COLORS[d.key]} stopOpacity={0.08} />
+                        <stop offset="5%" stopColor={CAL_COLORS[d.key]} stopOpacity={0.85} />
+                        <stop offset="95%" stopColor={CAL_COLORS[d.key]} stopOpacity={0.55} />
                       </linearGradient>
                     ))}
                   </defs>

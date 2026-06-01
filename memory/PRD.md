@@ -296,6 +296,10 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - **Verificado:** `ruff` + `eslint` OK; pytest backend **28/30** (los 2 fallos son el problema ambiental preexistente de stock de cosecha en asignaciones, no regresión; PEPS y auth verdes).
 - **DIFERIDO (alto riesgo en app ya desplegada, requiere esfuerzo dedicado + redeploy):** (1) Auth localStorage→httpOnly — requiere playbook de auth y verificación cookie-only; riesgo de bloquear el login en producción. (2) 28 deps faltantes en useEffect/useMemo — fixes ingenuos causan loops infinitos (ej. agregar `load` sin `useCallback`); requiere análisis caso por caso. (3) Refactor de `_compute_peps_remaining_per_product`/`_compute_fifo_costs_per_aplicacion` (lógica frágil y testeada) y de componentes grandes (Aplicaciones/Actividades/Ventas/PlantacionDetail) — P3. (4) Las `key={index}` restantes son filas de formulario append-only sin id estable (índice es apropiado). Los hallazgos de "operador `is` incorrecto" en server.py:214/258 eran **falsos positivos** (`v is not None` es el idioma correcto).
 
+## Fix visual (Plantación · Cosechas · "Producción en el tiempo" relleno de áreas — 31/05/2026)
+- **Reporte (Oswald):** en el área apilada, la **1ª calidad** (ej. mayo 1540 kg) se veía "por debajo/escondida" pese a ser la mayor. Causa: el degradado de relleno se desvanecía a casi transparente abajo (`stopOpacity 0.7→0.08`), pensado para gráficos de UNA área, no apilados → la banda verde grande quedaba casi vacía y las bandas finas de arriba lucían más sólidas.
+- **Fix:** relleno más sólido y uniforme (`stopOpacity 0.85→0.55`) para los 4 gradientes (`grad-<key>`). Ahora cada banda apilada (1ª base verde → 2ª → 3ª → descarte) se ve proporcional a su valor real. Apilado correcto sin cambios de orden/lógica. Cambio 100% frontend (`PlantacionDetail.jsx`), lint OK, verificado en vivo (tafy/L3, pico mayo 2226 kg). Requiere re-deploy para producción.
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.
