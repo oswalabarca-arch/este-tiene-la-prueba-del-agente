@@ -1,13 +1,14 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { Users, Sprout, Boxes, TrendingUp } from "lucide-react";
 
 export default function Dashboard() {
   const [stats, setStats] = useState({ n_usuarios: 0, n_plantaciones: 0, total_kg_cosechado: 0, n_aplicaciones: 0 });
 
-  useEffect(() => {
+  const loadStats = useCallback(() => {
     api.get("/analiticas/resumen").then((r) => setStats(r.data)).catch(() => {});
   }, []);
+  useEffect(() => { loadStats(); }, [loadStats]);
 
   return (
     <div data-testid="dashboard-page">

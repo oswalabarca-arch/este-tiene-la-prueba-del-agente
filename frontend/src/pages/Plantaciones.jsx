@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
@@ -14,8 +14,8 @@ export default function Plantaciones() {
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState(null);
 
-  const load = () => api.get("/plantaciones").then((r) => setItems(r.data.plantaciones));
-  useEffect(() => { load(); }, []);
+  const load = useCallback(() => api.get("/plantaciones").then((r) => setItems(r.data.plantaciones)), []);
+  useEffect(() => { load(); }, [load]);
 
   // Si llegamos aquí con state.edit (desde el detalle al hacer "Editar")
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
@@ -12,8 +12,8 @@ export function Trabajadores() {
   const [items, setItems] = useState([]);
   const [editing, setEditing] = useState(null);
 
-  const load = () => api.get("/trabajadores").then((r) => setItems(r.data.trabajadores));
-  useEffect(() => { load(); }, []);
+  const load = useCallback(() => api.get("/trabajadores").then((r) => setItems(r.data.trabajadores)), []);
+  useEffect(() => { load(); }, [load]);
 
   const remove = async (t) => {
     if (!window.confirm("¿Eliminar?")) return;

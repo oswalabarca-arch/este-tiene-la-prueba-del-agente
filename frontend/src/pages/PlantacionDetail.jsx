@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
@@ -42,7 +42,7 @@ export default function PlantacionDetail() {
   const [tipos, setTipos] = useState([]);
   const [variedades, setVariedades] = useState([]);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const [pl, ap, ac, co, ti, va] = await Promise.all([
       api.get("/plantaciones"),
       api.get("/aplicaciones"),
@@ -58,8 +58,8 @@ export default function PlantacionDetail() {
     setCosechas(co.data.cosechas || []);
     setTipos(ti.data.tipos_fruta || []);
     setVariedades(va.data.variedades || []);
-  };
-  useEffect(() => { load(); }, [id]);
+  }, [id]);
+  useEffect(() => { load(); }, [load]);
 
   const lote = plantacion?.lote;
   // Una aplicación puede afectar a múltiples lotes (lote, lotes[] o lotes_destino[]).

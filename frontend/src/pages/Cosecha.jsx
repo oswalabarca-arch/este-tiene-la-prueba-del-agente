@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
@@ -25,7 +25,7 @@ export default function Cosecha() {
   const [filtroLote, setFiltroLote] = useState("");
   const [search, setSearch] = useState("");
 
-  const loadAll = async () => {
+  const loadAll = useCallback(async () => {
     const [c, t, v, p] = await Promise.all([
       api.get("/cosechas"),
       api.get("/tipos-fruta"),
@@ -36,8 +36,8 @@ export default function Cosecha() {
     setTipos(t.data.tipos_fruta);
     setVariedades(v.data.variedades);
     setPlantaciones(p.data.plantaciones);
-  };
-  useEffect(() => { loadAll(); }, []);
+  }, []);
+  useEffect(() => { loadAll(); }, [loadAll]);
 
   const today = todayLocal();
 

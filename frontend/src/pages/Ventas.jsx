@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
@@ -64,8 +64,8 @@ function Ventas({ tipo }) {
   const [nv, setNv] = useState(emptyNv);
   const [abonando, setAbonando] = useState(null);
 
-  const load = () => api.get(`/ventas-${tipo}`).then((r) => setItems(r.data.ventas));
-  useEffect(() => { load(); }, [tipo]);
+  const load = useCallback(() => api.get(`/ventas-${tipo}`).then((r) => setItems(r.data.ventas)), [tipo]);
+  useEffect(() => { load(); }, [load]);
 
   const remove = async (v) => {
     if (!window.confirm("¿Eliminar?")) return;

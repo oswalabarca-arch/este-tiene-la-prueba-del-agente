@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
@@ -24,12 +24,12 @@ export default function Vehiculos() {
   const [editingGasto, setEditingGasto] = useState(null);  // gasto a crear/editar
   const [viewingGasto, setViewingGasto] = useState(null);  // gasto a ver (solo lectura)
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const [v, g] = await Promise.all([api.get("/vehiculos"), api.get("/gastos-vehiculos")]);
     setVehiculos(v.data.vehiculos);
     setGastos(g.data.gastos);
-  };
-  useEffect(() => { load(); }, []);
+  }, []);
+  useEffect(() => { load(); }, [load]);
 
   const remove = async (v) => {
     if (!window.confirm(`¿Eliminar vehículo "${v.nombre}"? Los gastos asociados no se borran.`)) return;

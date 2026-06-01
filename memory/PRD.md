@@ -305,6 +305,14 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - **Fix:** se **quitó el apilado** → áreas **superpuestas** (cada `<Area>` se mide desde 0 a su valor). Rellenos semitransparentes (gradiente `0.30→0.04`) + stroke `2.5` para que todas las calidades se distingan; `activeDot` al hover. Eje Y ahora auto-escala al máximo individual (ej. ~1600 con pico 1ª=1540). Subtítulo actualizado: "Producción (kg) por calidad… cada calidad se mide desde 0 con su valor real" (antes decía "acumulada").
 - Verificado en vivo (tafy/L3, mayo): 1ª≈1540, 2ª≈350, 3ª≈168, Descarte≈168 — cada uno a su altura real, coincidiendo con el tooltip. Las tarjetas resumen (pico/total) siguen mostrando el total de producción del período. Cambio 100% frontend, lint OK. Requiere re-deploy para producción.
 
+## Code Review v2 · hook-deps corregidos con useCallback (31/05/2026)
+- **Critical (hooks):** se corrigieron las 7 dependencias de `useEffect` prioritarias envolviendo el loader en **`useCallback`** (patrón seguro que evita loops infinitos): `Ventas.jsx` (load, dep [tipo]), `Vehiculos.jsx`, `Dashboard.jsx` (loadStats), `Cosecha.jsx` (loadAll), `PlantacionDetail.jsx` (load, dep [id]), `Plantaciones.jsx`, `RRHH.jsx`. Imports de `useCallback` agregados. Lint OK en los 7.
+- **Verificado en vivo** (smoke test con conteo de requests): Dashboard/Ventas/Cosecha cargan datos correctamente y **el nº de llamadas API se mantiene estable tras idle** (Ventas 7→7, Cosecha 17→17) → sin loops de re-render ni closures obsoletos.
+- **DIFERIDO conscientemente (riesgo en app PRODUCCIÓN, requieren esfuerzo dedicado + redeploy):**
+  - 🔴 **Auth localStorage→httpOnly** (`auth.jsx`/`api.js`): es cambio de AUTENTICACIÓN en app desplegada. Requiere consultar el playbook de auth, verificar cookies cookie-only (SameSite/Secure) y testeo completo; hacerlo mal **bloquea el login en producción**. No se toca sin go-ahead explícito.
+  - 🟠 Refactor de `_compute_peps_remaining_per_product` / `_compute_fifo_costs_per_aplicacion` (complejidad 42) y de componentes grandes (Aplicaciones/Actividades) — lógica frágil/testeada; P3, esfuerzo dedicado con regresión.
+  - 🟡 `key={index}` en filas de formulario y `useMemo` de cómputos en JSX — impacto real bajo en listas de solo lectura/append-only; polish opcional.
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.
