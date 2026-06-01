@@ -300,6 +300,11 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - **Reporte (Oswald):** en el área apilada, la **1ª calidad** (ej. mayo 1540 kg) se veía "por debajo/escondida" pese a ser la mayor. Causa: el degradado de relleno se desvanecía a casi transparente abajo (`stopOpacity 0.7→0.08`), pensado para gráficos de UNA área, no apilados → la banda verde grande quedaba casi vacía y las bandas finas de arriba lucían más sólidas.
 - **Fix:** relleno más sólido y uniforme (`stopOpacity 0.85→0.55`) para los 4 gradientes (`grad-<key>`). Ahora cada banda apilada (1ª base verde → 2ª → 3ª → descarte) se ve proporcional a su valor real. Apilado correcto sin cambios de orden/lógica. Cambio 100% frontend (`PlantacionDetail.jsx`), lint OK, verificado en vivo (tafy/L3, pico mayo 2226 kg). Requiere re-deploy para producción.
 
+## Fix (Plantación · Cosechas · "Producción en el tiempo" · des-apilado — 31/05/2026)
+- **Reporte real (Oswald):** el gráfico estaba **apilado** (`stackId="1"`), por lo que cada calidad se dibujaba a la altura de la **suma acumulada** (ej. Descarte=168 kg aparecía graficado a ~2200 kg, en vez de a 168). El usuario espera leer cada calidad con su **valor real desde 0** en el eje.
+- **Fix:** se **quitó el apilado** → áreas **superpuestas** (cada `<Area>` se mide desde 0 a su valor). Rellenos semitransparentes (gradiente `0.30→0.04`) + stroke `2.5` para que todas las calidades se distingan; `activeDot` al hover. Eje Y ahora auto-escala al máximo individual (ej. ~1600 con pico 1ª=1540). Subtítulo actualizado: "Producción (kg) por calidad… cada calidad se mide desde 0 con su valor real" (antes decía "acumulada").
+- Verificado en vivo (tafy/L3, mayo): 1ª≈1540, 2ª≈350, 3ª≈168, Descarte≈168 — cada uno a su altura real, coincidiendo con el tooltip. Las tarjetas resumen (pico/total) siguen mostrando el total de producción del período. Cambio 100% frontend, lint OK. Requiere re-deploy para producción.
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.

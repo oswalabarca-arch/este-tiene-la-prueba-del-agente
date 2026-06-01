@@ -938,7 +938,7 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
           </div>
         </div>
         <p style={{ color: "#64748b", marginTop: 4, marginBottom: 10, fontSize: 12 }}>
-          Producción acumulada ({uSerie}) por calidad a lo largo de {serieAnio}. Usá los filtros para ver una variedad o aislar calidades.
+          Producción ({uSerie}) por calidad a lo largo de {serieAnio} — cada calidad se mide desde 0 con su valor real. Usá los filtros para ver una variedad o aislar calidades.
         </p>
 
         {/* Filtro de variedad + toggles de calidad */}
@@ -971,8 +971,8 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
                   <defs>
                     {CAL_DEFS.map((d) => (
                       <linearGradient key={d.key} id={`grad-${d.key}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={CAL_COLORS[d.key]} stopOpacity={0.85} />
-                        <stop offset="95%" stopColor={CAL_COLORS[d.key]} stopOpacity={0.55} />
+                        <stop offset="5%" stopColor={CAL_COLORS[d.key]} stopOpacity={0.30} />
+                        <stop offset="95%" stopColor={CAL_COLORS[d.key]} stopOpacity={0.04} />
                       </linearGradient>
                     ))}
                   </defs>
@@ -982,7 +982,7 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
                   <Tooltip formatter={(val, name) => [`${Number(val).toFixed(2)} ${uSerie}`, name]} labelFormatter={(l) => bucketsDisplay.find((b) => b.label === l)?.nombre || l} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                   {CAL_DEFS.filter((d) => calVisible[d.key]).map((d) => (
-                    <Area key={d.key} type="monotone" dataKey={d.key} name={CAL_LEG[d.key]} stackId="1" stroke={CAL_COLORS[d.key]} strokeWidth={2} fill={`url(#grad-${d.key})`} />
+                    <Area key={d.key} type="monotone" dataKey={d.key} name={CAL_LEG[d.key]} stroke={CAL_COLORS[d.key]} strokeWidth={2.5} fill={`url(#grad-${d.key})`} dot={false} activeDot={{ r: 4 }} />
                   ))}
                 </AreaChart>
               </ResponsiveContainer>
