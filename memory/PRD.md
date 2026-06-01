@@ -22,7 +22,14 @@ Aplicaciones usa recetas (plantillas de insumos)
 - `operario` — limitado
 - Cada usuario tiene `modulos_asignados[]` que controlan visibilidad
 
-## Fix (Inputs decimales en tablet · coma vs punto — 01/06/2026)
+## Fix (Code Quality Report · Fase A — arreglos seguros — 01/06/2026)
+- **Keys de índice → IDs estables** (16 instancias): Aplicaciones, Actividades, PlantacionDetail (consolidado/rendimiento), Compras (sugerencias), Inventario (lotes PEPS/datalist). Filas editables del formulario de Aplicaciones ahora usan `_rid` estable (`nextRid()`) en alta, init y reset por cambio de Tipo. Verificado: 0 warnings de React keys; alta/baja de filas no mezcla valores.
+- **Hooks**: el reporte estaba desactualizado; al correr `react-hooks/exhaustive-deps` solo quedaba 1 advertencia real → `AsignacionDestino.jsx` `load` envuelto en `useCallback`. Verificado: sin loop infinito, recarga al cambiar fecha.
+- **useMemo**: total de cestas en `Ventas.jsx` memoizado (`totalCestas`). Las computaciones pesadas reales viven en `PlantacionDetail` (se abordarán en el refactor de CosechasTab, Fase B). Las de arrays diminutos (NAV ~15, CAL_DEFS 4, Vehiculos 3 elementos) se dejaron sin memo intencionalmente (sin beneficio real).
+- **`is` vs `==` (Python)**: falsos positivos — `server.py` líneas 214/258 son `is not None` (forma correcta). Los `is True` en tests comparan singletons (correcto); cambiarlos a `==` generaría warning E712. Sin cambios.
+- Fase B (división de componentes grandes) y Fase C (Auth httpOnly + refactor PEPS backend) quedan pendientes de confirmación por riesgo en producción.
+
+
 - Bug reportado: en tablet, al asignar cestas la cantidad "se quedaba en 1"/se deformaba. Causa raíz: `<input type="number">` solo acepta punto (.) como separador decimal; el teclado en español de tablets usa coma (,), por lo que "1,5" se guardaba como "15".
 - Solución: nuevo componente reutilizable `frontend/src/components/DecimalInput.jsx` (type="text" + inputMode="decimal", acepta coma o punto y normaliza a punto; emite onChange con evento sintético para ser drop-in).
 - Aplicado a ~30 campos decimales en 13 páginas (cantidades, kg, cestas, precios, montos, salarios, horas). Se respetaron los campos enteros (año, kilometraje, # trabajadores, días) que siguen como `<input type="number">`.

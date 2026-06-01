@@ -386,7 +386,7 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
         <div className="form-grid">
           <div className="field">
             <label>Tipo de Aplicación *</label>
-            <select className="select" value={form.tipo} onChange={(e) => { setForm({ ...form, tipo: e.target.value, subtipo: "" }); setProductoRows([{ nombre_producto: "", cantidad: 0, unidad: UNIDAD }]); }} required data-testid="aplic-tipo">
+            <select className="select" value={form.tipo} onChange={(e) => { setForm({ ...form, tipo: e.target.value, subtipo: "" }); setProductoRows([{ _rid: nextRid(), nombre_producto: "", cantidad: 0, unidad: UNIDAD }]); }} required data-testid="aplic-tipo">
               <option value="">Selecciona tipo</option>
               <option value="fertilizacion">Fertilización</option>
               <option value="plaguicida">Plaguicida</option>
