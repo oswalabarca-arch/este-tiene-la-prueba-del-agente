@@ -9,6 +9,7 @@ import {
 import { catBadge, actBadge, actTile } from "../lib/categoryColors";
 import { todayLocal } from "../lib/dates";
 import { PeriodPicker, currentMonthStr, currentYearStr } from "../components/PeriodPicker";
+import { DecimalInput } from "../components/DecimalInput";
 
 const TIPOS_REGISTRAR = [
   { key: "abonar",     label: "Abonar",          icon: Sprout },
@@ -334,13 +335,13 @@ function PendienteCard({ aplicacion: a, lotesDisponibles, canEdit, onConfirmed }
           </div>
           <div className="field">
             <label style={{ display: "flex", alignItems: "center", gap: 6 }}><Clock size={13} /> Horas * <span style={{ color: "#94a3b8", fontWeight: 400 }}>(por trabajador)</span></label>
-            <input type="number" step="0.5" min="0.5" required className="input" value={horas}
+            <DecimalInput type="number" step="0.5" min="0.5" required className="input" value={horas}
               onChange={(e) => setHoras(e.target.value)}
               data-testid={`pendiente-horas-${a._id}`} />
           </div>
           <div className="field" style={{ gridColumn: "1 / -1" }}>
             <label style={{ display: "flex", alignItems: "center", gap: 6 }}><DollarSign size={13} /> Precio por hora *</label>
-            <input type="number" step="0.01" min="0.01" required className="input" value={precioHora}
+            <DecimalInput type="number" step="0.01" min="0.01" required className="input" value={precioHora}
               onChange={(e) => setPrecioHora(e.target.value)}
               placeholder="Ej: 5.00"
               data-testid={`pendiente-precio-${a._id}`} />
@@ -645,13 +646,13 @@ function RegistrarActividadForm({ plantaciones, onSaved }) {
         </div>
         <div className="field">
           <label style={{ display: "flex", alignItems: "center", gap: 6 }}><Clock size={14} style={{ color: "#f97316" }} /> Horas * <span style={{ color: "#94a3b8", fontSize: 11, fontWeight: 400 }}>(por trabajador)</span></label>
-          <input type="number" step="0.5" min="0.5" required className="input" placeholder="Ej: 4.5"
+          <DecimalInput type="number" step="0.5" min="0.5" required className="input" placeholder="Ej: 4.5"
             value={form.horas} onChange={(e) => setForm({ ...form, horas: e.target.value })}
             data-testid="act-horas" />
         </div>
         <div className="field">
           <label style={{ display: "flex", alignItems: "center", gap: 6 }}><DollarSign size={14} style={{ color: "#16a34a" }} /> Precio por hora *</label>
-          <input type="number" step="0.01" min="0.01" required className="input" placeholder="Ej: 5.00"
+          <DecimalInput type="number" step="0.01" min="0.01" required className="input" placeholder="Ej: 5.00"
             value={form.precio_hora} onChange={(e) => setForm({ ...form, precio_hora: e.target.value })}
             data-testid="act-precio" />
         </div>

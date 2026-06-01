@@ -3,6 +3,7 @@ import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
 import { UserPlus, Pencil, Key, Trash2, Search } from "lucide-react";
+import { DecimalInput } from "../components/DecimalInput";
 
 const MODULOS = [
   "usuarios", "plantaciones", "equipos", "actividades", "aplicaciones",
@@ -196,7 +197,7 @@ function UserModal({ initial, onClose, onSaved }) {
           </div>
           <div className="field">
             <label>Salario</label>
-            <input
+            <DecimalInput
               type="number"
               className="input"
               value={form.salario === 0 || form.salario === "" ? "" : form.salario}

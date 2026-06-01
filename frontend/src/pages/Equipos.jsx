@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
 import { Plus, Pencil, Trash2, Cog, Wrench, Eye } from "lucide-react";
+import { DecimalInput } from "../components/DecimalInput";
 
 // Sólo dos categorías ahora: motor y herramienta
 const ESTADOS = ["activo", "mantenimiento", "inactivo"];
@@ -163,7 +164,7 @@ function EquipoModal({ initial, filterCat, onClose, onSaved }) {
           </div>
           <div className="field">
             <label>Precio unitario ($)</label>
-            <input type="number" step="0.01" className="input"
+            <DecimalInput type="number" step="0.01" className="input"
               value={form.costo_adquisicion === 0 || form.costo_adquisicion === "" ? "" : form.costo_adquisicion}
               onChange={(e) => setForm({ ...form, costo_adquisicion: e.target.value === "" ? 0 : Number(e.target.value) })}
               onFocus={(e) => { if (form.costo_adquisicion === 0) e.target.select(); }}

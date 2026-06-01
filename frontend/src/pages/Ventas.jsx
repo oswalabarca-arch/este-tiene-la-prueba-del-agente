@@ -5,6 +5,7 @@ import { useAuth } from "../lib/auth";
 import { Plus, Pencil, Trash2, Home, Truck, DollarSign, Snowflake, AlertCircle, Heart, TrendingUp, Wallet, AlertTriangle, Filter, Search, X, CreditCard, User, Phone } from "lucide-react";
 import { todayLocal } from "../lib/dates";
 import { PeriodPicker, currentMonthStr, currentYearStr } from "../components/PeriodPicker";
+import { DecimalInput } from "../components/DecimalInput";
 
 const TIPO_META = {
   finca: { label: "Venta en finca", icon: Home, color: "#16a34a" },
@@ -273,9 +274,9 @@ function Ventas({ tipo }) {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
               <div className="field"><label>Nombre del cliente *</label><input className="input" placeholder="Ej: Juan Pérez" value={nv.cliente} onChange={(e) => setNv({ ...nv, cliente: e.target.value })} data-testid="nv-cliente" /></div>
               <div className="field"><label>Teléfono</label><input className="input" placeholder="Ej: 0414-1234567" value={nv.telefono} onChange={(e) => setNv({ ...nv, telefono: e.target.value })} data-testid="nv-telefono" /></div>
-              <div className="field"><label>Cantidad de cestas *</label><input type="number" step="0.01" min="0" className="input" placeholder="0" value={numv(nv.cantidad_cestas)} onChange={(e) => setNv({ ...nv, cantidad_cestas: e.target.value })} data-testid="nv-cestas" /></div>
-              <div className="field"><label>Precio por cesta *</label><input type="number" step="0.01" min="0" className="input" placeholder="0.00" value={numv(nv.precio_unitario)} onChange={(e) => setNv({ ...nv, precio_unitario: e.target.value })} data-testid="nv-precio" /></div>
-              <div className="field"><label>Abono inicial</label><input type="number" step="0.01" min="0" className="input" placeholder="0.00" value={numv(nv.abono_inicial)} onChange={(e) => setNv({ ...nv, abono_inicial: e.target.value })} data-testid="nv-abono" /></div>
+              <div className="field"><label>Cantidad de cestas *</label><DecimalInput type="number" step="0.01" min="0" className="input" placeholder="0" value={numv(nv.cantidad_cestas)} onChange={(e) => setNv({ ...nv, cantidad_cestas: e.target.value })} data-testid="nv-cestas" /></div>
+              <div className="field"><label>Precio por cesta *</label><DecimalInput type="number" step="0.01" min="0" className="input" placeholder="0.00" value={numv(nv.precio_unitario)} onChange={(e) => setNv({ ...nv, precio_unitario: e.target.value })} data-testid="nv-precio" /></div>
+              <div className="field"><label>Abono inicial</label><DecimalInput type="number" step="0.01" min="0" className="input" placeholder="0.00" value={numv(nv.abono_inicial)} onChange={(e) => setNv({ ...nv, abono_inicial: e.target.value })} data-testid="nv-abono" /></div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1.6fr 1.2fr", gap: 12, marginTop: 12, alignItems: "end" }}>
               <div className="field" style={{ margin: 0 }}><label>Fecha</label><input type="date" className="input" value={nv.fecha} onChange={(e) => setNv({ ...nv, fecha: e.target.value })} data-testid="nv-fecha" /></div>
@@ -380,7 +381,7 @@ function Ventas({ tipo }) {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
               <div className="field"><label>Beneficiario *</label><input className="input" placeholder="Ej: Comedor San José" value={nv.cliente} onChange={(e) => setNv({ ...nv, cliente: e.target.value })} data-testid="nv-beneficiario" /></div>
               <div className="field"><label>Teléfono</label><input className="input" placeholder="Ej: 0414-1234567" value={nv.telefono} onChange={(e) => setNv({ ...nv, telefono: e.target.value })} data-testid="nv-telefono" /></div>
-              <div className="field"><label>Cantidad de cestas *</label><input type="number" step="0.01" min="0" className="input" placeholder="0" value={numv(nv.cantidad_cestas)} onChange={(e) => setNv({ ...nv, cantidad_cestas: e.target.value })} data-testid="nv-cestas" /></div>
+              <div className="field"><label>Cantidad de cestas *</label><DecimalInput type="number" step="0.01" min="0" className="input" placeholder="0" value={numv(nv.cantidad_cestas)} onChange={(e) => setNv({ ...nv, cantidad_cestas: e.target.value })} data-testid="nv-cestas" /></div>
               <div className="field"><label>Fecha</label><input type="date" className="input" value={nv.fecha} onChange={(e) => setNv({ ...nv, fecha: e.target.value })} data-testid="nv-fecha" /></div>
             </div>
             <div className="field" style={{ marginTop: 12 }}><label>Observaciones</label><input className="input" placeholder="Notas opcionales..." value={nv.observaciones} onChange={(e) => setNv({ ...nv, observaciones: e.target.value })} data-testid="nv-obs" /></div>
@@ -480,7 +481,7 @@ function AbonoModal({ venta, onClose, onConfirm }) {
         <div style={{ color: "#64748b", fontSize: 13, marginBottom: 14 }}>
           Total: <b>{fmtMoney(venta.total)}</b> · Abonado: <b style={{ color: "#3b82f6" }}>{fmtMoney(venta.abono_inicial || 0)}</b> · Saldo: <b style={{ color: "#dc2626" }}>{fmtMoney(saldo)}</b>
         </div>
-        <div className="field"><label>Monto del abono ($)</label><input type="number" step="0.01" min="0" className="input" placeholder="0.00" value={monto} onChange={(e) => setMonto(e.target.value)} autoFocus data-testid="abono-monto" /></div>
+        <div className="field"><label>Monto del abono ($)</label><DecimalInput type="number" step="0.01" min="0" className="input" placeholder="0.00" value={monto} onChange={(e) => setMonto(e.target.value)} autoFocus data-testid="abono-monto" /></div>
         <div style={{ marginTop: 8 }}>
           <button type="button" className="btn btn-sm" onClick={() => setMonto(String(saldo.toFixed(2)))}>Pagar todo ({fmtMoney(saldo)})</button>
         </div>
@@ -548,11 +549,11 @@ function VentaForm({ tipo, initial = {}, onClose, onSaved }) {
         <div className="form-grid">
           <div className="field"><label>{esDon ? "Beneficiario" : "Nombre del cliente"}</label><input className="input" value={form.cliente} onChange={(e) => setForm({ ...form, cliente: e.target.value })} data-testid="venta-form-cliente" /></div>
           <div className="field"><label>Teléfono</label><input className="input" value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} placeholder="Ej: 0414-1234567" data-testid="venta-form-telefono" /></div>
-          <div className="field"><label>Cantidad de cestas</label><input type="number" step="0.01" min="0" className="input" value={num(form.cantidad_cestas)} placeholder="0" onChange={(e) => onCestasChange(e.target.value)} required data-testid="venta-form-cestas" /></div>
-          {!esDon && <div className="field"><label>Precio por cesta ($)</label><input type="number" step="0.01" min="0" className="input" value={num(form.precio_unitario)} placeholder="0" onChange={(e) => onPrecioChange(e.target.value)} required data-testid="venta-form-precio" /></div>}
+          <div className="field"><label>Cantidad de cestas</label><DecimalInput type="number" step="0.01" min="0" className="input" value={num(form.cantidad_cestas)} placeholder="0" onChange={(e) => onCestasChange(e.target.value)} required data-testid="venta-form-cestas" /></div>
+          {!esDon && <div className="field"><label>Precio por cesta ($)</label><DecimalInput type="number" step="0.01" min="0" className="input" value={num(form.precio_unitario)} placeholder="0" onChange={(e) => onPrecioChange(e.target.value)} required data-testid="venta-form-precio" /></div>}
           <div className="field"><label>kg (auto)</label><input className="input" value={form.cantidad_kg} readOnly /></div>
           {!esDon && <div className="field"><label>Total (auto)</label><input className="input" value={`$${form.total}`} readOnly data-testid="venta-form-total" /></div>}
-          {!esDon && <div className="field"><label>Abono inicial ($)</label><input type="number" step="0.01" min="0" className="input" value={num(form.abono_inicial)} placeholder="0" onChange={(e) => setForm({ ...form, abono_inicial: e.target.value })} data-testid="venta-form-abono" /></div>}
+          {!esDon && <div className="field"><label>Abono inicial ($)</label><DecimalInput type="number" step="0.01" min="0" className="input" value={num(form.abono_inicial)} placeholder="0" onChange={(e) => setForm({ ...form, abono_inicial: e.target.value })} data-testid="venta-form-abono" /></div>}
           {!esDon && <div className="field"><label>Saldo pendiente (auto)</label><input className="input" value={`$${saldo.toFixed(2)}`} readOnly style={{ color: saldo > 0 ? "#dc2626" : "#16a34a", fontWeight: 600 }} data-testid="venta-form-saldo" /></div>}
           <div className="field"><label>Fecha</label><input type="date" className="input" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} required data-testid="venta-form-fecha" /></div>
         </div>

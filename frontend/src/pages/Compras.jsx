@@ -5,6 +5,7 @@ import { useAuth } from "../lib/auth";
 import { ShoppingCart, Plus, Pencil, Trash2, Car, Fuel, Wrench, Users as UsersIcon } from "lucide-react";
 import { catBadge } from "../lib/categoryColors";
 import { todayLocal } from "../lib/dates";
+import { DecimalInput } from "../components/DecimalInput";
 
 const CATEGORIAS = ["fertilizantes", "plaguicidas", "fungicidas", "herbicidas", "tratamiento", "semillas", "otros"];
 const UNIDAD = "Unidades";
@@ -161,7 +162,7 @@ function GastoVehiculoModal({ onClose, onSaved }) {
               </div>
               <div className="field">
                 <label>Monto ($)</label>
-                <input type="number" step="0.01" className="input"
+                <DecimalInput type="number" step="0.01" className="input"
                   value={form.monto === 0 || form.monto === "" ? "" : form.monto}
                   onChange={(e) => setForm({ ...form, monto: e.target.value === "" ? 0 : Number(e.target.value) })}
                   onFocus={(e) => { if (form.monto === 0) e.target.select(); }}
@@ -297,7 +298,7 @@ function CompraModal({ initial, compras = [], onClose, onSaved }) {
           </div>
           <div className="field">
             <label>Cantidad</label>
-            <input
+            <DecimalInput
               type="number"
               step="0.01"
               className="input"
@@ -315,7 +316,7 @@ function CompraModal({ initial, compras = [], onClose, onSaved }) {
           </div>
           <div className="field">
             <label>Precio total ($)</label>
-            <input
+            <DecimalInput
               type="number"
               step="0.01"
               className="input"

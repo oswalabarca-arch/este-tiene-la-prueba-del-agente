@@ -7,6 +7,7 @@ import {
   Award, TrendingUp, TrendingDown, AlertCircle,
 } from "lucide-react";
 import { todayLocal } from "../lib/dates";
+import { DecimalInput } from "../components/DecimalInput";
 
 const KG = 14;
 
@@ -223,7 +224,7 @@ export default function AsignacionDestino() {
                     {acum > 0 ? `${acum.toFixed(2)} cestas` : "—"}
                   </td>
                   <td>
-                    <input
+                    <DecimalInput
                       type="number" step="0.01" min="0"
                       className="input"
                       style={{ width: 120 }}

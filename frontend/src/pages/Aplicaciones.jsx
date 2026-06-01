@@ -6,6 +6,7 @@ import { Droplets, Plus, Trash2, BookOpen, X, CheckCircle, Clock, Eye, Pencil } 
 import { catBadge, catPill } from "../lib/categoryColors";
 import { todayLocal, toLocalDateStr } from "../lib/dates";
 import { PeriodPicker, currentMonthStr, currentYearStr } from "../components/PeriodPicker";
+import { DecimalInput } from "../components/DecimalInput";
 
 const TIPOS = ["fertilizacion", "fungicida", "plaguicida", "herbicida", "tratamiento"];
 const UNIDAD = "Unidades";
@@ -423,7 +424,7 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
                   <option value="">Producto</option>
                   {productosDisponibles.map((p, idx) => <option key={idx} value={p.nombre_producto}>{p.nombre_producto} ({p.total_disponible} {UNIDAD})</option>)}
                 </select>
-                <input type="number" className="input" placeholder={`Cantidad (${UNIDAD})`} value={row.cantidad || ""} onChange={(e) => updateRow(i, "cantidad", e.target.value)} />
+                <DecimalInput type="number" className="input" placeholder={`Cantidad (${UNIDAD})`} value={row.cantidad || ""} onChange={(e) => updateRow(i, "cantidad", e.target.value)} />
                 {i === productoRows.length - 1 && productoRows.length < 3 ? (
                   <button type="button" className="btn btn-primary" onClick={addRow} style={{ padding: "8px 14px" }}><Plus size={16} /></button>
                 ) : (
@@ -452,7 +453,7 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
         <div className="form-grid" style={{ marginTop: 18 }}>
           <div className="field">
             <label>Cantidad de Agua (Litros) *</label>
-            <input type="number" step="0.01" className="input" value={form.cantidad_agua || ""} onChange={(e) => setForm({ ...form, cantidad_agua: e.target.value })} required data-testid="aplic-agua" placeholder="" />
+            <DecimalInput type="number" step="0.01" className="input" value={form.cantidad_agua || ""} onChange={(e) => setForm({ ...form, cantidad_agua: e.target.value })} required data-testid="aplic-agua" placeholder="" />
           </div>
           <div className="field">
             <label>Modo de Aplicación *</label>
@@ -574,7 +575,7 @@ function RecetaForm({ inventario, onClose, onSaved }) {
           </div>
           <div className="field">
             <label>Cantidad de agua total (Litros) *</label>
-            <input type="number" step="0.01" className="input"
+            <DecimalInput type="number" step="0.01" className="input"
               value={form.cantidad_agua}
               onChange={(e) => setForm({ ...form, cantidad_agua: e.target.value })}
               placeholder="0" required data-testid="receta-form-agua" />
@@ -590,7 +591,7 @@ function RecetaForm({ inventario, onClose, onSaved }) {
                 <option value="">Producto</option>
                 {inventario.filter((x) => x.existencia).map((p, idx) => <option key={idx} value={p.nombre_producto}>{p.nombre_producto} ({p.total_disponible} {UNIDAD})</option>)}
               </select>
-              <input type="number" step="0.01" className="input" placeholder={`Cantidad (${UNIDAD})`} value={row.cantidad} onChange={(e) => updateRow(i, "cantidad", e.target.value)} data-testid={`receta-row-${i}-cantidad`} />
+              <DecimalInput type="number" step="0.01" className="input" placeholder={`Cantidad (${UNIDAD})`} value={row.cantidad} onChange={(e) => updateRow(i, "cantidad", e.target.value)} data-testid={`receta-row-${i}-cantidad`} />
               {i === productoRows.length - 1 ? (
                 <button type="button" className="btn btn-primary" onClick={addRow} style={{ padding: "8px 14px" }} data-testid="receta-add-row"><Plus size={16} /></button>
               ) : (

@@ -22,6 +22,14 @@ Aplicaciones usa recetas (plantillas de insumos)
 - `operario` — limitado
 - Cada usuario tiene `modulos_asignados[]` que controlan visibilidad
 
+## Fix (Inputs decimales en tablet · coma vs punto — 01/06/2026)
+- Bug reportado: en tablet, al asignar cestas la cantidad "se quedaba en 1"/se deformaba. Causa raíz: `<input type="number">` solo acepta punto (.) como separador decimal; el teclado en español de tablets usa coma (,), por lo que "1,5" se guardaba como "15".
+- Solución: nuevo componente reutilizable `frontend/src/components/DecimalInput.jsx` (type="text" + inputMode="decimal", acepta coma o punto y normaliza a punto; emite onChange con evento sintético para ser drop-in).
+- Aplicado a ~30 campos decimales en 13 páginas (cantidades, kg, cestas, precios, montos, salarios, horas). Se respetaron los campos enteros (año, kilometraje, # trabajadores, días) que siguen como `<input type="number">`.
+- Cosecha usa su propio componente `Field`, también actualizado para usar DecimalInput en type="number".
+- Verificado E2E: registrar compra con "12,75" y "99,5" persiste como 12.75 / 99.5. Coma y punto funcionan en escritorio y tablet.
+
+
 ## Implementado (Fase 1 — 30/01/2026)
 - Auth con JWT Bearer (+ cookie httpOnly como fallback), bcrypt, seed admin automático
 - Layout con sidebar y submenús colapsables, control por permisos

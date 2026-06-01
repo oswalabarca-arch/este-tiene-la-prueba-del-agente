@@ -5,6 +5,7 @@ import { useAuth } from "../lib/auth";
 import { Plus, Pencil, Trash2, Eye, Award, TrendingUp, TrendingDown, AlertCircle, Apple, Filter } from "lucide-react";
 import { todayLocal, toLocalDateStr } from "../lib/dates";
 import { PeriodPicker, currentMonthStr, currentYearStr } from "../components/PeriodPicker";
+import { DecimalInput } from "../components/DecimalInput";
 
 const KG_POR_CESTA = 14;
 
@@ -393,16 +394,18 @@ function CosechaModal({ initial, tipos, variedades, plantaciones, onClose, onSav
 }
 
 function Field({ label, value, onChange, type = "text", step, testid }) {
-  const display = type === "number" && (value === 0 || value === "" || value == null) ? "" : value;
+  const isNumber = type === "number";
+  const display = isNumber && (value === 0 || value === "" || value == null) ? "" : value;
+  const InputComp = isNumber ? DecimalInput : "input";
   return (
     <div className="field">
       <label>{label}</label>
-      <input
+      <InputComp
         type={type}
         step={step}
         className="input"
         value={display}
-        placeholder={type === "number" ? "0" : undefined}
+        placeholder={isNumber ? "0" : undefined}
         onChange={(e) => onChange(e.target.value)}
         data-testid={testid}
       />

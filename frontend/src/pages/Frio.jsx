@@ -4,6 +4,7 @@ import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
 import { Snowflake, Plus, Trash2 } from "lucide-react";
 import { todayLocal } from "../lib/dates";
+import { DecimalInput } from "../components/DecimalInput";
 
 export default function Frio() {
   const toast = useToast();
@@ -82,7 +83,7 @@ export default function Frio() {
               <div className="field"><label>Fecha</label><input type="date" className="input" value={form.fecha_ingreso} onChange={(e) => setForm({ ...form, fecha_ingreso: e.target.value })} required /></div>
               <div className="field"><label>Lote</label><input className="input" value={form.lote} onChange={(e) => setForm({ ...form, lote: e.target.value })} /></div>
               <div className="field"><label>Variedad</label><input className="input" value={form.variedad} onChange={(e) => setForm({ ...form, variedad: e.target.value })} /></div>
-              <div className="field"><label>Cantidad (cestas)</label><input type="number" step="0.01" className="input" value={form.cantidad_cestas} onChange={(e) => setForm({ ...form, cantidad_cestas: e.target.value })} required /></div>
+              <div className="field"><label>Cantidad (cestas)</label><DecimalInput type="number" step="0.01" className="input" value={form.cantidad_cestas} onChange={(e) => setForm({ ...form, cantidad_cestas: e.target.value })} required /></div>
             </div>
             <div className="field" style={{ marginTop: 12 }}><label>Observaciones</label><textarea className="textarea" value={form.observaciones} onChange={(e) => setForm({ ...form, observaciones: e.target.value })} /></div>
             <div className="modal-footer">

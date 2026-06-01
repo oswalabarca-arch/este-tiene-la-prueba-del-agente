@@ -5,6 +5,7 @@ import { useAuth } from "../lib/auth";
 import { Briefcase, Plus, Pencil, Trash2, DollarSign } from "lucide-react";
 import { actBadge } from "../lib/categoryColors";
 import { PeriodPicker, currentMonthStr, currentYearStr } from "../components/PeriodPicker";
+import { DecimalInput } from "../components/DecimalInput";
 
 export function Trabajadores() {
   const toast = useToast();
@@ -86,7 +87,7 @@ function TrabajadorModal({ initial, onClose, onSaved }) {
           <div className="field"><label>Documento</label><input className="input" value={form.documento} onChange={(e) => setForm({ ...form, documento: e.target.value })} /></div>
           <div className="field"><label>Teléfono</label><input className="input" value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} /></div>
           <div className="field"><label>Cargo</label><input className="input" value={form.cargo} onChange={(e) => setForm({ ...form, cargo: e.target.value })} /></div>
-          <div className="field"><label>Salario diario</label><input type="number" className="input" value={form.salario_diario} onChange={(e) => setForm({ ...form, salario_diario: e.target.value })} /></div>
+          <div className="field"><label>Salario diario</label><DecimalInput type="number" className="input" value={form.salario_diario} onChange={(e) => setForm({ ...form, salario_diario: e.target.value })} /></div>
           <div className="field"><label>Activo</label><select className="select" value={form.activo ? "1" : "0"} onChange={(e) => setForm({ ...form, activo: e.target.value === "1" })}><option value="1">Sí</option><option value="0">No</option></select></div>
         </div>
         <div className="modal-footer">

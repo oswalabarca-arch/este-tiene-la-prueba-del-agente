@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
 import { Plus, Pencil, Trash2, MapPin, ImageOff, Sprout, X, Upload } from "lucide-react";
+import { DecimalInput } from "../components/DecimalInput";
 
 export default function Plantaciones() {
   const toast = useToast();
@@ -230,7 +231,7 @@ function PlantacionModal({ initial, onClose, onSaved }) {
           </div>
           <div className="field">
             <label>Superficie (m²)</label>
-            <input
+            <DecimalInput
               type="number" step="0.01" className="input"
               value={form.superficie_geometrica === 0 || form.superficie_geometrica === "" ? "" : form.superficie_geometrica}
               onChange={(e) => setForm({ ...form, superficie_geometrica: e.target.value === "" ? 0 : Number(e.target.value) })}

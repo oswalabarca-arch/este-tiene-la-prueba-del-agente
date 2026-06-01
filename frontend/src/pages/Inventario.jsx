@@ -5,6 +5,7 @@ import { useAuth } from "../lib/auth";
 import { Boxes, Plus, Trash2, PackagePlus } from "lucide-react";
 import { catBadge } from "../lib/categoryColors";
 import { todayLocal } from "../lib/dates";
+import { DecimalInput } from "../components/DecimalInput";
 
 const CATEGORIAS = ["fertilizantes", "plaguicidas", "fungicidas", "herbicidas", "tratamiento", "semillas", "otros"];
 
@@ -248,7 +249,7 @@ function EntradaModal({ productos = [], onClose, onSaved }) {
           </div>
           <div className="field">
             <label>Cantidad (Unidades)</label>
-            <input type="number" step="0.01" className="input"
+            <DecimalInput type="number" step="0.01" className="input"
               value={form.cantidad === 0 || form.cantidad === "" ? "" : form.cantidad}
               onChange={(e) => setForm({ ...form, cantidad: e.target.value === "" ? 0 : Number(e.target.value) })}
               onFocus={(e) => { if (form.cantidad === 0) e.target.select(); }}
@@ -256,7 +257,7 @@ function EntradaModal({ productos = [], onClose, onSaved }) {
           </div>
           <div className="field">
             <label>Valor/costo total ($) — opcional</label>
-            <input type="number" step="0.01" className="input"
+            <DecimalInput type="number" step="0.01" className="input"
               value={form.precio === 0 || form.precio === "" ? "" : form.precio}
               onChange={(e) => setForm({ ...form, precio: e.target.value === "" ? 0 : Number(e.target.value) })}
               onFocus={(e) => { if (form.precio === 0) e.target.select(); }}

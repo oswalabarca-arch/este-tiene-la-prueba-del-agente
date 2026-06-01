@@ -4,6 +4,7 @@ import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
 import { Car, Plus, Pencil, Trash2, Fuel, Wrench, Users as UsersIcon, ArrowLeft, Eye } from "lucide-react";
 import { todayLocal } from "../lib/dates";
+import { DecimalInput } from "../components/DecimalInput";
 
 const COMBUSTIBLES = ["gasolina", "diesel", "electrico", "hibrido"];
 const ESTADOS = ["activo", "mantenimiento", "inactivo"];
@@ -257,7 +258,7 @@ function VehiculoModal({ initial, onClose, onSaved }) {
           <div className="field"><label>Estado</label><select className="select" value={form.estado} onChange={(e) => setForm({ ...form, estado: e.target.value })}>{ESTADOS.map((s) => <option key={s} value={s}>{s}</option>)}</select></div>
           <div className="field">
             <label>Valor de adquisición ($)</label>
-            <input type="number" step="0.01" className="input"
+            <DecimalInput type="number" step="0.01" className="input"
               value={form.costo_adquisicion === 0 || form.costo_adquisicion === "" ? "" : form.costo_adquisicion}
               onChange={(e) => setForm({ ...form, costo_adquisicion: e.target.value === "" ? 0 : Number(e.target.value) })}
               onFocus={(e) => { if (form.costo_adquisicion === 0) e.target.select(); }}
@@ -323,7 +324,7 @@ function GastoModal({ vehiculoId, initial, onClose, onSaved }) {
               {CATS_GASTO.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
             </select>
           </div>
-          <div className="field"><label>Monto ($)</label><input type="number" step="0.01" min="0" className="input" placeholder="0.00" value={form.monto} onChange={(e) => setForm({ ...form, monto: e.target.value })} required data-testid="gasto-form-monto" /></div>
+          <div className="field"><label>Monto ($)</label><DecimalInput type="number" step="0.01" min="0" className="input" placeholder="0.00" value={form.monto} onChange={(e) => setForm({ ...form, monto: e.target.value })} required data-testid="gasto-form-monto" /></div>
           <div className="field"><label>Fecha</label><input type="date" className="input" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} required data-testid="gasto-form-fecha" /></div>
         </div>
         <div className="field" style={{ marginTop: 12 }}><label>Descripción</label><textarea className="textarea" placeholder="Detalle del gasto..." value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} data-testid="gasto-form-descripcion" /></div>
