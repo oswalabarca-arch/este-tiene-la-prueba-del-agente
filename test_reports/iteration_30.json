@@ -1,0 +1,31 @@
+{
+  "summary": "Frontend smoke test de Phase A (keys estables, useCallback/useMemo, DecimalInput). 5/6 features verificadas OK. AsignacionDestino sin loop infinito y recarga al cambiar fecha. Ventas Cestas KPI usa toFixed(2). Compras crea/elimina con decimales con coma. Cosecha acepta coma en calidades. DecimalInput de Aplicaciones acepta coma. No se pudo verificar identidad de filas (_rid) en Aplicaciones por inventario vacío en este momento.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "AplicacionForm (Aplicaciones.jsx)", "issue": "Warning React 'Each child in a list should have a unique key prop. Check the render method of AplicacionForm' aparece al abrir el modal 'Nueva Aplicación'. Línea 389: al cambiar Tipo se hace setProductoRows([{ nombre_producto: '', cantidad: 0, unidad: UNIDAD }]) SIN incluir `_rid: nextRid()` → key={row._rid} sería undefined al cambiar Tipo. El warning podría también provenir de inyecciones <span data-ve-dynamic> dentro de <option> (warning de hidratación documentado en iteración 29). Recomendado: agregar _rid en línea 389.", "selector": "[data-testid='aplicacion-modal']", "priority": "MEDIUM"},
+      {"component": "Compras sugerencias", "issue": "Dropdown de sugerencias no se mostró al tipear 'ma' en nombre de producto. Puede ser por base de compras vacía (no hay historial). No se pudo validar key={s.nombre} de Phase A. Necesita verificar manualmente con producto que tenga historial.", "selector": "[data-testid='compra-sugerencias']", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Aplicaciones.jsx línea 389: agregar `_rid: nextRid()` en el reset de productoRows al cambiar Tipo, para no perder la identidad de la fila y evitar el warning de React keys.",
+    "Re-verificar el warning 'Each child in a list should have a unique key prop' que aparece al abrir el modal Nueva Aplicación (puede ser de inyección de spans en options o de productoRows post-reset).",
+    "Validar funcionalmente la prueba de quitar fila intermedia en Aplicaciones cuando haya inventario disponible (fertilizantes/plaguicidas con existencia > 0). El test no se pudo ejecutar porque productosDisponibles estaba vacío."
+  ],
+  "critical_code_review_comments": [
+    "Aplicaciones.jsx L389: setProductoRows reset omite _rid → posible undefined key al cambiar Tipo (bug del Phase A no completamente cubierto).",
+    "Aplicaciones.jsx: archivo de 744 líneas, conviene dividir en submódulos (AplicacionForm, ListaAplicaciones, RecetasManager).",
+    "Phase A: useCallback en AsignacionDestino y useMemo en Ventas correctamente implementados (verificado: sin loop, KPI con toFixed(2))."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (no testeado)", "frontend": "83% (5/6 flujos OK)"},
+  "test_credentials": "Admin: oswaldabarca@gmail.com / 123456",
+  "seed_data_creation": "Creé y eliminé 1 compra de prueba con prefijo TEST_compradecimal_*. Cleanup OK.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Verificar que al cambiar Tipo en el modal Aplicaciones no se rompa la identidad de filas (línea 389 falta _rid). Para probar las filas dinámicas, asegurar que haya inventario con existencia > 0 en fertilizantes/plaguicidas. AsignacionDestino confirmado sin loop. PlantacionDetail no se pudo navegar (cards no son <a>, requieren onClick) - probar con click directo en el card.",
+  "rca of the issue": "Aplicaciones.jsx L389 (onChange del select Tipo) hace setProductoRows([{ nombre_producto:'', cantidad:0, unidad:UNIDAD }]) sin _rid. Como el render usa key={row._rid}, después de cambiar Tipo la nueva única fila tendrá key=undefined, generando el warning de React. Fix: incluir _rid: nextRid() en ese objeto, igual que en addRow (L310) e initRows (L290)."
+}

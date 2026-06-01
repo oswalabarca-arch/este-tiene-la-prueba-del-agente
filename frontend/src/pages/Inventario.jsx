@@ -105,8 +105,8 @@ export default function Inventario() {
                     <tr>
                       <td colSpan="8" style={{ background: "#f8fafc", padding: "8px 14px", fontSize: 12, color: "#475569" }}>
                         <b style={{ color: "#0f172a" }}>Lotes PEPS:</b>{" "}
-                        {i.lotes_remanentes.map((l, li) => (
-                          <span key={li} style={{ marginRight: 14 }}>
+                        {i.lotes_remanentes.map((l) => (
+                          <span key={`${l.fecha_compra || "na"}-${l.precio_unitario}`} style={{ marginRight: 14 }}>
                             {l.cantidad} {i.unidad || "u."} @ <b>${l.precio_unitario.toFixed(4)}</b>
                             {l.fecha_compra && <span style={{ color: "#94a3b8" }}> ({String(l.fecha_compra).slice(0, 10)})</span>}
                           </span>
@@ -244,7 +244,7 @@ function EntradaModal({ productos = [], onClose, onSaved }) {
               onChange={(e) => setForm({ ...form, nombre_producto: e.target.value })} required data-testid="inv-entrada-nombre"
               placeholder="Ej: Semilla donada, abono propio..." />
             <datalist id="inv-productos-historial">
-              {sugerencias.map((s, idx) => <option key={idx} value={s} />)}
+              {sugerencias.map((s) => <option key={s} value={s} />)}
             </datalist>
           </div>
           <div className="field">

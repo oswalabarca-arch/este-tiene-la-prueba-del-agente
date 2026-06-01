@@ -11,6 +11,10 @@ import { DecimalInput } from "../components/DecimalInput";
 const TIPOS = ["fertilizacion", "fungicida", "plaguicida", "herbicida", "tratamiento"];
 const UNIDAD = "Unidades";
 
+// Generador de IDs estables para filas editables (evita keys por índice en React)
+let _rowSeq = 0;
+const nextRid = () => `r${++_rowSeq}`;
+
 // Mapeo tipo de aplicación -> categoría de inventario (para filtrar los productos seleccionables)
 const TIPO_TO_CAT = {
   fertilizacion: "fertilizantes",
@@ -233,8 +237,8 @@ export default function Aplicaciones() {
                   </div>
                   {r.insumos?.length > 0 && (
                     <div style={{ fontSize: 12, color: "#475569", background: "#f8fafc", padding: 8, borderRadius: 6 }}>
-                      {r.insumos.slice(0, 3).map((i, idx) => (
-                        <div key={idx}>• {i.nombre_producto} — {i.cantidad} {i.unidad}</div>
+                      {r.insumos.slice(0, 3).map((i) => (
+                        <div key={`${i.nombre_producto}-${i.cantidad}`}>• {i.nombre_producto} — {i.cantidad} {i.unidad}</div>
                       ))}
                       {r.insumos.length > 3 && <div style={{ color: "#94a3b8" }}>+ {r.insumos.length - 3} más</div>}
                     </div>
@@ -282,8 +286,8 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
     observaciones: initial?.observaciones || "",
   });
   const initRows = initial?.insumos && initial.insumos.length > 0 && initial.subtipo !== "receta"
-    ? initial.insumos.slice(0, 3).map((i) => ({ nombre_producto: i.nombre_producto, cantidad: i.cantidad, unidad: UNIDAD }))
-    : [{ nombre_producto: "", cantidad: 0, unidad: UNIDAD }];
+    ? initial.insumos.slice(0, 3).map((i) => ({ _rid: nextRid(), nombre_producto: i.nombre_producto, cantidad: i.cantidad, unidad: UNIDAD }))
+    : [{ _rid: nextRid(), nombre_producto: "", cantidad: 0, unidad: UNIDAD }];
   const [productoRows, setProductoRows] = useState(initRows);
   const [loteInput, setLoteInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -303,7 +307,7 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
   };
   const addRow = () => {
     if (productoRows.length >= 3) return;
-    setProductoRows([...productoRows, { nombre_producto: "", cantidad: 0, unidad: UNIDAD }]);
+    setProductoRows([...productoRows, { _rid: nextRid(), nombre_producto: "", cantidad: 0, unidad: UNIDAD }]);
   };
   const removeRow = (i) => setProductoRows(productoRows.filter((_, idx) => idx !== i));
 
@@ -414,7 +418,7 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
               </div>
             )}
             {productoRows.map((row, i) => (
-              <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 8, marginTop: 8, alignItems: "center" }}>
+              <div key={row._rid} style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 8, marginTop: 8, alignItems: "center" }}>
                 <select className="select" value={row.nombre_producto} data-testid={`aplic-producto-${i}`} onChange={(e) => {
                   const nombre = e.target.value;
                   const rows = [...productoRows];
@@ -422,7 +426,7 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
                   setProductoRows(rows);
                 }}>
                   <option value="">Producto</option>
-                  {productosDisponibles.map((p, idx) => <option key={idx} value={p.nombre_producto}>{p.nombre_producto} ({p.total_disponible} {UNIDAD})</option>)}
+                  {productosDisponibles.map((p) => <option key={p.nombre_producto} value={p.nombre_producto}>{p.nombre_producto} ({p.total_disponible} {UNIDAD})</option>)}
                 </select>
                 <DecimalInput type="number" className="input" placeholder={`Cantidad (${UNIDAD})`} value={row.cantidad || ""} onChange={(e) => updateRow(i, "cantidad", e.target.value)} />
                 {i === productoRows.length - 1 && productoRows.length < 3 ? (
@@ -530,7 +534,7 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
 function RecetaForm({ inventario, onClose, onSaved }) {
   const toast = useToast();
   const [form, setForm] = useState({ nombre: "", cantidad_agua: "", observaciones: "" });
-  const [productoRows, setProductoRows] = useState([{ nombre_producto: "", cantidad: "", unidad: UNIDAD }]);
+  const [productoRows, setProductoRows] = useState([{ _rid: nextRid(), nombre_producto: "", cantidad: "", unidad: UNIDAD }]);
   const [busy, setBusy] = useState(false);
 
   const updateRow = (i, key, val) => {
@@ -538,7 +542,7 @@ function RecetaForm({ inventario, onClose, onSaved }) {
     rows[i] = { ...rows[i], [key]: val };
     setProductoRows(rows);
   };
-  const addRow = () => setProductoRows([...productoRows, { nombre_producto: "", cantidad: "", unidad: UNIDAD }]);
+  const addRow = () => setProductoRows([...productoRows, { _rid: nextRid(), nombre_producto: "", cantidad: "", unidad: UNIDAD }]);
   const removeRow = (i) => setProductoRows(productoRows.filter((_, idx) => idx !== i));
 
   const guardar = async (e) => {
@@ -586,10 +590,10 @@ function RecetaForm({ inventario, onClose, onSaved }) {
           <label style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>Productos de la receta *</label>
           <div style={{ color: "#64748b", fontSize: 12, marginBottom: 8 }}>Agrega los productos con su cantidad en {UNIDAD.toLowerCase()}.</div>
           {productoRows.map((row, i) => (
-            <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 8, marginBottom: 8, alignItems: "center" }}>
+            <div key={row._rid} style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 8, marginBottom: 8, alignItems: "center" }}>
               <select className="select" value={row.nombre_producto} onChange={(e) => updateRow(i, "nombre_producto", e.target.value)} data-testid={`receta-row-${i}-producto`}>
                 <option value="">Producto</option>
-                {inventario.filter((x) => x.existencia).map((p, idx) => <option key={idx} value={p.nombre_producto}>{p.nombre_producto} ({p.total_disponible} {UNIDAD})</option>)}
+                {inventario.filter((x) => x.existencia).map((p) => <option key={p.nombre_producto} value={p.nombre_producto}>{p.nombre_producto} ({p.total_disponible} {UNIDAD})</option>)}
               </select>
               <DecimalInput type="number" step="0.01" className="input" placeholder={`Cantidad (${UNIDAD})`} value={row.cantidad} onChange={(e) => updateRow(i, "cantidad", e.target.value)} data-testid={`receta-row-${i}-cantidad`} />
               {i === productoRows.length - 1 ? (
@@ -638,8 +642,8 @@ function RecetaDetail({ receta, onClose }) {
           <table className="table">
             <thead><tr><th>Producto</th><th>Cantidad</th><th>Unidad</th></tr></thead>
             <tbody>
-              {receta.insumos?.map((i, idx) => (
-                <tr key={idx}><td>{i.nombre_producto}</td><td>{i.cantidad}</td><td>{i.unidad}</td></tr>
+              {receta.insumos?.map((i) => (
+                <tr key={`${i.nombre_producto}-${i.cantidad}`}><td>{i.nombre_producto}</td><td>{i.cantidad}</td><td>{i.unidad}</td></tr>
               ))}
             </tbody>
           </table>
@@ -713,8 +717,8 @@ function AplicacionDetail({ aplicacion, recetas, onClose }) {
             <table className="table">
               <thead><tr><th>Producto</th><th>Cantidad</th><th>Unidad</th></tr></thead>
               <tbody>
-                {a.insumos.map((i, idx) => (
-                  <tr key={idx}><td>{i.nombre_producto}</td><td>{i.cantidad}</td><td>{i.unidad}</td></tr>
+                {a.insumos.map((i) => (
+                  <tr key={`${i.nombre_producto}-${i.cantidad}`}><td>{i.nombre_producto}</td><td>{i.cantidad}</td><td>{i.unidad}</td></tr>
                 ))}
               </tbody>
             </table>

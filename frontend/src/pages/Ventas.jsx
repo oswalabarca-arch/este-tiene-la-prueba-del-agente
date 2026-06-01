@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
@@ -87,6 +87,9 @@ function Ventas({ tipo }) {
   const isAsig = (v) => v.origen === "asignacion_destino";
   const esHoy = (v) => (v.fecha || "").slice(0, 10) === realToday;
   const cestasDe = (v) => v.cantidad_cestas || 0;
+
+  // Total de cestas sobre todos los registros (memoizado para evitar recálculo en cada render)
+  const totalCestas = useMemo(() => items.reduce((s, v) => s + (v.cantidad_cestas || 0), 0), [items]);
 
   const ventas = items.filter((v) => !isAsig(v));    // ventas reales
   const asignados = items.filter((v) => isAsig(v));  // cestas recibidas (stock)
@@ -261,7 +264,7 @@ function Ventas({ tipo }) {
       {!conPanel && (
         <div className="kpi-grid" style={{ marginBottom: 18 }}>
           <div className="card kpi-card"><div className="kpi-label">Total registros</div><div className="kpi-value">{items.length}</div></div>
-          <div className="card kpi-card"><div className="kpi-label">Cestas</div><div className="kpi-value" style={{ color: meta.color }}>{items.reduce((s, v) => s + cestasDe(v), 0).toFixed(2)}</div></div>
+          <div className="card kpi-card"><div className="kpi-label">Cestas</div><div className="kpi-value" style={{ color: meta.color }}>{totalCestas.toFixed(2)}</div></div>
         </div>
       )}
 

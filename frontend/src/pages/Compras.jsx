@@ -267,8 +267,8 @@ function CompraModal({ initial, compras = [], onClose, onSaved }) {
             />
             {/* datalist provee autocompletado nativo del navegador */}
             <datalist id="compra-productos-historial">
-              {sugerencias.map((s, idx) => (
-                <option key={idx} value={s.nombre}>{s.categoria}</option>
+              {sugerencias.map((s) => (
+                <option key={s.nombre} value={s.nombre}>{s.categoria}</option>
               ))}
             </datalist>
             {/* Dropdown custom para feedback más visible */}
@@ -280,7 +280,7 @@ function CompraModal({ initial, compras = [], onClose, onSaved }) {
               }} data-testid="compra-sugerencias">
                 {matches.map((s, i) => (
                   <button
-                    key={i}
+                    key={s.nombre}
                     type="button"
                     onClick={() => pickSuggestion(s)}
                     style={{

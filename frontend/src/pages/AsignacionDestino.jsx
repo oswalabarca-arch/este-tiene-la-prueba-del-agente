@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
@@ -39,15 +39,15 @@ export default function AsignacionDestino() {
   const [busy, setBusy] = useState("");
   const isToday = selectedDate === realToday;
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const [a, c] = await Promise.all([
       api.get(`/asignaciones-destino?fecha=${selectedDate}`),
       api.get(`/cosechas?fecha_desde=${selectedDate}T00:00:00.000Z&fecha_hasta=${selectedDate}T23:59:59.999Z`),
     ]);
     setAsignaciones(a.data.asignaciones);
     setCosechas(c.data.cosechas);
-  };
-  useEffect(() => { load(); }, [selectedDate]);
+  }, [selectedDate]);
+  useEffect(() => { load(); }, [load]);
 
   // Reset automático a medianoche (11:59pm → 12:00am): cambia de día y reinicia en 0.
   // Si estabas viendo "hoy", saltás automáticamente al nuevo día (todo en 0).

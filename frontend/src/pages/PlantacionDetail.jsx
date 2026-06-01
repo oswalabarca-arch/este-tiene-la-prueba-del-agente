@@ -543,8 +543,8 @@ function AplicacionesTab({ items }) {
                 <td><span className="badge" style={catBadge(a.tipo)}>{a.tipo}</span></td>
                 <td style={{ fontSize: 12, color: "#475569" }}>
                   {a.insumos_costo && a.insumos_costo.length > 0
-                    ? a.insumos_costo.map((ic, i) => (
-                        <div key={i}>
+                    ? a.insumos_costo.map((ic) => (
+                        <div key={`${ic.nombre_producto}-${ic.cantidad}`}>
                           {ic.nombre_producto} <b>{Number(ic.cantidad).toFixed(2)}</b> {ic.unidad} · <span style={{ color: "#16a34a" }}>${ic.costo.toFixed(2)}</span>
                           {ic.cantidad_sin_cobertura > 0 && <span style={{ color: "#dc2626", fontSize: 11 }}> ⚠ {ic.cantidad_sin_cobertura} sin stock comprado</span>}
                         </div>
@@ -896,8 +896,8 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
             </tr>
           </thead>
           <tbody>
-            {consolidadoRows.map((r, i) => (
-              <tr key={i} data-testid="plant-consolidado-row">
+            {consolidadoRows.map((r) => (
+              <tr key={`${r.tipo}-${r.variedad}`} data-testid="plant-consolidado-row">
                 <td>{r.tipo}</td>
                 <td><span className="badge badge-purple">{r.variedad}</span></td>
                 <td style={{ color: "#16a34a", fontWeight: 600 }}>{r.primera.toFixed(2)}</td>
@@ -1053,8 +1053,8 @@ function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
               <tr><th>Tipo de fruta</th><th>Variedad</th><th style={{ textAlign: "right" }}>Plantas</th><th style={{ textAlign: "right" }}>Rend./planta</th></tr>
             </thead>
             <tbody>
-              {filasRend.map((f, i) => (
-                <tr key={i} data-testid="plant-rendimiento-row">
+              {filasRend.map((f) => (
+                <tr key={`${f.tipo}-${f.variedad}`} data-testid="plant-rendimiento-row">
                   <td>{f.tipo}</td>
                   <td><span className="badge badge-purple">{f.variedad}</span></td>
                   <td style={{ textAlign: "right", fontWeight: 600 }} data-testid="plant-rendimiento-plantas">{f.plantas > 0 ? f.plantas.toLocaleString("es-ES") : "—"}</td>

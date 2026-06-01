@@ -305,8 +305,8 @@ function PendienteCard({ aplicacion: a, lotesDisponibles, canEdit, onConfirmed }
         {/* Insumos */}
         {a.insumos?.length > 0 && (
           <div style={{ marginTop: 10 }}>
-            {a.insumos.map((i, idx) => (
-              <div key={idx} style={{ display: "flex", justifyContent: "space-between", background: "#f8fafc", padding: "6px 10px", borderRadius: 6, marginBottom: 4, fontSize: 13 }}>
+            {a.insumos.map((i) => (
+              <div key={`${i.nombre_producto}-${i.cantidad}`} style={{ display: "flex", justifyContent: "space-between", background: "#f8fafc", padding: "6px 10px", borderRadius: 6, marginBottom: 4, fontSize: 13 }}>
                 <span>{i.nombre_producto}</span>
                 <span style={{ color: "#475569" }}>{i.cantidad} {i.unidad}</span>
               </div>
@@ -393,8 +393,8 @@ function PendienteCard({ aplicacion: a, lotesDisponibles, canEdit, onConfirmed }
         {lotesDestino.length > 1 && a.insumos?.length > 0 && (
           <div style={{ marginTop: 14, padding: 10, background: "#ecfdf5", border: "1px solid #6ee7b7", borderRadius: 8, fontSize: 13 }}>
             <div style={{ fontWeight: 700, color: "#065f46", marginBottom: 4 }}>Reparto entre {lotesDestino.length} lotes (cada uno):</div>
-            {a.insumos.map((i, idx) => (
-              <div key={idx} style={{ color: "#065f46" }}>• {i.nombre_producto}: {(i.cantidad / lotesDestino.length).toFixed(2)} {i.unidad}</div>
+            {a.insumos.map((i) => (
+              <div key={`${i.nombre_producto}-${i.cantidad}`} style={{ color: "#065f46" }}>• {i.nombre_producto}: {(i.cantidad / lotesDestino.length).toFixed(2)} {i.unidad}</div>
             ))}
             {a.cantidad_agua > 0 && (
               <div style={{ color: "#065f46" }}>• Agua: {(a.cantidad_agua / lotesDestino.length).toFixed(1)} L</div>
@@ -455,7 +455,7 @@ function DetalleAplicacion({ aplicacion: a, onClose }) {
             <h4 style={{ marginTop: 16, marginBottom: 8 }}>Insumos</h4>
             <table className="table">
               <thead><tr><th>Producto</th><th>Cantidad</th><th>Unidad</th></tr></thead>
-              <tbody>{a.insumos.map((i, idx) => <tr key={idx}><td>{i.nombre_producto}</td><td>{i.cantidad}</td><td>{i.unidad}</td></tr>)}</tbody>
+              <tbody>{a.insumos.map((i) => <tr key={`${i.nombre_producto}-${i.cantidad}`}><td>{i.nombre_producto}</td><td>{i.cantidad}</td><td>{i.unidad}</td></tr>)}</tbody>
             </table>
           </>
         )}
