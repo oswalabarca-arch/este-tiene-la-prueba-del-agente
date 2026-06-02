@@ -99,20 +99,25 @@ function Ventas({ tipo }) {
   const esReasig = (v) => v.origen === "reasignacion_salida";  // salida por reasignación (no es venta)
   const ventasReales = ventas.filter((v) => !esReasig(v));
 
-  // DISPONIBLE = ACUMULADO (persiste entre días). Las cestas recibidas desde
-  // "Asignación de destino" permanecen disponibles hasta que se saquen manualmente
-  // (vendiéndolas, donándolas o reasignándolas). NO se reinicia al cambiar de día.
+  // ACUMULADO (persiste entre días): todo lo recibido desde "Asignación de destino"
+  // menos lo vendido/donado/reasignado. Es el stock real que arrastra al día siguiente.
   const asignadoTotal = asignados.reduce((s, v) => s + cestasDe(v), 0);
   const vendidoTotal = ventasReales.reduce((s, v) => s + cestasDe(v), 0);
   const reasignadoTotal = ventas.filter(esReasig).reduce((s, v) => s + cestasDe(v), 0);
-  const disponible = asignadoTotal - vendidoTotal - reasignadoTotal;
+  const disponibleAcum = asignadoTotal - vendidoTotal - reasignadoTotal;
 
-  // Actividad del día (solo informativo en los sub-cards)
+  // Actividad del día (bloque "Acumulado de hoy")
   const asignadoHoy = asignados.filter(esHoy).reduce((s, v) => s + cestasDe(v), 0);
+  const movAsignadoHoy = asignados.filter(esHoy).length;
   const ventasHoy = ventas.filter(esHoy);
   const ventasHoyReales = ventasHoy.filter((v) => !esReasig(v));
   const vendidoHoyCestas = ventasHoyReales.reduce((s, v) => s + cestasDe(v), 0);
   const reasignadoHoy = ventasHoy.filter(esReasig).reduce((s, v) => s + cestasDe(v), 0);
+  const disponibleHoy = asignadoHoy - vendidoHoyCestas - reasignadoHoy;
+
+  // El "disponible" que habilita vender/reasignar es el ACUMULADO (para poder
+  // sacar las cestas que quedaron de días anteriores).
+  const disponible = disponibleAcum;
 
   // Estado de pago y días endeudado
   const saldoDe = (v) => (v.total || 0) - (v.abono_inicial || 0);
@@ -261,24 +266,25 @@ function Ventas({ tipo }) {
               <div style={{ display: "flex", gap: 12 }}>
                 <div className="kpi-icon-box" style={{ background: "#dcfce7", color: "#16a34a", width: 44, height: 44 }}><Icon size={20} /></div>
                 <div>
-                  <h3 style={{ margin: 0, color: "#15803d" }}>● Stock disponible · {meta.label}</h3>
+                  <h3 style={{ margin: 0, color: "#15803d" }}>● Acumulado de hoy · {meta.label}</h3>
                   <div style={{ color: "#64748b", fontSize: 13, marginTop: 2, maxWidth: 620 }}>
-                    Cestas provenientes de "Asignación de destino" que aún no {esDonacion ? "donás" : "vendés"}. Permanecen disponibles (acumuladas) hasta que las saques manualmente.
+                    {realToday} · Movimientos del día desde "Asignación de destino". El <b>Disponible acumulado</b> conserva las cestas que no {esDonacion ? "donaste" : "vendiste"} y las arrastra al día siguiente hasta que las saques.
                   </div>
                 </div>
               </div>
               <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: 30, fontWeight: 800, color: disponible < -0.001 ? "#dc2626" : disponible > 0.001 ? "#15803d" : "#94a3b8" }} data-testid="ventas-disponible-grande">{fc(disponible)}</div>
-                <div style={{ color: "#64748b", fontSize: 12 }}>Disponible para {esDonacion ? "donar" : "vender"}</div>
+                <div style={{ fontSize: 32, fontWeight: 800, color: disponibleAcum < -0.001 ? "#dc2626" : disponibleAcum > 0.001 ? "#15803d" : "#94a3b8" }} data-testid="ventas-disponible-grande">{fc(disponibleAcum)}</div>
+                <div style={{ color: "#15803d", fontSize: 12, fontWeight: 600 }}>Disponible acumulado</div>
+                <div style={{ color: "#94a3b8", fontSize: 11 }}>arrastra al día siguiente</div>
               </div>
             </div>
             <div className="kpi-grid" style={{ marginTop: 16, gridTemplateColumns: tipo === "ciudad" ? "repeat(4, 1fr)" : "repeat(3, 1fr)" }}>
-              <SubCard label="Recibido (total)" value={fc(asignadoTotal)} sub={`${asignados.length} movimiento(s)${asignadoHoy > 0.001 ? ` · hoy +${fc(asignadoHoy)}` : ""}`} color="#16a34a" />
-              <SubCard label={esDonacion ? "Donado (total)" : "Vendido (total)"} value={fc(vendidoTotal)} sub={`${ventasReales.length} ${esDonacion ? "donación(es)" : "venta(s)"}${vendidoHoyCestas > 0.001 ? ` · hoy +${fc(vendidoHoyCestas)}` : ""}`} color="#3b82f6" />
+              <SubCard label="Asignado hoy" value={fc(asignadoHoy)} sub={`${movAsignadoHoy} movimiento(s) desde Asignación de destino`} color="#16a34a" />
+              <SubCard label={esDonacion ? "Donado hoy" : "Vendido hoy"} value={fc(vendidoHoyCestas)} sub={`${ventasHoyReales.length} ${esDonacion ? "donación(es)" : "venta(s)"} hoy`} color="#3b82f6" />
               {tipo === "ciudad" && (
-                <SubCard label="Reasignado (total)" value={fc(reasignadoTotal)} sub={`Enviado a Descarte / Donaciones${reasignadoHoy > 0.001 ? ` · hoy +${fc(reasignadoHoy)}` : ""}`} color="#ea580c" />
+                <SubCard label="Reasignado hoy" value={fc(reasignadoHoy)} sub="Enviado a Descarte / Donaciones" color="#ea580c" />
               )}
-              <SubCard label="Disponible" value={fc(disponible)} sub={esDonacion ? "Acumulado sin donar" : "Acumulado sin vender"} color={disponible < -0.001 ? "#dc2626" : disponible > 0.001 ? "#16a34a" : "#94a3b8"} />
+              <SubCard label="Disponible hoy" value={fc(disponibleHoy)} sub="De lo asignado hoy" color={disponibleHoy < -0.001 ? "#dc2626" : disponibleHoy > 0.001 ? "#16a34a" : "#94a3b8"} />
             </div>
           </div>
 

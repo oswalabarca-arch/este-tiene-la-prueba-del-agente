@@ -22,14 +22,15 @@ Aplicaciones usa recetas (plantillas de insumos)
 - `operario` — limitado
 - Cada usuario tiene `modulos_asignados[]` que controlan visibilidad
 
-## Cambio: "Disponible" en submenús de Ventas ahora es ACUMULADO (02/06/2026)
-- Pedido: las cestas disponibles en los submenús de Ventas (Venta en finca, Envío a ciudad, Donaciones) NO deben reiniciarse al cambiar de día; deben permanecer hasta sacarlas manualmente (vender/donar/reasignar).
-- Antes: `disponible` se calculaba solo con registros del día (`esHoy`) → al cambiar de día las cestas asignadas no vendidas desaparecían del conteo.
-- Ahora (frontend `Ventas.jsx`): `disponible = asignadoTotal − vendidoTotal − reasignadoTotal` (acumulado, sin filtro de fecha). Panel rediseñado: "Stock disponible", sub-cards "Recibido (total) / Vendido (total) / Reasignado (total) / Disponible" con delta "· hoy +X". Validaciones y textos sin la palabra "hoy".
-- Backend (`/ventas-ciudad/reasignar`): validación del disponible también pasó a ACUMULADO (sobre todos los registros, no por día).
-- Solo afecta el módulo Ventas; no toca Cosecha, Asignación de destino ni otros.
-- Verificado E2E: cestas asignadas el 06-01 aparecen como Disponible el 06-02 (no se reinician). Tests `test_reasignar_y_cascada.py` 2/2 PASAN.
-- ⚠️ NOTA datos históricos: si un módulo tiene ventas antiguas registradas directamente (sin pasar por Asignación de destino, origen vacío), el acumulado puede dar negativo en ese módulo. En preview había datos seed así (ciudad) que se limpiaron. En producción verificar tras desplegar.
+## Cambio: Ventas muestra "Acumulado de hoy" + "Disponible acumulado" (02/06/2026)
+- Pedido refinado del usuario (con captura de producción): MANTENER el bloque "Acumulado de hoy" (movimientos del día) y AGREGAR un "Disponible acumulado" que conserve las cestas no vendidas/donadas y las arrastre al día siguiente.
+- Implementación (`Ventas.jsx`, solo módulo Ventas):
+  - Bloque "Acumulado de hoy" con tarjetas diarias: Asignado hoy / Vendido hoy / Reasignado hoy / **Disponible hoy** (= asignadoHoy − vendidoHoy − reasignadoHoy).
+  - Número grande nuevo: **Disponible acumulado** (= asignadoTotal − vendidoTotal − reasignadoTotal, sobre TODOS los días). Es el stock real que se puede vender/reasignar y arrastra al día siguiente.
+  - Las validaciones de vender y reasignar usan el disponible ACUMULADO (para poder sacar cestas de días anteriores).
+- Backend `/ventas-ciudad/reasignar`: valida contra disponible acumulado (todos los registros).
+- Verificado E2E: asignar 6 ayer + 4 hoy → "Asignado hoy 4", "Disponible hoy 4", "Disponible acumulado 10". Tests `test_reasignar_y_cascada.py` 2/2 PASAN.
+- ⚠️ Datos históricos: si un módulo tiene ventas viejas registradas sin pasar por "Asignación de destino", el Disponible acumulado puede dar negativo. En producción está la versión vieja ("Acumulado de hoy" sin acumulado); falta DESPLEGAR esta versión.
 
 
 - Nuevo bloque "Reasignar cestas sobrantes" (visible cuando hay Disponible > 0 hoy en tipo=ciudad): cantidad + destino (Descarte/Donaciones) + botón.
