@@ -1425,8 +1425,9 @@ async def reasignar_ciudad(payload: ReasignarCiudadIn, user: dict = Depends(get_
     fecha_prefix = (payload.fecha or "")[:10]
     if not fecha_prefix:
         raise HTTPException(400, "Fecha inválida.")
-    # Disponible en 'ciudad' ese día = asignado (origen=asignacion_destino) - movimientos manuales
-    docs = await db.ventas_ciudad.find({"fecha": {"$regex": f"^{fecha_prefix}"}}).to_list(5000)
+    # Disponible en 'ciudad' = ACUMULADO (no se reinicia por día):
+    # todo lo asignado (origen=asignacion_destino) menos los movimientos manuales (ventas/salidas).
+    docs = await db.ventas_ciudad.find({}).to_list(20000)
     asignado = sum((d.get("cantidad_cestas", 0) or 0) for d in docs if d.get("origen") == "asignacion_destino")
     usado = sum((d.get("cantidad_cestas", 0) or 0) for d in docs if d.get("origen") != "asignacion_destino")
     disponible = asignado - usado

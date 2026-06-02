@@ -22,8 +22,16 @@ Aplicaciones usa recetas (plantillas de insumos)
 - `operario` — limitado
 - Cada usuario tiene `modulos_asignados[]` que controlan visibilidad
 
-## Funcionalidades (02/06/2026)
-### Reasignar cestas sobrantes en "Envío a ciudad" (Ventas)
+## Cambio: "Disponible" en submenús de Ventas ahora es ACUMULADO (02/06/2026)
+- Pedido: las cestas disponibles en los submenús de Ventas (Venta en finca, Envío a ciudad, Donaciones) NO deben reiniciarse al cambiar de día; deben permanecer hasta sacarlas manualmente (vender/donar/reasignar).
+- Antes: `disponible` se calculaba solo con registros del día (`esHoy`) → al cambiar de día las cestas asignadas no vendidas desaparecían del conteo.
+- Ahora (frontend `Ventas.jsx`): `disponible = asignadoTotal − vendidoTotal − reasignadoTotal` (acumulado, sin filtro de fecha). Panel rediseñado: "Stock disponible", sub-cards "Recibido (total) / Vendido (total) / Reasignado (total) / Disponible" con delta "· hoy +X". Validaciones y textos sin la palabra "hoy".
+- Backend (`/ventas-ciudad/reasignar`): validación del disponible también pasó a ACUMULADO (sobre todos los registros, no por día).
+- Solo afecta el módulo Ventas; no toca Cosecha, Asignación de destino ni otros.
+- Verificado E2E: cestas asignadas el 06-01 aparecen como Disponible el 06-02 (no se reinician). Tests `test_reasignar_y_cascada.py` 2/2 PASAN.
+- ⚠️ NOTA datos históricos: si un módulo tiene ventas antiguas registradas directamente (sin pasar por Asignación de destino, origen vacío), el acumulado puede dar negativo en ese módulo. En preview había datos seed así (ciudad) que se limpiaron. En producción verificar tras desplegar.
+
+
 - Nuevo bloque "Reasignar cestas sobrantes" (visible cuando hay Disponible > 0 hoy en tipo=ciudad): cantidad + destino (Descarte/Donaciones) + botón.
 - Backend `POST /api/ventas-ciudad/reasignar`: valida cantidad ≤ disponible del día y destino válido; crea registro de salida en `ventas_ciudad` (origen `reasignacion_salida`, reduce disponible) y registro de entrada en el destino (`ventas_descarte` con origen `reasignacion_ciudad`; `ventas_donaciones` con origen `asignacion_destino` = queda "disponible para donar").
 - Panel de Ventas ciudad ahora muestra 4 métricas: Asignado / Vendido / **Reasignado hoy** / Disponible. Las reasignaciones ya NO se cuentan como "Vendido".

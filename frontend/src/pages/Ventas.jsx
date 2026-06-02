@@ -97,15 +97,22 @@ function Ventas({ tipo }) {
   const ventas = items.filter((v) => !isAsig(v));    // ventas reales
   const asignados = items.filter((v) => isAsig(v));  // cestas recibidas (stock)
   const esReasig = (v) => v.origen === "reasignacion_salida";  // salida por reasignación (no es venta)
+  const ventasReales = ventas.filter((v) => !esReasig(v));
 
-  // Cestas (hoy)
+  // DISPONIBLE = ACUMULADO (persiste entre días). Las cestas recibidas desde
+  // "Asignación de destino" permanecen disponibles hasta que se saquen manualmente
+  // (vendiéndolas, donándolas o reasignándolas). NO se reinicia al cambiar de día.
+  const asignadoTotal = asignados.reduce((s, v) => s + cestasDe(v), 0);
+  const vendidoTotal = ventasReales.reduce((s, v) => s + cestasDe(v), 0);
+  const reasignadoTotal = ventas.filter(esReasig).reduce((s, v) => s + cestasDe(v), 0);
+  const disponible = asignadoTotal - vendidoTotal - reasignadoTotal;
+
+  // Actividad del día (solo informativo en los sub-cards)
   const asignadoHoy = asignados.filter(esHoy).reduce((s, v) => s + cestasDe(v), 0);
-  const movAsignado = asignados.filter(esHoy).length;
   const ventasHoy = ventas.filter(esHoy);
   const ventasHoyReales = ventasHoy.filter((v) => !esReasig(v));
   const vendidoHoyCestas = ventasHoyReales.reduce((s, v) => s + cestasDe(v), 0);
   const reasignadoHoy = ventasHoy.filter(esReasig).reduce((s, v) => s + cestasDe(v), 0);
-  const disponible = asignadoHoy - vendidoHoyCestas - reasignadoHoy;
 
   // Estado de pago y días endeudado
   const saldoDe = (v) => (v.total || 0) - (v.abono_inicial || 0);
@@ -163,8 +170,8 @@ function Ventas({ tipo }) {
     if (Number(nv.cantidad_cestas) > disponible + 0.001) {
       toast.show(
         disponible <= 0.001
-          ? `No hay cestas disponibles hoy. Asigná cestas desde "Asignación de destino" antes de ${esDonacion ? "donar" : "vender"}.`
-          : `Solo hay ${disponible.toFixed(2)} cesta(s) disponible(s) hoy. No podés ${esDonacion ? "donar" : "vender"} más de lo asignado.`,
+          ? `No hay cestas disponibles. Asigná cestas desde "Asignación de destino" antes de ${esDonacion ? "donar" : "vender"}.`
+          : `Solo hay ${disponible.toFixed(2)} cesta(s) disponible(s). No podés ${esDonacion ? "donar" : "vender"} más de lo disponible.`,
         "error"
       );
       return;
@@ -254,24 +261,24 @@ function Ventas({ tipo }) {
               <div style={{ display: "flex", gap: 12 }}>
                 <div className="kpi-icon-box" style={{ background: "#dcfce7", color: "#16a34a", width: 44, height: 44 }}><Icon size={20} /></div>
                 <div>
-                  <h3 style={{ margin: 0, color: "#15803d" }}>● Acumulado de hoy · {meta.label}</h3>
+                  <h3 style={{ margin: 0, color: "#15803d" }}>● Stock disponible · {meta.label}</h3>
                   <div style={{ color: "#64748b", fontSize: 13, marginTop: 2, maxWidth: 620 }}>
-                    {realToday} · Saldo inicial proveniente de "Asignación de destino &gt; Distribución del día", se descuenta al registrar cada {esDonacion ? "donación" : "venta"}.
+                    Cestas provenientes de "Asignación de destino" que aún no {esDonacion ? "donás" : "vendés"}. Permanecen disponibles (acumuladas) hasta que las saques manualmente.
                   </div>
                 </div>
               </div>
               <div style={{ textAlign: "right" }}>
                 <div style={{ fontSize: 30, fontWeight: 800, color: disponible < -0.001 ? "#dc2626" : disponible > 0.001 ? "#15803d" : "#94a3b8" }} data-testid="ventas-disponible-grande">{fc(disponible)}</div>
-                <div style={{ color: "#64748b", fontSize: 12 }}>Disponible para {esDonacion ? "donar" : "vender"} hoy</div>
+                <div style={{ color: "#64748b", fontSize: 12 }}>Disponible para {esDonacion ? "donar" : "vender"}</div>
               </div>
             </div>
             <div className="kpi-grid" style={{ marginTop: 16, gridTemplateColumns: tipo === "ciudad" ? "repeat(4, 1fr)" : "repeat(3, 1fr)" }}>
-              <SubCard label="Asignado hoy" value={fc(asignadoHoy)} sub={`${movAsignado} movimiento(s) desde Asignación de destino`} color="#16a34a" />
-              <SubCard label={esDonacion ? "Donado hoy" : "Vendido hoy"} value={fc(vendidoHoyCestas)} sub={`${ventasHoyReales.length} ${esDonacion ? "donación(es)" : "venta(s)"} registrada(s)`} color="#3b82f6" />
+              <SubCard label="Recibido (total)" value={fc(asignadoTotal)} sub={`${asignados.length} movimiento(s)${asignadoHoy > 0.001 ? ` · hoy +${fc(asignadoHoy)}` : ""}`} color="#16a34a" />
+              <SubCard label={esDonacion ? "Donado (total)" : "Vendido (total)"} value={fc(vendidoTotal)} sub={`${ventasReales.length} ${esDonacion ? "donación(es)" : "venta(s)"}${vendidoHoyCestas > 0.001 ? ` · hoy +${fc(vendidoHoyCestas)}` : ""}`} color="#3b82f6" />
               {tipo === "ciudad" && (
-                <SubCard label="Reasignado hoy" value={fc(reasignadoHoy)} sub="Enviado a Descarte / Donaciones" color="#ea580c" />
+                <SubCard label="Reasignado (total)" value={fc(reasignadoTotal)} sub={`Enviado a Descarte / Donaciones${reasignadoHoy > 0.001 ? ` · hoy +${fc(reasignadoHoy)}` : ""}`} color="#ea580c" />
               )}
-              <SubCard label="Disponible" value={fc(disponible)} sub={esDonacion ? "Restante a donar" : "Restante a vender"} color={disponible < -0.001 ? "#dc2626" : disponible > 0.001 ? "#16a34a" : "#94a3b8"} />
+              <SubCard label="Disponible" value={fc(disponible)} sub={esDonacion ? "Acumulado sin donar" : "Acumulado sin vender"} color={disponible < -0.001 ? "#dc2626" : disponible > 0.001 ? "#16a34a" : "#94a3b8"} />
             </div>
           </div>
 
@@ -318,7 +325,7 @@ function Ventas({ tipo }) {
             <div style={{ display: "flex", gap: 10, marginTop: 16, alignItems: "center", flexWrap: "wrap" }}>
               <button className="btn" onClick={() => setNv(emptyNv)} data-testid="nv-limpiar">Limpiar</button>
               <button className="btn btn-primary" onClick={registrarVenta} disabled={disponible <= 0.001} data-testid="nv-registrar"><Plus size={16} /> Registrar</button>
-              {disponible <= 0.001 && <span style={{ color: "#dc2626", fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}><AlertCircle size={14} /> Sin cestas disponibles hoy. Asigná desde "Asignación de destino".</span>}
+              {disponible <= 0.001 && <span style={{ color: "#dc2626", fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}><AlertCircle size={14} /> Sin cestas disponibles. Asigná desde "Asignación de destino".</span>}
             </div>
           </div>
 
@@ -327,7 +334,7 @@ function Ventas({ tipo }) {
             <div className="card" style={{ background: "#fff7ed", borderColor: "#fed7aa", marginBottom: 16 }} data-testid="reasignar-card">
               <h3 style={{ margin: 0, color: "#c2410c", display: "flex", alignItems: "center", gap: 8 }}><Truck size={18} /> Reasignar cestas sobrantes</h3>
               <div style={{ color: "#64748b", fontSize: 13, margin: "4px 0 16px" }}>
-                Quedan <b style={{ color: "#c2410c" }}>{fc(disponible)}</b> sin vender hoy. Podés enviarlas a Descarte o Donaciones.
+                Quedan <b style={{ color: "#c2410c" }}>{fc(disponible)}</b> sin vender. Podés enviarlas a Descarte o Donaciones.
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, alignItems: "end" }}>
                 <div className="field" style={{ margin: 0 }}>
@@ -443,7 +450,7 @@ function Ventas({ tipo }) {
             <div style={{ display: "flex", gap: 10, marginTop: 16, alignItems: "center", flexWrap: "wrap" }}>
               <button className="btn" onClick={() => setNv(emptyNv)} data-testid="nv-limpiar">Limpiar</button>
               <button className="btn btn-primary" onClick={registrarVenta} disabled={disponible <= 0.001} data-testid="nv-registrar"><Plus size={16} /> Registrar</button>
-              {disponible <= 0.001 && <span style={{ color: "#dc2626", fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}><AlertCircle size={14} /> Sin cestas disponibles hoy. Asigná desde "Asignación de destino".</span>}
+              {disponible <= 0.001 && <span style={{ color: "#dc2626", fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}><AlertCircle size={14} /> Sin cestas disponibles. Asigná desde "Asignación de destino".</span>}
             </div>
           </div>
 
