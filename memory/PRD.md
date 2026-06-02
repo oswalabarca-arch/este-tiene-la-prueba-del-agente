@@ -22,7 +22,20 @@ Aplicaciones usa recetas (plantillas de insumos)
 - `operario` — limitado
 - Cada usuario tiene `modulos_asignados[]` que controlan visibilidad
 
-## Fix (Code Quality Report · Fase A — arreglos seguros — 01/06/2026)
+## Funcionalidades (02/06/2026)
+### Reasignar cestas sobrantes en "Envío a ciudad" (Ventas)
+- Nuevo bloque "Reasignar cestas sobrantes" (visible cuando hay Disponible > 0 hoy en tipo=ciudad): cantidad + destino (Descarte/Donaciones) + botón.
+- Backend `POST /api/ventas-ciudad/reasignar`: valida cantidad ≤ disponible del día y destino válido; crea registro de salida en `ventas_ciudad` (origen `reasignacion_salida`, reduce disponible) y registro de entrada en el destino (`ventas_descarte` con origen `reasignacion_ciudad`; `ventas_donaciones` con origen `asignacion_destino` = queda "disponible para donar").
+- Panel de Ventas ciudad ahora muestra 4 métricas: Asignado / Vendido / **Reasignado hoy** / Disponible. Las reasignaciones ya NO se cuentan como "Vendido".
+- Test: `tests/test_reasignar_y_cascada.py` (autocontenido, siembra cosecha y limpia).
+
+### Fix: gastos huérfanos / "Total gastos operativos" $485 (Vehículos)
+- Causa: al eliminar un vehículo, sus gastos NO se borraban → quedaban huérfanos e imposibles de eliminar (solo se borran entrando al vehículo).
+- Fix backend: `DELETE /api/vehiculos/{id}` ahora borra en cascada sus `gastos_vehiculos` (evita nuevos huérfanos).
+- Fix frontend: nueva sección "Gastos sin vehículo asignado" en Vehículos, con borrado individual y "Eliminar todos" para limpiar los huérfanos existentes. Confirmación de borrado de vehículo ahora avisa que se eliminarán N gastos.
+- Test: `tests/test_reasignar_y_cascada.py::test_eliminar_vehiculo_borra_gastos_en_cascada`.
+
+
 - **Keys de índice → IDs estables** (16 instancias): Aplicaciones, Actividades, PlantacionDetail (consolidado/rendimiento), Compras (sugerencias), Inventario (lotes PEPS/datalist). Filas editables del formulario de Aplicaciones ahora usan `_rid` estable (`nextRid()`) en alta, init y reset por cambio de Tipo. Verificado: 0 warnings de React keys; alta/baja de filas no mezcla valores.
 - **Hooks**: el reporte estaba desactualizado; al correr `react-hooks/exhaustive-deps` solo quedaba 1 advertencia real → `AsignacionDestino.jsx` `load` envuelto en `useCallback`. Verificado: sin loop infinito, recarga al cambiar fecha.
 - **useMemo**: total de cestas en `Ventas.jsx` memoizado (`totalCestas`). Las computaciones pesadas reales viven en `PlantacionDetail` (se abordarán en el refactor de CosechasTab, Fase B). Las de arrays diminutos (NAV ~15, CAL_DEFS 4, Vehiculos 3 elementos) se dejaron sin memo intencionalmente (sin beneficio real).

@@ -33,7 +33,11 @@ export default function Vehiculos() {
   useEffect(() => { load(); }, [load]);
 
   const remove = async (v) => {
-    if (!window.confirm(`¿Eliminar vehículo "${v.nombre}"? Los gastos asociados no se borran.`)) return;
+    const n = (totalsPorVehiculo[v._id] || {}).count || 0;
+    const msg = n > 0
+      ? `¿Eliminar vehículo "${v.nombre}"? También se eliminarán sus ${n} gasto(s) operativo(s) asociados.`
+      : `¿Eliminar vehículo "${v.nombre}"?`;
+    if (!window.confirm(msg)) return;
     await api.delete(`/vehiculos/${v._id}`);
     toast.show("Eliminado");
     load();
@@ -43,6 +47,13 @@ export default function Vehiculos() {
     if (!window.confirm("¿Eliminar este gasto operativo?")) return;
     await api.delete(`/gastos-vehiculos/${g._id}`);
     toast.show("Gasto eliminado");
+    load();
+  };
+
+  const eliminarTodosHuerfanos = async () => {
+    if (!window.confirm(`¿Eliminar los ${orphanGastos.length} gasto(s) sin vehículo (total $${totalOrphan.toFixed(2)})?`)) return;
+    await Promise.all(orphanGastos.map((g) => api.delete(`/gastos-vehiculos/${g._id}`)));
+    toast.show("Gastos sin vehículo eliminados");
     load();
   };
 
@@ -58,6 +69,12 @@ export default function Vehiculos() {
   }, [gastos]);
 
   const totalGastosTodos = gastos.reduce((s, g) => s + (g.monto || 0), 0);
+  // Gastos huérfanos: su vehículo fue eliminado, así que no aparecen en ningún detalle.
+  const orphanGastos = useMemo(
+    () => gastos.filter((g) => !vehiculos.some((v) => v._id === g.vehiculo_id)),
+    [gastos, vehiculos]
+  );
+  const totalOrphan = orphanGastos.reduce((s, g) => s + (g.monto || 0), 0);
   const totalInversion = vehiculos.reduce((s, v) => s + (v.costo_adquisicion || 0), 0);
 
   // Vista de detalle
@@ -156,6 +173,42 @@ export default function Vehiculos() {
         <div className="card kpi-card"><div className="kpi-label">Total gastos operativos</div><div className="kpi-value" style={{ color: "#dc2626" }}>${totalGastosTodos.toFixed(2)}</div></div>
         <div className="card kpi-card"><div className="kpi-label">Gastos registrados</div><div className="kpi-value">{gastos.length}</div></div>
       </div>
+
+      {orphanGastos.length > 0 && (
+        <div className="card" style={{ marginBottom: 18, borderColor: "#fecaca", background: "#fef2f2" }} data-testid="gastos-huerfanos-card">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+            <div>
+              <h3 style={{ margin: 0, color: "#b91c1c", display: "flex", alignItems: "center", gap: 8 }}><Trash2 size={18} /> Gastos sin vehículo asignado</h3>
+              <div style={{ color: "#64748b", fontSize: 13, marginTop: 4, maxWidth: 640 }}>
+                Estos gastos quedaron de vehículos que ya fueron eliminados. Suman <b>${totalOrphan.toFixed(2)}</b> dentro del "Total gastos operativos". Eliminálos para limpiar el total.
+              </div>
+            </div>
+            {canDelete("equipos") && (
+              <button className="btn" style={{ color: "#b91c1c", borderColor: "#fecaca" }} onClick={eliminarTodosHuerfanos} data-testid="gastos-huerfanos-eliminar-todos">
+                <Trash2 size={16} /> Eliminar todos
+              </button>
+            )}
+          </div>
+          <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+            {orphanGastos.map((g) => {
+              const cat = CATS_GASTO.find((c) => c.key === g.categoria);
+              return (
+                <div key={g._id} data-testid={`gasto-huerfano-${g._id}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", border: "1px solid #fee2e2", borderRadius: 8, padding: "8px 12px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, flexWrap: "wrap" }}>
+                    <span className="badge" style={{ background: cat?.bg || "#f1f5f9", color: cat?.color || "#475569" }}>{cat?.label || g.categoria}</span>
+                    <span style={{ color: "#64748b" }}>{(g.fecha || "").slice(0, 10)}</span>
+                    {g.descripcion && <span style={{ color: "#94a3b8" }}>· {g.descripcion}</span>}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <b style={{ color: "#dc2626" }}>${(g.monto || 0).toFixed(2)}</b>
+                    {canDelete("equipos") && <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => removeGasto(g)} data-testid={`gasto-huerfano-del-${g._id}`}><Trash2 size={16} /></button>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(290px,1fr))", gap: 16 }}>
         {vehiculos.map((v) => {

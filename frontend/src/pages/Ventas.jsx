@@ -64,6 +64,9 @@ function Ventas({ tipo }) {
   const emptyNv = { cliente: "", telefono: "", cantidad_cestas: "", precio_unitario: "", abono_inicial: "", fecha: todayLocal(), observaciones: "" };
   const [nv, setNv] = useState(emptyNv);
   const [abonando, setAbonando] = useState(null);
+  // Reasignar cestas sobrantes de "Envío a ciudad" a Descarte/Donaciones
+  const [reasign, setReasign] = useState({ cantidad: "", destino: "descarte" });
+  const [reasignBusy, setReasignBusy] = useState(false);
 
   const load = useCallback(() => api.get(`/ventas-${tipo}`).then((r) => setItems(r.data.ventas)), [tipo]);
   useEffect(() => { load(); }, [load]);
@@ -93,13 +96,16 @@ function Ventas({ tipo }) {
 
   const ventas = items.filter((v) => !isAsig(v));    // ventas reales
   const asignados = items.filter((v) => isAsig(v));  // cestas recibidas (stock)
+  const esReasig = (v) => v.origen === "reasignacion_salida";  // salida por reasignación (no es venta)
 
   // Cestas (hoy)
   const asignadoHoy = asignados.filter(esHoy).reduce((s, v) => s + cestasDe(v), 0);
   const movAsignado = asignados.filter(esHoy).length;
   const ventasHoy = ventas.filter(esHoy);
-  const vendidoHoyCestas = ventasHoy.reduce((s, v) => s + cestasDe(v), 0);
-  const disponible = asignadoHoy - vendidoHoyCestas;
+  const ventasHoyReales = ventasHoy.filter((v) => !esReasig(v));
+  const vendidoHoyCestas = ventasHoyReales.reduce((s, v) => s + cestasDe(v), 0);
+  const reasignadoHoy = ventasHoy.filter(esReasig).reduce((s, v) => s + cestasDe(v), 0);
+  const disponible = asignadoHoy - vendidoHoyCestas - reasignadoHoy;
 
   // Estado de pago y días endeudado
   const saldoDe = (v) => (v.total || 0) - (v.abono_inicial || 0);
@@ -194,6 +200,23 @@ function Ventas({ tipo }) {
 
   const limpiarFiltros = () => { setPeriod("todo"); setSearch(""); setEstadoPago("todos"); setDiasMin(""); setSoloDeudores(false); };
 
+  const reasignarSobrantes = async () => {
+    const cant = Number(reasign.cantidad);
+    if (!cant || cant <= 0) { toast.show("Ingresa la cantidad de cestas a reasignar", "error"); return; }
+    if (cant > disponible + 0.001) { toast.show(`Solo hay ${disponible.toFixed(2)} cesta(s) disponible(s) para reasignar`, "error"); return; }
+    setReasignBusy(true);
+    try {
+      await api.post("/ventas-ciudad/reasignar", { cantidad_cestas: cant, destino: reasign.destino, fecha: realToday });
+      toast.show(`${cant} cesta(s) reasignada(s) a ${reasign.destino === "descarte" ? "Descarte" : "Donaciones"}`);
+      setReasign({ cantidad: "", destino: reasign.destino });
+      load();
+    } catch (err) {
+      toast.show(err?.response?.data?.detail || "Error al reasignar", "error");
+    } finally {
+      setReasignBusy(false);
+    }
+  };
+
   const rows = conPanel ? ventasFiltradas : items;
 
   return (
@@ -242,9 +265,12 @@ function Ventas({ tipo }) {
                 <div style={{ color: "#64748b", fontSize: 12 }}>Disponible para {esDonacion ? "donar" : "vender"} hoy</div>
               </div>
             </div>
-            <div className="kpi-grid" style={{ marginTop: 16, gridTemplateColumns: "repeat(3, 1fr)" }}>
+            <div className="kpi-grid" style={{ marginTop: 16, gridTemplateColumns: tipo === "ciudad" ? "repeat(4, 1fr)" : "repeat(3, 1fr)" }}>
               <SubCard label="Asignado hoy" value={fc(asignadoHoy)} sub={`${movAsignado} movimiento(s) desde Asignación de destino`} color="#16a34a" />
-              <SubCard label={esDonacion ? "Donado hoy" : "Vendido hoy"} value={fc(vendidoHoyCestas)} sub={`${ventasHoy.length} ${esDonacion ? "donación(es)" : "venta(s)"} registrada(s)`} color="#3b82f6" />
+              <SubCard label={esDonacion ? "Donado hoy" : "Vendido hoy"} value={fc(vendidoHoyCestas)} sub={`${ventasHoyReales.length} ${esDonacion ? "donación(es)" : "venta(s)"} registrada(s)`} color="#3b82f6" />
+              {tipo === "ciudad" && (
+                <SubCard label="Reasignado hoy" value={fc(reasignadoHoy)} sub="Enviado a Descarte / Donaciones" color="#ea580c" />
+              )}
               <SubCard label="Disponible" value={fc(disponible)} sub={esDonacion ? "Restante a donar" : "Restante a vender"} color={disponible < -0.001 ? "#dc2626" : disponible > 0.001 ? "#16a34a" : "#94a3b8"} />
             </div>
           </div>
@@ -252,7 +278,7 @@ function Ventas({ tipo }) {
           {/* Barra de dinero (solo ventas) */}
           {esIngreso && (
           <div className="kpi-grid" style={{ marginBottom: 16, gridTemplateColumns: "repeat(4, 1fr)" }}>
-            <MoneyCard title="Vendido (hoy)" icon={TrendingUp} color="#16a34a" value={fmtMoney(vendidoHoyDinero)} sub={`${vendidoHoyCestas.toFixed(2)} cestas en ${ventasHoy.length} venta(s)`} testid="money-vendido-hoy" />
+            <MoneyCard title="Vendido (hoy)" icon={TrendingUp} color="#16a34a" value={fmtMoney(vendidoHoyDinero)} sub={`${vendidoHoyCestas.toFixed(2)} cestas en ${ventasHoyReales.length} venta(s)`} testid="money-vendido-hoy" />
             <MoneyCard title="Total vendido" icon={DollarSign} color="#0f172a" value={fmtMoney(totalVendido)} sub={`${ventasFiltradas.length} venta(s) en vista`} testid="money-total-vendido" />
             <MoneyCard title="Cobrado" icon={Wallet} color="#3b82f6" value={fmtMoney(cobrado)} sub={`${pctCobrado.toFixed(1)}% del total`} testid="money-cobrado" />
             <MoneyCard title="Saldo / Deuda" icon={AlertTriangle} color="#dc2626" value={fmtMoney(deuda)} sub={`${deudores} deudor(es)`} testid="money-deuda" />
@@ -295,6 +321,32 @@ function Ventas({ tipo }) {
               {disponible <= 0.001 && <span style={{ color: "#dc2626", fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}><AlertCircle size={14} /> Sin cestas disponibles hoy. Asigná desde "Asignación de destino".</span>}
             </div>
           </div>
+
+          {/* Reasignar cestas sobrantes (solo Envío a ciudad) */}
+          {tipo === "ciudad" && disponible > 0.001 && (
+            <div className="card" style={{ background: "#fff7ed", borderColor: "#fed7aa", marginBottom: 16 }} data-testid="reasignar-card">
+              <h3 style={{ margin: 0, color: "#c2410c", display: "flex", alignItems: "center", gap: 8 }}><Truck size={18} /> Reasignar cestas sobrantes</h3>
+              <div style={{ color: "#64748b", fontSize: 13, margin: "4px 0 16px" }}>
+                Quedan <b style={{ color: "#c2410c" }}>{fc(disponible)}</b> sin vender hoy. Podés enviarlas a Descarte o Donaciones.
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, alignItems: "end" }}>
+                <div className="field" style={{ margin: 0 }}>
+                  <label>Cantidad de cestas</label>
+                  <DecimalInput type="number" step="0.01" min="0" className="input" placeholder="0" value={reasign.cantidad} onChange={(e) => setReasign({ ...reasign, cantidad: e.target.value })} data-testid="reasign-cantidad" />
+                </div>
+                <div className="field" style={{ margin: 0 }}>
+                  <label>Destino</label>
+                  <select className="select" value={reasign.destino} onChange={(e) => setReasign({ ...reasign, destino: e.target.value })} data-testid="reasign-destino">
+                    <option value="descarte">Descarte</option>
+                    <option value="donaciones">Donaciones</option>
+                  </select>
+                </div>
+                <button className="btn btn-primary" style={{ background: "#ea580c", borderColor: "#ea580c" }} onClick={reasignarSobrantes} disabled={reasignBusy} data-testid="reasign-btn">
+                  {reasignBusy ? "..." : "Reasignar"}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Filtros del registro */}
           <div className="card" style={{ marginBottom: 16 }}>

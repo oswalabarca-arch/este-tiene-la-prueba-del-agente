@@ -947,6 +947,9 @@ async def update_vehiculo(vid: str, payload: VehiculoIn, _: dict = Depends(get_c
 
 @api.delete("/vehiculos/{vid}")
 async def delete_vehiculo(vid: str, _: dict = Depends(get_current_user)):
+    # Borrado en cascada: eliminar también los gastos operativos del vehículo
+    # para no dejar registros huérfanos imposibles de eliminar desde la UI.
+    await db.gastos_vehiculos.delete_many({"vehiculo_id": vid})
     return await _delete("vehiculos", vid)
 
 
@@ -1400,6 +1403,58 @@ _ventas_router("ciudad")
 _ventas_router("refrigerar")
 _ventas_router("descarte")
 _ventas_router("donaciones")
+
+
+# ── Reasignar cestas sobrantes de "Envío a ciudad" a Descarte o Donaciones ──
+class ReasignarCiudadIn(BaseModel):
+    cantidad_cestas: float
+    destino: str  # descarte | donaciones
+    fecha: str    # YYYY-MM-DD o ISO
+
+
+@api.post("/ventas-ciudad/reasignar")
+async def reasignar_ciudad(payload: ReasignarCiudadIn, user: dict = Depends(get_current_user)):
+    """Mueve cestas no vendidas de Envío a ciudad hacia Descarte o Donaciones.
+    Crea un registro de salida en ventas_ciudad (reduce el disponible del día) y
+    un registro de entrada en el módulo destino elegido."""
+    if payload.destino not in ("descarte", "donaciones"):
+        raise HTTPException(400, "Destino inválido. Usa 'descarte' o 'donaciones'.")
+    cestas = round(payload.cantidad_cestas or 0, 4)
+    if cestas <= 0:
+        raise HTTPException(400, "La cantidad debe ser mayor a 0.")
+    fecha_prefix = (payload.fecha or "")[:10]
+    if not fecha_prefix:
+        raise HTTPException(400, "Fecha inválida.")
+    # Disponible en 'ciudad' ese día = asignado (origen=asignacion_destino) - movimientos manuales
+    docs = await db.ventas_ciudad.find({"fecha": {"$regex": f"^{fecha_prefix}"}}).to_list(5000)
+    asignado = sum((d.get("cantidad_cestas", 0) or 0) for d in docs if d.get("origen") == "asignacion_destino")
+    usado = sum((d.get("cantidad_cestas", 0) or 0) for d in docs if d.get("origen") != "asignacion_destino")
+    disponible = asignado - usado
+    if cestas > disponible + 0.001:
+        raise HTTPException(400, f"Solo hay {round(max(disponible, 0), 2)} cesta(s) disponible(s) en Envío a ciudad para reasignar.")
+    kg = round(cestas * KG_POR_CESTA, 2)
+    fecha_full = fecha_prefix + "T12:00:00.000Z"
+    destino_label = "Descarte" if payload.destino == "descarte" else "Donaciones"
+    # 1) Salida de ciudad (reduce el disponible): registro manual, no asignacion_destino
+    salida = {
+        "fecha": fecha_full, "cantidad_cestas": cestas, "cantidad_kg": kg,
+        "precio_unitario": 0, "total": 0, "cliente": f"Reasignado a {destino_label}",
+        "telefono": "", "abono_inicial": 0,
+        "observaciones": f"Reasignación de cestas sobrantes a {destino_label}",
+        "origen": "reasignacion_salida",
+    }
+    await _create("ventas_ciudad", salida, user)
+    # 2) Entrada en el destino elegido
+    entrada = {
+        "fecha": fecha_full, "cantidad_cestas": cestas, "cantidad_kg": kg,
+        "precio_unitario": 0, "total": 0, "cliente": "", "telefono": "", "abono_inicial": 0,
+        "observaciones": "Reasignado desde Envío a ciudad",
+        # En Donaciones cuenta como 'disponible para donar' (igual que una asignación);
+        # en Descarte queda como un registro de descarte.
+        "origen": "asignacion_destino" if payload.destino == "donaciones" else "reasignacion_ciudad",
+    }
+    await _create(f"ventas_{payload.destino}", entrada, user)
+    return {"success": True, "cantidad_cestas": cestas, "destino": payload.destino}
 
 
 # ============================================================
