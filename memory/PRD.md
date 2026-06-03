@@ -365,6 +365,14 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - **Fix:** el registro ahora usa `items.filter(esVentaReal)` → muestra **solo ventas/donaciones reales**. Los ajustes y reasignaciones siguen afectando el "Disponible acumulado" (que usa sus propios filtros) pero ya **no contaminan el Registro**. Aplica a finca, ciudad y donaciones.
 - Verificado E2E: donar 3 (recibido 8) + Ajustar saldo a 2 → Disponible acumulado = 2 y el Registro muestra **solo** la donación real de 3 cestas (antes mostraba además una fila fantasma de 3 del ajuste). Cambio 100% frontend (`Ventas.jsx`), lint OK. Requiere re-deploy para producción.
 
+## Implementado (Dashboard · Gastos de la semana · 03/06/2026)
+- Nuevo panel **"Gastos de la semana"** en el Dashboard principal (solo lectura; **no afecta otros módulos**, solo recopila información).
+- **Ventana semanal:** lunes 5:00 a.m. → domingo 6:00 p.m. (hora de Venezuela, UTC-4). Navegación de semanas (◀ anterior / ▶ siguiente / "Esta semana"); no permite ir a semanas futuras.
+- **Recopila 5 fuentes** dentro de la ventana: (1) **Compras (insumos)** = `compras.precio` por `fecha_compra` (excluye equipos `es_equipo` y entradas manuales `origen=ajuste`); (2) **Gastos de vehículo** = `gastos_vehiculos.monto` por `fecha`; (3) **Pago de trabajadores** = `actividades.costo_total` por `fecha_actividad`; (4) **Herramientas (nuevas)** = `equipos` con `categoria=herramienta`, valor `costo_adquisicion × cantidad` por `fecha_adquisicion`; (5) **Motores (nuevos)** = `equipos` con `categoria=motor`, igual cálculo. Evita doble conteo: las compras de equipos se cuentan como equipo, no como compra.
+- **Backend:** `GET /api/dashboard/gastos-semana?offset=N` → devuelve `inicio`, `fin`, `total` y `categorias[]` (cada una con total, count e items detalle). Helpers `_parse_dt_ve` (fechas date-only ancladas a mediodía) y `_week_window_ve`.
+- **Frontend:** `components/GastosSemana.jsx` montado en `Dashboard.jsx`. Total grande + 5 tarjetas por categoría (icono/color), expandibles para ver el detalle (fecha · concepto · monto). Testids `gastos-semana-total`, `gastos-cat-{key}`, etc.
+- Verificado E2E: sembrando 1 registro de cada fuente (100+50+80+50+200) → Total **US$ 480,00** y cada categoría correcta; detalle expandible OK; datos de prueba limpiados. Lint backend + frontend OK.
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.

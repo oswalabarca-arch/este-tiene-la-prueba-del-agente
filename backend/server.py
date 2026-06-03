@@ -1700,6 +1700,109 @@ async def analiticas_cxc_detalle(cliente: str, telefono: str = "", _: dict = Dep
 
 
 # ============================================================
+# DASHBOARD - Gastos de la semana (solo lectura, no afecta otros módulos)
+# Semana: lunes 5:00 a.m. → domingo 6:00 p.m. (hora de Venezuela, UTC-4)
+# Recopila: Compras (insumos) + Gastos de vehículo + Pago de trabajadores
+# (costo de actividades) + Equipos nuevos de tipo Herramienta y Motor.
+# ============================================================
+VE_TZ = timezone(timedelta(hours=-4))
+
+
+def _parse_dt_ve(s) -> Optional[datetime]:
+    """Convierte una fecha almacenada (date-only o ISO) a datetime con tz de Venezuela.
+    Las fechas sin hora se anclan a las 12:00 (mediodía) para caer con seguridad dentro del día."""
+    if not s:
+        return None
+    s = str(s).strip()
+    try:
+        if "T" in s or ":" in s:
+            dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=VE_TZ)
+            return dt.astimezone(VE_TZ)
+        d = datetime.fromisoformat(s[:10])
+        return d.replace(hour=12, minute=0, second=0, microsecond=0, tzinfo=VE_TZ)
+    except Exception:
+        return None
+
+
+def _week_window_ve(offset: int = 0):
+    """Ventana de la semana: lunes 05:00 → domingo 18:00 (VE). offset desplaza semanas (0=actual, -1=anterior)."""
+    now = datetime.now(VE_TZ)
+    monday = (now - timedelta(days=now.weekday())).replace(hour=5, minute=0, second=0, microsecond=0)
+    monday = monday + timedelta(weeks=offset)
+    sunday = (monday + timedelta(days=6)).replace(hour=18, minute=0, second=0, microsecond=0)
+    return monday, sunday
+
+
+@api.get("/dashboard/gastos-semana")
+async def dashboard_gastos_semana(offset: int = 0, _: dict = Depends(get_current_user)):
+    inicio, fin = _week_window_ve(offset)
+
+    def in_week(s) -> bool:
+        dt = _parse_dt_ve(s)
+        return dt is not None and inicio <= dt <= fin
+
+    cats = {
+        "compras": {"label": "Compras (insumos)", "total": 0.0, "count": 0, "items": []},
+        "vehiculos": {"label": "Gastos de vehículo", "total": 0.0, "count": 0, "items": []},
+        "trabajadores": {"label": "Pago de trabajadores", "total": 0.0, "count": 0, "items": []},
+        "herramientas": {"label": "Herramientas (nuevas)", "total": 0.0, "count": 0, "items": []},
+        "motores": {"label": "Motores (nuevos)", "total": 0.0, "count": 0, "items": []},
+    }
+
+    # Compras de insumos (excluye equipos y entradas manuales 'ajuste')
+    for c in await db.compras.find({"es_equipo": {"$ne": True}, "origen": {"$ne": "ajuste"}}).to_list(20000):
+        if in_week(c.get("fecha_compra")):
+            monto = float(c.get("precio") or 0)
+            cats["compras"]["total"] += monto
+            cats["compras"]["count"] += 1
+            cats["compras"]["items"].append({"fecha": c.get("fecha_compra"), "concepto": c.get("nombre_producto") or "Compra", "monto": round(monto, 2)})
+
+    # Gastos de vehículo
+    for g in await db.gastos_vehiculos.find({}).to_list(20000):
+        if in_week(g.get("fecha")):
+            monto = float(g.get("monto") or 0)
+            cats["vehiculos"]["total"] += monto
+            cats["vehiculos"]["count"] += 1
+            cats["vehiculos"]["items"].append({"fecha": g.get("fecha"), "concepto": (g.get("categoria") or "Gasto").replace("_", " "), "monto": round(monto, 2)})
+
+    # Pago de trabajadores = costo de mano de obra de actividades
+    for a in await db.actividades.find({}).to_list(20000):
+        if in_week(a.get("fecha_actividad")):
+            monto = float(a.get("costo_total") or 0)
+            if monto <= 0:
+                continue
+            cats["trabajadores"]["total"] += monto
+            cats["trabajadores"]["count"] += 1
+            cats["trabajadores"]["items"].append({"fecha": a.get("fecha_actividad"), "concepto": a.get("tipo_personalizado") or a.get("tipo") or "Actividad", "monto": round(monto, 2)})
+
+    # Equipos nuevos: Herramientas y Motores (valor = costo_adquisicion × cantidad)
+    for e in await db.equipos.find({}).to_list(20000):
+        cat = (e.get("categoria") or "").lower()
+        key = "herramientas" if cat == "herramienta" else ("motores" if cat == "motor" else None)
+        if key and in_week(e.get("fecha_adquisicion")):
+            monto = float(e.get("costo_adquisicion") or 0) * float(e.get("cantidad") or 1)
+            cats[key]["total"] += monto
+            cats[key]["count"] += 1
+            cats[key]["items"].append({"fecha": e.get("fecha_adquisicion"), "concepto": e.get("nombre") or "Equipo", "monto": round(monto, 2)})
+
+    categorias = []
+    for k, v in cats.items():
+        v["items"].sort(key=lambda x: x.get("fecha") or "", reverse=True)
+        categorias.append({"key": k, "label": v["label"], "total": round(v["total"], 2), "count": v["count"], "items": v["items"]})
+    total = round(sum(c["total"] for c in categorias), 2)
+
+    return {
+        "offset": offset,
+        "inicio": inicio.isoformat(),
+        "fin": fin.isoformat(),
+        "total": total,
+        "categorias": categorias,
+    }
+
+
+# ============================================================
 # SEED
 # ============================================================
 @app.on_event("startup")

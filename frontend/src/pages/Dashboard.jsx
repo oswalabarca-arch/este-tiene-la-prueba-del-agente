@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { Users, Sprout, Boxes, TrendingUp } from "lucide-react";
+import GastosSemana from "../components/GastosSemana";
 
 export default function Dashboard() {
   const [stats, setStats] = useState({ n_usuarios: 0, n_plantaciones: 0, total_kg_cosechado: 0, n_aplicaciones: 0 });
@@ -21,6 +22,8 @@ export default function Dashboard() {
         <KpiCard label="Cosechado (kg)" value={Math.round(stats.total_kg_cosechado)} icon={Boxes} color="#8b5cf6" bg="#ede9fe" trend="+23% desde el mes pasado" />
         <KpiCard label="Productividad" value="94%" icon={TrendingUp} color="#f59e0b" bg="#fef3c7" trend="+5% desde el mes pasado" />
       </div>
+
+      <GastosSemana />
 
       <div className="card" style={{ background: "linear-gradient(135deg,#f0fdf4,#dcfce7)", borderColor: "#bbf7d0" }}>
         <h2 style={{ margin: "0 0 8px" }}>Sistema ERP Agrícola Premium</h2>
