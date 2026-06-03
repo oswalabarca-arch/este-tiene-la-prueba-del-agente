@@ -450,7 +450,7 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
                   title="Ingrediente activo del producto"
                   data-testid={`aplic-ingrediente-${i}`}
                   style={{ background: "#f8fafc", color: "#475569", cursor: "default" }} />
-                <DecimalInput type="number" className="input" placeholder={`Cantidad (${UNIDAD})`} value={row.cantidad || ""} onChange={(e) => updateRow(i, "cantidad", e.target.value)} />
+                <DecimalInput type="number" className="input" placeholder="Dosis" value={row.cantidad || ""} onChange={(e) => updateRow(i, "cantidad", e.target.value)} />
                 {i === productoRows.length - 1 && productoRows.length < 3 ? (
                   <button type="button" className="btn btn-primary" onClick={addRow} style={{ padding: "8px 14px" }}><Plus size={16} /></button>
                 ) : (
