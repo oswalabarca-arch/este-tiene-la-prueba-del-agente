@@ -373,6 +373,12 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - **Frontend:** `components/GastosSemana.jsx` montado en `Dashboard.jsx`. Total grande + 5 tarjetas por categoría (icono/color), expandibles para ver el detalle (fecha · concepto · monto). Testids `gastos-semana-total`, `gastos-cat-{key}`, etc.
 - Verificado E2E: sembrando 1 registro de cada fuente (100+50+80+50+200) → Total **US$ 480,00** y cada categoría correcta; detalle expandible OK; datos de prueba limpiados. Lint backend + frontend OK.
 
+## Implementado (Inventario · Entradas manuales · editar y eliminar · 03/06/2026)
+- En la tabla **"Entradas manuales"** del módulo Inventario, cada fila ahora tiene botón **Editar** (✏️, `inv-entrada-edit-{id}`) además del de Eliminar (🗑️, ya existía).
+- **Editar** reabre el `EntradaModal` en modo edición (prefill de fecha, categoría, producto, cantidad, valor, descripción) y guarda con `PUT /api/inventario/entradas/{id}`. Título "Editar entrada manual" y botón "Guardar cambios".
+- **Backend nuevo:** `PUT /api/inventario/entradas/{id}` — solo edita registros con `origen=ajuste` (nunca compras reales; 404 si no es entrada manual). Actualiza `categoria/nombre_producto/precio/cantidad/unidad/descripcion/fecha_compra`. Los cambios fluyen automáticamente al inventario y al PEPS.
+- Verificado E2E: crear entrada 12 u @ $30 → editar a 7 u @ $50 → persiste en la tabla y se refleja en el inventario (Disponible 7, Valor $50, Precio prom. $7.1429). Lint backend + frontend OK.
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.

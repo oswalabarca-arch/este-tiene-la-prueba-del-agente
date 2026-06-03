@@ -705,6 +705,28 @@ async def delete_entrada_inventario(eid: str, _: dict = Depends(get_current_user
     return {"success": res.deleted_count > 0}
 
 
+@api.put("/inventario/entradas/{eid}")
+async def update_entrada_inventario(eid: str, payload: EntradaInventarioIn, _: dict = Depends(get_current_user)):
+    # Solo permite editar entradas manuales (origen='ajuste'), nunca compras reales.
+    existing = await db.compras.find_one({"_id": eid, "origen": "ajuste"})
+    if not existing:
+        raise HTTPException(404, "Entrada manual no encontrada")
+    data = payload.model_dump()
+    update = {
+        "categoria": data["categoria"],
+        "nombre_producto": data["nombre_producto"],
+        "precio": float(data.get("precio") or 0),
+        "cantidad": float(data["cantidad"]),
+        "unidad": data.get("unidad") or "Unidades",
+        "descripcion": data.get("descripcion", "") or "",
+        "fecha_compra": data["fecha"],
+        "updatedAt": now_iso(),
+    }
+    await db.compras.update_one({"_id": eid, "origen": "ajuste"}, {"$set": update})
+    return await db.compras.find_one({"_id": eid})
+
+
+
 async def _compute_peps_remaining_per_product() -> Dict[str, Dict[str, Any]]:
     """
     Calcula los lotes PEPS (FIFO) que quedan en stock por producto, después de aplicar

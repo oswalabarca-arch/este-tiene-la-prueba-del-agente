@@ -2,7 +2,7 @@ import { useEffect, useState, Fragment } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
-import { Boxes, Plus, Trash2, PackagePlus } from "lucide-react";
+import { Boxes, Plus, Trash2, Pencil, PackagePlus } from "lucide-react";
 import { catBadge } from "../lib/categoryColors";
 import { todayLocal } from "../lib/dates";
 import { DecimalInput } from "../components/DecimalInput";
@@ -16,6 +16,7 @@ export default function Inventario() {
   const [entradas, setEntradas] = useState([]);
   const [filterCat, setFilterCat] = useState("");
   const [showModal, setShowModal] = useState(false);
+  const [editingEntrada, setEditingEntrada] = useState(null);
 
   const load = () => {
     api.get("/inventario").then((r) => setItems(r.data.inventario));
@@ -161,9 +162,14 @@ export default function Inventario() {
                 <td style={{ textAlign: "right" }}>{e.cantidad} {e.unidad}</td>
                 <td style={{ textAlign: "right", color: "#16a34a", fontWeight: 600 }}>${Number(e.precio || 0).toFixed(2)}</td>
                 <td style={{ fontSize: 12, color: "#475569" }}>{e.descripcion || "—"}</td>
-                <td style={{ textAlign: "right" }}>
+                <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                  {canEdit("inventario") && (
+                    <button className="btn-icon" style={{ color: "#f59e0b" }} title="Editar" onClick={() => setEditingEntrada(e)} data-testid={`inv-entrada-edit-${e._id}`}>
+                      <Pencil size={16} />
+                    </button>
+                  )}
                   {canDelete("inventario") && (
-                    <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => removeEntrada(e)} data-testid={`inv-entrada-del-${e._id}`}>
+                    <button className="btn-icon" style={{ color: "#dc2626" }} title="Eliminar" onClick={() => removeEntrada(e)} data-testid={`inv-entrada-del-${e._id}`}>
                       <Trash2 size={16} />
                     </button>
                   )}
@@ -176,20 +182,23 @@ export default function Inventario() {
       </div>
 
       {showModal && <EntradaModal productos={items} onClose={() => setShowModal(false)} onSaved={() => { setShowModal(false); load(); }} />}
+      {editingEntrada && <EntradaModal productos={items} initial={editingEntrada} onClose={() => setEditingEntrada(null)} onSaved={() => { setEditingEntrada(null); load(); }} />}
     </div>
   );
 }
 
-function EntradaModal({ productos = [], onClose, onSaved }) {
+function EntradaModal({ productos = [], initial = null, onClose, onSaved }) {
   const toast = useToast();
   const today = todayLocal();
+  const isEdit = !!initial;
   const [form, setForm] = useState({
-    categoria: "semillas",
-    nombre_producto: "",
-    cantidad: 0,
-    precio: 0,
-    descripcion: "",
-    fecha: today,
+    categoria: initial?.categoria || "semillas",
+    nombre_producto: initial?.nombre_producto || "",
+    cantidad: initial?.cantidad ?? 0,
+    precio: initial?.precio ?? 0,
+    unidad: initial?.unidad || "Unidades",
+    descripcion: initial?.descripcion || "",
+    fecha: initial?.fecha_compra ? String(initial.fecha_compra).slice(0, 10) : today,
   });
   const [busy, setBusy] = useState(false);
 
@@ -201,19 +210,25 @@ function EntradaModal({ productos = [], onClose, onSaved }) {
     if (Number(form.cantidad) <= 0) { toast.show("La cantidad debe ser mayor a 0", "error"); return; }
     setBusy(true);
     try {
-      await api.post("/inventario/entradas", {
+      const payload = {
         categoria: form.categoria,
         nombre_producto: form.nombre_producto.trim(),
         cantidad: Number(form.cantidad),
-        unidad: "Unidades",
+        unidad: form.unidad || "Unidades",
         precio: Number(form.precio) || 0,
         descripcion: form.descripcion,
         fecha: form.fecha + "T00:00:00.000Z",
-      });
-      toast.show("Producto agregado al inventario");
+      };
+      if (isEdit) {
+        await api.put(`/inventario/entradas/${initial._id}`, payload);
+        toast.show("Entrada actualizada");
+      } else {
+        await api.post("/inventario/entradas", payload);
+        toast.show("Producto agregado al inventario");
+      }
       onSaved();
     } catch {
-      toast.show("Error al registrar", "error");
+      toast.show("Error al guardar", "error");
     } finally {
       setBusy(false);
     }
@@ -222,7 +237,7 @@ function EntradaModal({ productos = [], onClose, onSaved }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={submit} data-testid="inv-entrada-modal">
-        <h2 className="modal-title"><PackagePlus size={20} style={{ verticalAlign: "middle", color: "#7c3aed" }} /> Registrar producto en inventario</h2>
+        <h2 className="modal-title"><PackagePlus size={20} style={{ verticalAlign: "middle", color: "#7c3aed" }} /> {isEdit ? "Editar entrada manual" : "Registrar producto en inventario"}</h2>
         <div className="modal-sub">Para productos que NO entran por compras (donaciones, producción propia, ajustes). Suman al stock disponible.</div>
         <div className="form-grid">
           <div className="field">
@@ -270,7 +285,7 @@ function EntradaModal({ productos = [], onClose, onSaved }) {
         </div>
         <div className="modal-footer">
           <button type="button" className="btn" onClick={onClose}>Cancelar</button>
-          <button type="submit" className="btn btn-primary" disabled={busy} data-testid="inv-entrada-submit">{busy ? "..." : "Agregar al inventario"}</button>
+          <button type="submit" className="btn btn-primary" disabled={busy} data-testid="inv-entrada-submit">{busy ? "..." : (isEdit ? "Guardar cambios" : "Agregar al inventario")}</button>
         </div>
       </form>
     </div>
