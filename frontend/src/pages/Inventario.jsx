@@ -79,10 +79,10 @@ export default function Inventario() {
             <tr>
               <th>Categoría</th>
               <th>Producto</th>
+              <th>Ingrediente activo</th>
               <th>Estado</th>
               <th>Disponible</th>
               <th>Valor stock</th>
-              <th>Precio prom.</th>
               <th>Usado</th>
               <th>Ingresado</th>
             </tr>
@@ -95,10 +95,10 @@ export default function Inventario() {
                   <tr data-testid={`inv-row-${idx}`}>
                     <td><span className="badge" style={catBadge(i.categoria)}>{i.categoria}</span></td>
                     <td style={{ fontWeight: 600 }}>{i.nombre_producto}</td>
+                    <td style={{ color: i.ingrediente_activo ? "#0f172a" : "#94a3b8" }} data-testid="inv-ingrediente-activo">{i.ingrediente_activo || "—"}</td>
                     <td>{i.existencia ? <span className="badge badge-primary">Disponible</span> : <span className="badge badge-rose">Agotado</span>}</td>
                     <td style={{ color: "#16a34a", fontWeight: 700 }}>{i.total_disponible}</td>
                     <td style={{ color: "#16a34a", fontWeight: 600 }}>${Number(i.valor_remanente || 0).toFixed(2)}</td>
-                    <td>${Number(i.precio_unitario_promedio || 0).toFixed(4)}</td>
                     <td style={{ color: "#dc2626" }}>{i.total_enviado}</td>
                     <td>{i.total_comprado}</td>
                   </tr>
@@ -194,6 +194,7 @@ function EntradaModal({ productos = [], initial = null, onClose, onSaved }) {
   const [form, setForm] = useState({
     categoria: initial?.categoria || "semillas",
     nombre_producto: initial?.nombre_producto || "",
+    ingrediente_activo: initial?.ingrediente_activo || "",
     cantidad: initial?.cantidad ?? 0,
     precio: initial?.precio ?? 0,
     unidad: initial?.unidad || "Unidades",
@@ -213,6 +214,7 @@ function EntradaModal({ productos = [], initial = null, onClose, onSaved }) {
       const payload = {
         categoria: form.categoria,
         nombre_producto: form.nombre_producto.trim(),
+        ingrediente_activo: (form.ingrediente_activo || "").trim(),
         cantidad: Number(form.cantidad),
         unidad: form.unidad || "Unidades",
         precio: Number(form.precio) || 0,
@@ -261,6 +263,12 @@ function EntradaModal({ productos = [], initial = null, onClose, onSaved }) {
             <datalist id="inv-productos-historial">
               {sugerencias.map((s) => <option key={s} value={s} />)}
             </datalist>
+          </div>
+          <div className="field">
+            <label>Ingrediente activo</label>
+            <input className="input" value={form.ingrediente_activo || ""}
+              onChange={(e) => setForm({ ...form, ingrediente_activo: e.target.value })}
+              data-testid="inv-entrada-ingrediente" placeholder="Ej: Glifosato, Clorpirifos..." />
           </div>
           <div className="field">
             <label>Cantidad (Unidades)</label>

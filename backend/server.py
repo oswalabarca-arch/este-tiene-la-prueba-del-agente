@@ -669,6 +669,7 @@ async def delete_compra(cid: str, _: dict = Depends(get_current_user)):
 class EntradaInventarioIn(BaseModel):
     categoria: str
     nombre_producto: str
+    ingrediente_activo: Optional[str] = ""
     cantidad: float = Field(gt=0)
     unidad: str = "Unidades"
     precio: float = Field(default=0, ge=0)  # valor/costo total (opcional; 0 si el producto no tiene costo de compra)
@@ -688,6 +689,7 @@ async def create_entrada_inventario(payload: EntradaInventarioIn, user: dict = D
     doc = {
         "categoria": data["categoria"],
         "nombre_producto": data["nombre_producto"],
+        "ingrediente_activo": data.get("ingrediente_activo", "") or "",
         "precio": float(data.get("precio") or 0),
         "cantidad": float(data["cantidad"]),
         "unidad": data.get("unidad") or "Unidades",
@@ -716,6 +718,7 @@ async def update_entrada_inventario(eid: str, payload: EntradaInventarioIn, _: d
     update = {
         "categoria": data["categoria"],
         "nombre_producto": data["nombre_producto"],
+        "ingrediente_activo": data.get("ingrediente_activo", "") or "",
         "precio": float(data.get("precio") or 0),
         "cantidad": float(data["cantidad"]),
         "unidad": data.get("unidad") or "Unidades",
@@ -863,6 +866,24 @@ async def get_inventario(_: dict = Depends(get_current_user)):
     # Stock remanente por método PEPS (FIFO) — sabemos qué unidades y a qué precio
     peps = await _compute_peps_remaining_per_product()
 
+    # Ingrediente activo por producto: viene de las compras y entradas manuales
+    # (ambas en la colección `compras`). Se toma el más reciente no vacío.
+    ingrediente_map: Dict[str, str] = {}
+    ingrediente_fecha: Dict[str, str] = {}
+    ia_docs = await db.compras.find(
+        {"es_equipo": {"$ne": True}},
+        {"nombre_producto": 1, "ingrediente_activo": 1, "fecha_compra": 1},
+    ).to_list(20000)
+    for d in ia_docs:
+        nom = (d.get("nombre_producto") or "").strip().lower()
+        ia = (d.get("ingrediente_activo") or "").strip()
+        if not nom or not ia:
+            continue
+        fch = d.get("fecha_compra") or ""
+        if nom not in ingrediente_fecha or fch >= ingrediente_fecha[nom]:
+            ingrediente_map[nom] = ia
+            ingrediente_fecha[nom] = fch
+
     inventario = []
     for c in compras_agg:
         nombre = c["_id"]["nombre_producto"]
@@ -875,6 +896,7 @@ async def get_inventario(_: dict = Depends(get_current_user)):
         inventario.append({
             "categoria": c["_id"]["categoria"],
             "nombre_producto": nombre,
+            "ingrediente_activo": ingrediente_map.get((nombre or "").lower(), ""),
             "unidad": unidad,
             "total_comprado": comprado,
             "total_invertido": round(invertido, 2),
