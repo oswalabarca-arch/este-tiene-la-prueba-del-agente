@@ -107,6 +107,7 @@ export default function Aplicaciones() {
     return m;
   }, [inventario]);
   const getIngredientes = (a) => [...new Set((a.insumos || []).map((i) => iaMap[(i.nombre_producto || "").toLowerCase()]).filter(Boolean))].join(", ");
+  const getDosis = (a) => (a.insumos || []).map((i) => `${i.cantidad} ${i.unidad}`).join(", ");
 
   return (
     <div data-testid="aplicaciones-page">
@@ -198,7 +199,7 @@ export default function Aplicaciones() {
             <h3 style={{ marginTop: 0 }}>Aplicaciones Registradas</h3>
             <table className="table">
               <thead>
-                <tr><th>Fecha</th><th>Tipo</th><th>Lote</th><th>Producto</th><th>Ingrediente activo</th><th>Comentarios</th><th>Estado</th><th style={{ textAlign: "right" }}>Acciones</th></tr>
+                <tr><th>Fecha</th><th>Tipo</th><th>Lote</th><th>Producto</th><th>Ingrediente activo</th><th>Dosis</th><th>Comentarios</th><th>Estado</th><th style={{ textAlign: "right" }}>Acciones</th></tr>
               </thead>
               <tbody>
                 {filtered.map((a) => {
@@ -210,6 +211,7 @@ export default function Aplicaciones() {
                     <td><span className="badge badge-primary">{a.lote}</span></td>
                     <td style={{ fontSize: 13, color: "#64748b" }}>{a.insumos?.map((i) => `${i.nombre_producto} ${i.cantidad}${i.unidad}`).join(", ") || "—"}</td>
                     <td style={{ fontSize: 13, color: ing ? "#0f172a" : "#94a3b8" }} data-testid="aplic-ingrediente-activo">{ing || "—"}</td>
+                    <td style={{ fontSize: 13, color: "#0f172a" }} data-testid="aplic-dosis">{getDosis(a) || "—"}</td>
                     <td style={{ fontSize: 13, color: a.observaciones ? "#475569" : "#94a3b8", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={a.observaciones || ""} data-testid="aplic-comentarios">{a.observaciones || "—"}</td>
                     <td>{a.estado === "confirmada" ? <span className="badge badge-primary"><CheckCircle size={12} style={{ verticalAlign: "middle" }} /> Confirmada</span> : <span className="badge badge-warn"><Clock size={12} style={{ verticalAlign: "middle" }} /> Pendiente</span>}</td>
                     <td>
