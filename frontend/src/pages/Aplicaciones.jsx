@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
@@ -100,6 +100,14 @@ export default function Aplicaciones() {
   const confirmadas = items.filter((a) => a.estado === "confirmada").length;
   const pendientes = items.filter((a) => a.estado !== "confirmada").length;
 
+  // Mapa producto -> ingrediente activo (desde el inventario)
+  const iaMap = useMemo(() => {
+    const m = {};
+    inventario.forEach((x) => { if (x.nombre_producto) m[x.nombre_producto.toLowerCase()] = x.ingrediente_activo || ""; });
+    return m;
+  }, [inventario]);
+  const getIngredientes = (a) => [...new Set((a.insumos || []).map((i) => iaMap[(i.nombre_producto || "").toLowerCase()]).filter(Boolean))].join(", ");
+
   return (
     <div data-testid="aplicaciones-page">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
@@ -190,15 +198,19 @@ export default function Aplicaciones() {
             <h3 style={{ marginTop: 0 }}>Aplicaciones Registradas</h3>
             <table className="table">
               <thead>
-                <tr><th>Fecha</th><th>Tipo</th><th>Lote</th><th>Insumos</th><th>Estado</th><th style={{ textAlign: "right" }}>Acciones</th></tr>
+                <tr><th>Fecha</th><th>Tipo</th><th>Lote</th><th>Producto</th><th>Ingrediente activo</th><th>Comentarios</th><th>Estado</th><th style={{ textAlign: "right" }}>Acciones</th></tr>
               </thead>
               <tbody>
-                {filtered.map((a) => (
+                {filtered.map((a) => {
+                  const ing = getIngredientes(a);
+                  return (
                   <tr key={a._id}>
                     <td>{new Date(a.fecha).toLocaleDateString()}</td>
                     <td><span className="badge" style={catBadge(a.tipo)}>{a.tipo}</span></td>
                     <td><span className="badge badge-primary">{a.lote}</span></td>
                     <td style={{ fontSize: 13, color: "#64748b" }}>{a.insumos?.map((i) => `${i.nombre_producto} ${i.cantidad}${i.unidad}`).join(", ") || "—"}</td>
+                    <td style={{ fontSize: 13, color: ing ? "#0f172a" : "#94a3b8" }} data-testid="aplic-ingrediente-activo">{ing || "—"}</td>
+                    <td style={{ fontSize: 13, color: a.observaciones ? "#475569" : "#94a3b8", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={a.observaciones || ""} data-testid="aplic-comentarios">{a.observaciones || "—"}</td>
                     <td>{a.estado === "confirmada" ? <span className="badge badge-primary"><CheckCircle size={12} style={{ verticalAlign: "middle" }} /> Confirmada</span> : <span className="badge badge-warn"><Clock size={12} style={{ verticalAlign: "middle" }} /> Pendiente</span>}</td>
                     <td>
                       <div style={{ display: "inline-flex", gap: 4, justifyContent: "flex-end", width: "100%" }}>
@@ -208,7 +220,8 @@ export default function Aplicaciones() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
             {filtered.length === 0 && <div className="empty-state">No se encontraron aplicaciones</div>}
@@ -299,6 +312,9 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
   // Productos seleccionables: solo los del inventario cuya categoría coincide con el tipo elegido
   const catFiltro = TIPO_TO_CAT[form.tipo];
   const productosDisponibles = inventario.filter((x) => x.existencia && (!catFiltro || x.categoria === catFiltro));
+  // Mapa producto -> ingrediente activo
+  const iaMap = {};
+  inventario.forEach((x) => { if (x.nombre_producto) iaMap[x.nombre_producto.toLowerCase()] = x.ingrediente_activo || ""; });
 
   const updateRow = (i, key, val) => {
     const rows = [...productoRows];
@@ -418,7 +434,7 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
               </div>
             )}
             {productoRows.map((row, i) => (
-              <div key={row._rid} style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 8, marginTop: 8, alignItems: "center" }}>
+              <div key={row._rid} style={{ display: "grid", gridTemplateColumns: "2fr 1.3fr 1fr auto", gap: 8, marginTop: 8, alignItems: "center" }}>
                 <select className="select" value={row.nombre_producto} data-testid={`aplic-producto-${i}`} onChange={(e) => {
                   const nombre = e.target.value;
                   const rows = [...productoRows];
@@ -428,6 +444,12 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
                   <option value="">Producto</option>
                   {productosDisponibles.map((p) => <option key={p.nombre_producto} value={p.nombre_producto}>{p.nombre_producto} ({p.total_disponible} {UNIDAD})</option>)}
                 </select>
+                <input className="input" readOnly tabIndex={-1}
+                  value={iaMap[(row.nombre_producto || "").toLowerCase()] || ""}
+                  placeholder="Ingrediente activo"
+                  title="Ingrediente activo del producto"
+                  data-testid={`aplic-ingrediente-${i}`}
+                  style={{ background: "#f8fafc", color: "#475569", cursor: "default" }} />
                 <DecimalInput type="number" className="input" placeholder={`Cantidad (${UNIDAD})`} value={row.cantidad || ""} onChange={(e) => updateRow(i, "cantidad", e.target.value)} />
                 {i === productoRows.length - 1 && productoRows.length < 3 ? (
                   <button type="button" className="btn btn-primary" onClick={addRow} style={{ padding: "8px 14px" }}><Plus size={16} /></button>
