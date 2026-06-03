@@ -350,6 +350,15 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
   - 🟠 Refactor de `_compute_peps_remaining_per_product` / `_compute_fifo_costs_per_aplicacion` (complejidad 42) y de componentes grandes (Aplicaciones/Actividades) — lógica frágil/testeada; P3, esfuerzo dedicado con regresión.
   - 🟡 `key={index}` en filas de formulario y `useMemo` de cómputos en JSX — impacto real bajo en listas de solo lectura/append-only; polish opcional.
 
+## Verificado (Ventas · "Ajustar saldo" · 03/06/2026)
+- La herramienta **"Ajustar saldo"** (botón junto a "Disponible acumulado" en Venta en finca / Envío a ciudad / Donaciones) quedó **probada E2E**. Backend `POST /api/ventas-{tipo}/ajuste-saldo`: calcula `recibido − usado`, y crea un registro `ajuste_entrada` (suma) o `ajuste_salida` (resta) para que el "Disponible acumulado" quede en el número real que escribe el usuario. Casos verificados por curl: fijar a 5 (delta +5), a 2 (delta −3), re-fijar a 2 (sin_cambios), negativo→HTTP 400, a 0. Frontend: Disponible 10→9 al ajustar a 9. Sirve para corregir descuadres por ventas históricas sin "recibido".
+
+## Implementado (Analíticas · Cuentas por cobrar clickeable + abonos · 03/06/2026)
+- Las filas de **"Deuda por cliente"** (Analíticas → Cuentas por cobrar) ahora son **clickeables** (`cxc-row`, cursor pointer + chevron) y abren el modal **`CxcDetalleModal`** (`cxc-detalle-modal`).
+- El modal muestra el **saldo total pendiente** (`cxc-detalle-saldo-total`) y la lista de **ventas individuales pendientes** del cliente (Fecha, Origen finca/ciudad, Total, Abonado, Saldo, Días) con un botón **Abonar** por venta (`cxc-abonar-btn`).
+- Al abonar, una fila inline (`cxc-abono-monto` + `cxc-abono-confirmar`) registra el pago vía `PUT /api/ventas-{_tipo}/{id}` (suma al `abono_inicial`, tope = total). Refresca el detalle y la tabla principal de cuentas por cobrar.
+- Backend nuevo: `GET /api/analiticas/cuentas-por-cobrar/detalle?cliente=X&telefono=Y` → devuelve las ventas pendientes (saldo>0) de finca+ciudad, cada una con `_tipo` para poder hacer el PUT. Verificado E2E: cliente con saldo 25 → abono 10 → saldo 15 (modal y tabla actualizados). Lint OK (backend + frontend).
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.

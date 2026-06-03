@@ -1656,6 +1656,49 @@ async def analiticas_cuentas_por_cobrar(_: dict = Depends(get_current_user)):
     }
 
 
+@api.get("/analiticas/cuentas-por-cobrar/detalle")
+async def analiticas_cxc_detalle(cliente: str, telefono: str = "", _: dict = Depends(get_current_user)):
+    """Ventas individuales pendientes (con saldo > 0) de un cliente, de finca + ciudad.
+    Cada venta incluye `_tipo` (finca|ciudad) para poder registrar abonos vía PUT."""
+    cliente_key = (cliente or "").strip().lower()
+    telefono_key = (telefono or "").strip()
+    hoy = datetime.now(timezone.utc)
+    ventas = []
+    for tipo, coll, label in (("finca", "ventas_finca", "Venta en finca"), ("ciudad", "ventas_ciudad", "Envío a ciudad")):
+        docs = await db[coll].find({}).to_list(5000)
+        for v in docs:
+            c = (v.get("cliente") or "").strip()
+            t = (v.get("telefono") or "").strip()
+            if c.lower() != cliente_key or t != telefono_key:
+                continue
+            total = v.get("total", 0) or 0
+            abono = v.get("abono_inicial", 0) or 0
+            saldo = total - abono
+            if saldo <= 0.001:
+                continue
+            try:
+                fecha = datetime.fromisoformat((v.get("fecha") or "").replace("Z", "+00:00"))
+                dias = max(0, (hoy - fecha).days)
+            except Exception:
+                dias = 0
+            ventas.append({
+                "_id": v.get("_id"), "_tipo": tipo, "_modulo": label,
+                "fecha": v.get("fecha", ""),
+                "cantidad_cestas": v.get("cantidad_cestas", 0) or 0,
+                "cantidad_kg": v.get("cantidad_kg", 0) or 0,
+                "precio_unitario": v.get("precio_unitario", 0) or 0,
+                "total": round(total, 2), "abono_inicial": round(abono, 2),
+                "saldo": round(saldo, 2), "dias": dias,
+                "observaciones": v.get("observaciones", ""),
+            })
+    ventas.sort(key=lambda x: x["fecha"], reverse=True)
+    return {
+        "cliente": cliente, "telefono": telefono, "ventas": ventas,
+        "saldo_total": round(sum(v["saldo"] for v in ventas), 2),
+        "n_ventas": len(ventas),
+    }
+
+
 # ============================================================
 # SEED
 # ============================================================
