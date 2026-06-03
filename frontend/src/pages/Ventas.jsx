@@ -67,6 +67,10 @@ function Ventas({ tipo }) {
   // Reasignar cestas sobrantes de "Envío a ciudad" a Descarte/Donaciones
   const [reasign, setReasign] = useState({ cantidad: "", destino: "descarte" });
   const [reasignBusy, setReasignBusy] = useState(false);
+  // Ajustar saldo disponible (corrige descuadres por ventas históricas sin "recibido")
+  const [ajusteOpen, setAjusteOpen] = useState(false);
+  const [ajusteVal, setAjusteVal] = useState("");
+  const [ajusteBusy, setAjusteBusy] = useState(false);
 
   const load = useCallback(() => api.get(`/ventas-${tipo}`).then((r) => setItems(r.data.ventas)), [tipo]);
   useEffect(() => { load(); }, [load]);
@@ -88,31 +92,36 @@ function Ventas({ tipo }) {
   // Separar el stock recibido desde Asignación de destino vs las ventas reales (manuales)
   const realToday = todayLocal();
   const isAsig = (v) => v.origen === "asignacion_destino";
+  const esReasig = (v) => v.origen === "reasignacion_salida";       // salida por reasignación
+  const esAjusteEntrada = (v) => v.origen === "ajuste_entrada";     // ajuste manual que SUMA
+  const esAjusteSalida = (v) => v.origen === "ajuste_salida";       // ajuste manual que RESTA
+  const esRecibido = (v) => isAsig(v) || esAjusteEntrada(v);        // entradas de stock
+  const esVentaReal = (v) => !esRecibido(v) && !esReasig(v) && !esAjusteSalida(v); // venta/donación real
   const esHoy = (v) => (v.fecha || "").slice(0, 10) === realToday;
   const cestasDe = (v) => v.cantidad_cestas || 0;
 
   // Total de cestas sobre todos los registros (memoizado para evitar recálculo en cada render)
   const totalCestas = useMemo(() => items.reduce((s, v) => s + (v.cantidad_cestas || 0), 0), [items]);
 
-  const ventas = items.filter((v) => !isAsig(v));    // ventas reales
-  const asignados = items.filter((v) => isAsig(v));  // cestas recibidas (stock)
-  const esReasig = (v) => v.origen === "reasignacion_salida";  // salida por reasignación (no es venta)
-  const ventasReales = ventas.filter((v) => !esReasig(v));
+  const ventas = items.filter((v) => !isAsig(v));    // registro (ventas, reasignaciones y ajustes)
+  const asignados = items.filter(isAsig);            // solo Asignación de destino (para "Asignado hoy")
+  const ventasReales = items.filter(esVentaReal);    // ventas/donaciones reales
 
-  // ACUMULADO (persiste entre días): todo lo recibido desde "Asignación de destino"
-  // menos lo vendido/donado/reasignado. Es el stock real que arrastra al día siguiente.
-  const asignadoTotal = asignados.reduce((s, v) => s + cestasDe(v), 0);
+  // ACUMULADO (persiste entre días): recibido (asignación + ajustes de entrada)
+  // menos vendido/donado/reasignado/ajustes de salida. Es el stock real que arrastra al día siguiente.
+  const recibidoTotal = items.filter(esRecibido).reduce((s, v) => s + cestasDe(v), 0);
   const vendidoTotal = ventasReales.reduce((s, v) => s + cestasDe(v), 0);
-  const reasignadoTotal = ventas.filter(esReasig).reduce((s, v) => s + cestasDe(v), 0);
-  const disponibleAcum = asignadoTotal - vendidoTotal - reasignadoTotal;
+  const reasignadoTotal = items.filter(esReasig).reduce((s, v) => s + cestasDe(v), 0);
+  const ajusteSalidaTotal = items.filter(esAjusteSalida).reduce((s, v) => s + cestasDe(v), 0);
+  const disponibleAcum = recibidoTotal - vendidoTotal - reasignadoTotal - ajusteSalidaTotal;
 
   // Actividad del día (bloque "Acumulado de hoy")
   const asignadoHoy = asignados.filter(esHoy).reduce((s, v) => s + cestasDe(v), 0);
   const movAsignadoHoy = asignados.filter(esHoy).length;
   const ventasHoy = ventas.filter(esHoy);
-  const ventasHoyReales = ventasHoy.filter((v) => !esReasig(v));
-  const vendidoHoyCestas = ventasHoyReales.reduce((s, v) => s + cestasDe(v), 0);
-  const reasignadoHoy = ventasHoy.filter(esReasig).reduce((s, v) => s + cestasDe(v), 0);
+  const vendidoHoyCestas = ventasReales.filter(esHoy).reduce((s, v) => s + cestasDe(v), 0);
+  const ventasHoyReales = ventasReales.filter(esHoy);
+  const reasignadoHoy = items.filter((v) => esReasig(v) && esHoy(v)).reduce((s, v) => s + cestasDe(v), 0);
   const disponibleHoy = asignadoHoy - vendidoHoyCestas - reasignadoHoy;
 
   // El "disponible" que habilita vender/reasignar es el ACUMULADO (para poder
@@ -212,6 +221,24 @@ function Ventas({ tipo }) {
 
   const limpiarFiltros = () => { setPeriod("todo"); setSearch(""); setEstadoPago("todos"); setDiasMin(""); setSoloDeudores(false); };
 
+  const abrirAjuste = () => { setAjusteVal(disponibleAcum > 0 ? String(Number(disponibleAcum.toFixed(2))) : "0"); setAjusteOpen(true); };
+
+  const guardarAjuste = async () => {
+    const val = Number(ajusteVal);
+    if (ajusteVal === "" || Number.isNaN(val) || val < 0) { toast.show("Ingresa un saldo disponible válido (0 o mayor)", "error"); return; }
+    setAjusteBusy(true);
+    try {
+      const r = await api.post(`/ventas-${tipo}/ajuste-saldo`, { cantidad_cestas: val });
+      toast.show(r.data?.sin_cambios ? "El saldo ya era correcto" : `Saldo disponible ajustado a ${val} cestas`);
+      setAjusteOpen(false);
+      load();
+    } catch (err) {
+      toast.show(err?.response?.data?.detail || "Error al ajustar el saldo", "error");
+    } finally {
+      setAjusteBusy(false);
+    }
+  };
+
   const reasignarSobrantes = async () => {
     const cant = Number(reasign.cantidad);
     if (!cant || cant <= 0) { toast.show("Ingresa la cantidad de cestas a reasignar", "error"); return; }
@@ -276,8 +303,27 @@ function Ventas({ tipo }) {
                 <div style={{ fontSize: 32, fontWeight: 800, color: disponibleAcum < -0.001 ? "#dc2626" : disponibleAcum > 0.001 ? "#15803d" : "#94a3b8" }} data-testid="ventas-disponible-grande">{fc(disponibleAcum)}</div>
                 <div style={{ color: "#15803d", fontSize: 12, fontWeight: 600 }}>Disponible acumulado</div>
                 <div style={{ color: "#94a3b8", fontSize: 11 }}>arrastra al día siguiente</div>
+                {canEdit("ventas") && (
+                  <button className="btn" style={{ marginTop: 8, fontSize: 12, padding: "4px 10px" }} onClick={abrirAjuste} data-testid="ajuste-saldo-btn"><Wallet size={13} /> Ajustar saldo</button>
+                )}
               </div>
             </div>
+            {ajusteOpen && (
+              <div style={{ marginTop: 14, padding: 14, background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10 }} data-testid="ajuste-saldo-form">
+                <div style={{ fontWeight: 700, color: "#92400e", marginBottom: 4 }}>Ajustar saldo disponible</div>
+                <div style={{ color: "#64748b", fontSize: 13, marginBottom: 12, maxWidth: 640 }}>
+                  Escribí cuántas cestas tenés <b>realmente disponibles</b> en este módulo ahora. El sistema creará un ajuste para que el "Disponible acumulado" quede en ese número. Útil si hay ventas viejas sin un "recibido" que las respalde.
+                </div>
+                <div style={{ display: "flex", gap: 10, alignItems: "end", flexWrap: "wrap" }}>
+                  <div className="field" style={{ margin: 0 }}>
+                    <label>Disponible real (cestas)</label>
+                    <DecimalInput type="number" step="0.01" min="0" className="input" placeholder="0" value={ajusteVal} onChange={(e) => setAjusteVal(e.target.value)} data-testid="ajuste-saldo-input" />
+                  </div>
+                  <button className="btn btn-primary" style={{ background: "#d97706", borderColor: "#d97706" }} onClick={guardarAjuste} disabled={ajusteBusy} data-testid="ajuste-saldo-guardar">{ajusteBusy ? "..." : "Guardar ajuste"}</button>
+                  <button className="btn" onClick={() => setAjusteOpen(false)} data-testid="ajuste-saldo-cancelar">Cancelar</button>
+                </div>
+              </div>
+            )}
             <div className="kpi-grid" style={{ marginTop: 16, gridTemplateColumns: tipo === "ciudad" ? "repeat(4, 1fr)" : "repeat(3, 1fr)" }}>
               <SubCard label="Asignado hoy" value={fc(asignadoHoy)} sub={`${movAsignadoHoy} movimiento(s) desde Asignación de destino`} color="#16a34a" />
               <SubCard label={esDonacion ? "Donado hoy" : "Vendido hoy"} value={fc(vendidoHoyCestas)} sub={`${ventasHoyReales.length} ${esDonacion ? "donación(es)" : "venta(s)"} hoy`} color="#3b82f6" />

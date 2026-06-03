@@ -1367,6 +1367,15 @@ class VentaIn(BaseModel):
     asignacion_id: str = ""
 
 
+class AjusteSaldoIn(BaseModel):
+    cantidad_cestas: float  # el "Disponible acumulado" REAL que debe quedar
+    observaciones: str = ""
+
+
+# Orígenes que SUMAN al disponible acumulado (entradas de stock)
+RECIBIDO_ORIGINS = ("asignacion_destino", "ajuste_entrada")
+
+
 def _ventas_router(tipo: str):
     _es_donacion = tipo == "donaciones"
 
@@ -1398,6 +1407,32 @@ def _ventas_router(tipo: str):
     async def _delete_v(vid: str, _: dict = Depends(get_current_user)):
         return await _delete(f"ventas_{tipo}", vid)
 
+    @api.post(f"/ventas-{tipo}/ajuste-saldo")
+    async def _ajuste_saldo(payload: AjusteSaldoIn, user: dict = Depends(get_current_user)):
+        """Fija el 'Disponible acumulado' real del módulo creando un registro de ajuste.
+        Útil cuando hay ventas históricas sin un 'recibido' que las respalde."""
+        deseado = round(payload.cantidad_cestas or 0, 4)
+        if deseado < 0:
+            raise HTTPException(400, "El saldo disponible no puede ser negativo.")
+        coll = f"ventas_{tipo}"
+        docs = await db[coll].find({}).to_list(50000)
+        recibido = sum((d.get("cantidad_cestas", 0) or 0) for d in docs if d.get("origen") in RECIBIDO_ORIGINS)
+        usado = sum((d.get("cantidad_cestas", 0) or 0) for d in docs if d.get("origen") not in RECIBIDO_ORIGINS)
+        actual = recibido - usado
+        delta = round(deseado - actual, 4)
+        if abs(delta) < 0.001:
+            return {"success": True, "sin_cambios": True, "disponible": round(actual, 2)}
+        cant = round(abs(delta), 4)
+        kg = round(cant * KG_POR_CESTA, 2)
+        registro = {
+            "fecha": now_iso(), "cantidad_cestas": cant, "cantidad_kg": kg,
+            "precio_unitario": 0, "total": 0, "cliente": "", "telefono": "", "abono_inicial": 0,
+            "observaciones": payload.observaciones or f"Ajuste de saldo: disponible fijado a {deseado}",
+            "origen": "ajuste_entrada" if delta > 0 else "ajuste_salida",
+        }
+        await _create(coll, registro, user)
+        return {"success": True, "disponible_anterior": round(actual, 2), "disponible_nuevo": deseado, "delta": delta}
+
 _ventas_router("finca")
 _ventas_router("ciudad")
 _ventas_router("refrigerar")
@@ -1426,10 +1461,10 @@ async def reasignar_ciudad(payload: ReasignarCiudadIn, user: dict = Depends(get_
     if not fecha_prefix:
         raise HTTPException(400, "Fecha inválida.")
     # Disponible en 'ciudad' = ACUMULADO (no se reinicia por día):
-    # todo lo asignado (origen=asignacion_destino) menos los movimientos manuales (ventas/salidas).
+    # todo lo recibido (asignación + ajustes de entrada) menos lo usado (ventas/salidas/ajustes de salida).
     docs = await db.ventas_ciudad.find({}).to_list(20000)
-    asignado = sum((d.get("cantidad_cestas", 0) or 0) for d in docs if d.get("origen") == "asignacion_destino")
-    usado = sum((d.get("cantidad_cestas", 0) or 0) for d in docs if d.get("origen") != "asignacion_destino")
+    asignado = sum((d.get("cantidad_cestas", 0) or 0) for d in docs if d.get("origen") in RECIBIDO_ORIGINS)
+    usado = sum((d.get("cantidad_cestas", 0) or 0) for d in docs if d.get("origen") not in RECIBIDO_ORIGINS)
     disponible = asignado - usado
     if cestas > disponible + 0.001:
         raise HTTPException(400, f"Solo hay {round(max(disponible, 0), 2)} cesta(s) disponible(s) en Envío a ciudad para reasignar.")
