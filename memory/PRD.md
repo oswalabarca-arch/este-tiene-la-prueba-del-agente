@@ -359,6 +359,12 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - Al abonar, una fila inline (`cxc-abono-monto` + `cxc-abono-confirmar`) registra el pago vía `PUT /api/ventas-{_tipo}/{id}` (suma al `abono_inicial`, tope = total). Refresca el detalle y la tabla principal de cuentas por cobrar.
 - Backend nuevo: `GET /api/analiticas/cuentas-por-cobrar/detalle?cliente=X&telefono=Y` → devuelve las ventas pendientes (saldo>0) de finca+ciudad, cada una con `_tipo` para poder hacer el PUT. Verificado E2E: cliente con saldo 25 → abono 10 → saldo 15 (modal y tabla actualizados). Lint OK (backend + frontend).
 
+## Fix (Ventas/Donaciones · el "Registro" no cuadraba con "Disponible acumulado" · 03/06/2026)
+- **Reporte (Oswald):** en Donaciones, la suma del "Registro de donaciones" no coincidía con el "Disponible acumulado".
+- **Causa raíz:** el registro usaba `ventas = items.filter(!isAsig)`, que solo excluía los registros de Asignación de destino pero **seguía mostrando los registros de sistema**: los ajustes de saldo (`ajuste_entrada`/`ajuste_salida`, creados por la herramienta "Ajustar saldo") y las reasignaciones (`reasignacion_salida`). Esos aparecían como filas fantasma (beneficiario "—") y descuadraban la suma del registro vs el disponible.
+- **Fix:** el registro ahora usa `items.filter(esVentaReal)` → muestra **solo ventas/donaciones reales**. Los ajustes y reasignaciones siguen afectando el "Disponible acumulado" (que usa sus propios filtros) pero ya **no contaminan el Registro**. Aplica a finca, ciudad y donaciones.
+- Verificado E2E: donar 3 (recibido 8) + Ajustar saldo a 2 → Disponible acumulado = 2 y el Registro muestra **solo** la donación real de 3 cestas (antes mostraba además una fila fantasma de 3 del ajuste). Cambio 100% frontend (`Ventas.jsx`), lint OK. Requiere re-deploy para producción.
+
 ## Decisiones
 - IDs como UUIDs (string) — coincide con el original.
 - Fechas almacenadas como ISO strings.

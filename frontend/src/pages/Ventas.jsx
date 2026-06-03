@@ -103,7 +103,10 @@ function Ventas({ tipo }) {
   // Total de cestas sobre todos los registros (memoizado para evitar recálculo en cada render)
   const totalCestas = useMemo(() => items.reduce((s, v) => s + (v.cantidad_cestas || 0), 0), [items]);
 
-  const ventas = items.filter((v) => !isAsig(v));    // registro (ventas, reasignaciones y ajustes)
+  // El "Registro" solo debe mostrar ventas/donaciones REALES. Excluye los
+  // registros de sistema (asignación, ajustes de saldo y reasignaciones) que
+  // no son ventas y descuadraban la suma del registro vs el Disponible acumulado.
+  const ventas = items.filter(esVentaReal);    // registro = solo ventas/donaciones reales
   const asignados = items.filter(isAsig);            // solo Asignación de destino (para "Asignado hoy")
   const ventasReales = items.filter(esVentaReal);    // ventas/donaciones reales
 
