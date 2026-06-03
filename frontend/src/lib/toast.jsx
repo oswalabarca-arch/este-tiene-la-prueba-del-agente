@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useState } from "react";
+import { createContext, useCallback, useContext, useMemo, useState } from "react";
 
 const ToastCtx = createContext(null);
 
@@ -10,8 +10,10 @@ export function ToastProvider({ children }) {
     setTimeout(() => setToast(null), 2500);
   }, []);
 
+  const value = useMemo(() => ({ show }), [show]);
+
   return (
-    <ToastCtx.Provider value={{ show }}>
+    <ToastCtx.Provider value={value}>
       {children}
       {toast && (
         <div className="toast" data-testid="toast" style={{ background: toast.type === "error" ? "#dc2626" : "#0f172a" }}>
