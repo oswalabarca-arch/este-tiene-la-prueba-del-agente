@@ -601,6 +601,7 @@ CATEGORIAS_INSUMOS = ["fertilizantes", "plaguicidas", "fungicidas", "herbicidas"
 class CompraIn(BaseModel):
     categoria: str
     nombre_producto: str
+    ingrediente_activo: Optional[str] = ""
     precio: float
     cantidad: float
     unidad: str  # gramos | mililitros | kg | litros | unidades

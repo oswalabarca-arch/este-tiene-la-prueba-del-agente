@@ -70,7 +70,7 @@ export default function Compras() {
         </div>
         <table className="table">
           <thead>
-            <tr><th>Fecha</th><th>Categoría</th><th>Producto</th><th>Cantidad</th><th>Precio</th><th>Acciones</th></tr>
+            <tr><th>Fecha</th><th>Categoría</th><th>Producto</th><th>Ingrediente activo</th><th>Cantidad</th><th>Precio</th><th>Acciones</th></tr>
           </thead>
           <tbody>
             {filtered.map((c) => (
@@ -78,6 +78,7 @@ export default function Compras() {
                 <td>{new Date(c.fecha_compra).toLocaleDateString()}</td>
                 <td><span className="badge" style={catBadge(c.categoria)}>{c.categoria}</span></td>
                 <td>{c.nombre_producto}</td>
+                <td style={{ color: c.ingrediente_activo ? "#0f172a" : "#94a3b8" }} data-testid="compra-ingrediente-activo">{c.ingrediente_activo || "—"}</td>
                 <td>{c.cantidad} {c.unidad}</td>
                 <td>${c.precio}</td>
                 <td>
@@ -200,6 +201,7 @@ function CompraModal({ initial, compras = [], onClose, onSaved }) {
   const [form, setForm] = useState({
     categoria: "fertilizantes",
     nombre_producto: "",
+    ingrediente_activo: "",
     precio: 0,
     cantidad: 0,
     unidad: "Unidades",
@@ -295,6 +297,16 @@ function CompraModal({ initial, compras = [], onClose, onSaved }) {
                 ))}
               </div>
             )}
+          </div>
+          <div className="field">
+            <label>Ingrediente activo</label>
+            <input
+              className="input"
+              value={form.ingrediente_activo || ""}
+              onChange={(e) => setForm({ ...form, ingrediente_activo: e.target.value })}
+              placeholder="Ej: Glifosato, Clorpirifos..."
+              data-testid="compra-form-ingrediente"
+            />
           </div>
           <div className="field">
             <label>Cantidad</label>
