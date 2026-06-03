@@ -1049,8 +1049,9 @@ async def delete_gasto_vehiculo(gid: str, _: dict = Depends(get_current_user)):
 # ============================================================
 class InsumoItem(BaseModel):
     nombre_producto: str
-    cantidad: float
-    unidad: str
+    cantidad: float = 0
+    unidad: str = "Unidades"
+    dosis: Optional[str] = ""
     categoria: Optional[str] = ""
 
 

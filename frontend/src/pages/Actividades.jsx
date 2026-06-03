@@ -190,7 +190,7 @@ function PendienteCard({ aplicacion: a, lotesDisponibles, canEdit, onConfirmed }
   const [busy, setBusy] = useState(false);
   // Valores REALES que registra el operario (prellenados con la estimación de la ficha)
   const [aguaUsada, setAguaUsada] = useState(a.cantidad_agua || 0);
-  const [unidadesUsadas, setUnidadesUsadas] = useState(() => (a.insumos || []).map((i) => i.cantidad ?? 0));
+  const [unidadesUsadas, setUnidadesUsadas] = useState(() => (a.insumos || []).map((i) => i.cantidad || ""));
   const setUnidadUsada = (idx, val) => setUnidadesUsadas((prev) => prev.map((u, i) => (i === idx ? val : u)));
 
   const cat = catBadge(a.tipo);
@@ -212,6 +212,8 @@ function PendienteCard({ aplicacion: a, lotesDisponibles, canEdit, onConfirmed }
     if (!trabajadores || Number(trabajadores) < 1) { toast.show("Indica la cantidad de trabajadores", "error"); return; }
     if (!horas || Number(horas) <= 0) { toast.show("Indica las horas de trabajo", "error"); return; }
     if (!precioHora || Number(precioHora) <= 0) { toast.show("Indica el precio por hora", "error"); return; }
+    if (!(aguaReal > 0)) { toast.show("Indica los litros de agua usada", "error"); return; }
+    if (insumosReales.some((i) => !(i.cantidad > 0))) { toast.show("Indica las unidades usadas de cada producto", "error"); return; }
     if (!window.confirm(`¿Marcar como aplicada? Se descontarán los insumos del inventario y se registrará en Nómina y Plantaciones.`)) return;
     setBusy(true);
     try {
@@ -313,10 +315,10 @@ function PendienteCard({ aplicacion: a, lotesDisponibles, canEdit, onConfirmed }
         {/* Insumos estimados (informativos) */}
         {a.insumos?.length > 0 && (
           <div style={{ marginTop: 10 }}>
-            {a.insumos.map((i) => (
-              <div key={`${i.nombre_producto}-${i.cantidad}`} style={{ display: "flex", justifyContent: "space-between", background: "#f8fafc", padding: "6px 10px", borderRadius: 6, marginBottom: 4, fontSize: 13 }}>
+            {a.insumos.map((i, idx) => (
+              <div key={`${i.nombre_producto}-${idx}`} style={{ display: "flex", justifyContent: "space-between", background: "#f8fafc", padding: "6px 10px", borderRadius: 6, marginBottom: 4, fontSize: 13 }}>
                 <span>{i.nombre_producto}</span>
-                <span style={{ color: "#475569" }}>{i.cantidad} {i.unidad} <span style={{ color: "#94a3b8" }}>(estimado)</span></span>
+                <span style={{ color: "#475569" }}>{i.dosis ? <b>{i.dosis}</b> : `${i.cantidad} ${i.unidad}`} <span style={{ color: "#94a3b8" }}>(dosis indicada)</span></span>
               </div>
             ))}
           </div>
@@ -353,7 +355,7 @@ function PendienteCard({ aplicacion: a, lotesDisponibles, canEdit, onConfirmed }
               </label>
               {a.insumos.map((i, idx) => (
                 <div key={`${i.nombre_producto}-${idx}`} style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 8, alignItems: "center", marginBottom: 6 }}>
-                  <span style={{ fontSize: 13 }}>{i.nombre_producto} <span style={{ color: "#94a3b8", fontSize: 12 }}>· estimado: {i.cantidad} {i.unidad}</span></span>
+                  <span style={{ fontSize: 13 }}>{i.nombre_producto} <span style={{ color: "#94a3b8", fontSize: 12 }}>· {i.dosis ? `dosis: ${i.dosis}` : `estimado: ${i.cantidad} ${i.unidad}`}</span></span>
                   <DecimalInput type="number" step="0.01" min="0" className="input" placeholder={`Usadas (${i.unidad})`}
                     value={unidadesUsadas[idx]} onChange={(e) => setUnidadUsada(idx, e.target.value)}
                     data-testid={`pendiente-unidades-usadas-${a._id}-${idx}`} />

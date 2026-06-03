@@ -107,7 +107,7 @@ export default function Aplicaciones() {
     return m;
   }, [inventario]);
   const getIngredientes = (a) => [...new Set((a.insumos || []).map((i) => iaMap[(i.nombre_producto || "").toLowerCase()]).filter(Boolean))].join(", ");
-  const getDosis = (a) => (a.insumos || []).map((i) => `${i.cantidad} ${i.unidad}`).join(", ");
+  const getDosis = (a) => [...new Set((a.insumos || []).map((i) => (i.dosis || "").trim()).filter(Boolean))].join(", ");
 
   return (
     <div data-testid="aplicaciones-page">
@@ -209,7 +209,7 @@ export default function Aplicaciones() {
                     <td>{new Date(a.fecha).toLocaleDateString()}</td>
                     <td><span className="badge" style={catBadge(a.tipo)}>{a.tipo}</span></td>
                     <td><span className="badge badge-primary">{a.lote}</span></td>
-                    <td style={{ fontSize: 13, color: "#64748b" }}>{a.insumos?.map((i) => `${i.nombre_producto} ${i.cantidad}${i.unidad}`).join(", ") || "—"}</td>
+                    <td style={{ fontSize: 13, color: "#64748b" }}>{a.insumos?.map((i) => (i.cantidad > 0 ? `${i.nombre_producto} (${i.cantidad}${i.unidad})` : i.nombre_producto)).join(", ") || "—"}</td>
                     <td style={{ fontSize: 13, color: ing ? "#0f172a" : "#94a3b8" }} data-testid="aplic-ingrediente-activo">{ing || "—"}</td>
                     <td style={{ fontSize: 13, color: "#0f172a" }} data-testid="aplic-dosis">{getDosis(a) || "—"}</td>
                     <td style={{ fontSize: 13, color: a.observaciones ? "#475569" : "#94a3b8", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={a.observaciones || ""} data-testid="aplic-comentarios">{a.observaciones || "—"}</td>
@@ -301,8 +301,8 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
     observaciones: initial?.observaciones || "",
   });
   const initRows = initial?.insumos && initial.insumos.length > 0 && initial.subtipo !== "receta"
-    ? initial.insumos.slice(0, 3).map((i) => ({ _rid: nextRid(), nombre_producto: i.nombre_producto, cantidad: i.cantidad, unidad: UNIDAD }))
-    : [{ _rid: nextRid(), nombre_producto: "", cantidad: 0, unidad: UNIDAD }];
+    ? initial.insumos.slice(0, 3).map((i) => ({ _rid: nextRid(), nombre_producto: i.nombre_producto, dosis: i.dosis || "", unidad: UNIDAD }))
+    : [{ _rid: nextRid(), nombre_producto: "", dosis: "", unidad: UNIDAD }];
   const [productoRows, setProductoRows] = useState(initRows);
   const [loteInput, setLoteInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -325,7 +325,7 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
   };
   const addRow = () => {
     if (productoRows.length >= 3) return;
-    setProductoRows([...productoRows, { _rid: nextRid(), nombre_producto: "", cantidad: 0, unidad: UNIDAD }]);
+    setProductoRows([...productoRows, { _rid: nextRid(), nombre_producto: "", dosis: "", unidad: UNIDAD }]);
   };
   const removeRow = (i) => setProductoRows(productoRows.filter((_, idx) => idx !== i));
 
@@ -356,8 +356,8 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
         const r = recetas.find((x) => x._id === form.receta_id);
         insumos = r?.insumos || [];
       } else if (showProductos) {
-        insumos = productoRows.filter((r) => r.nombre_producto && r.cantidad > 0).map((r) => ({
-          nombre_producto: r.nombre_producto, cantidad: Number(r.cantidad), unidad: r.unidad, categoria: "",
+        insumos = productoRows.filter((r) => r.nombre_producto).map((r) => ({
+          nombre_producto: r.nombre_producto, cantidad: 0, unidad: UNIDAD, categoria: "", dosis: (r.dosis || "").trim(),
         }));
       }
       const payload = {
@@ -369,7 +369,7 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
         estado: form.estado || "pendiente",
         insumos,
         receta_id: form.receta_id || null,
-        cantidad_agua: Number(form.cantidad_agua || 0),
+        cantidad_agua: 0,
         modo_aplicacion: form.modo_aplicacion || null,
         observaciones: form.observaciones,
       };
@@ -404,7 +404,7 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
         <div className="form-grid">
           <div className="field">
             <label>Tipo de Aplicación *</label>
-            <select className="select" value={form.tipo} onChange={(e) => { setForm({ ...form, tipo: e.target.value, subtipo: "" }); setProductoRows([{ _rid: nextRid(), nombre_producto: "", cantidad: 0, unidad: UNIDAD }]); }} required data-testid="aplic-tipo">
+            <select className="select" value={form.tipo} onChange={(e) => { setForm({ ...form, tipo: e.target.value, subtipo: "" }); setProductoRows([{ _rid: nextRid(), nombre_producto: "", dosis: "", unidad: UNIDAD }]); }} required data-testid="aplic-tipo">
               <option value="">Selecciona tipo</option>
               <option value="fertilizacion">Fertilización</option>
               <option value="plaguicida">Plaguicida</option>
@@ -452,7 +452,7 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
                   title="Ingrediente activo del producto"
                   data-testid={`aplic-ingrediente-${i}`}
                   style={{ background: "#f8fafc", color: "#475569", cursor: "default" }} />
-                <DecimalInput type="number" className="input" placeholder="Dosis" value={row.cantidad || ""} onChange={(e) => updateRow(i, "cantidad", e.target.value)} />
+                <input className="input" type="text" placeholder="Dosis (ej: 2cc/L)" value={row.dosis || ""} onChange={(e) => updateRow(i, "dosis", e.target.value)} data-testid={`aplic-dosis-${i}`} />
                 {i === productoRows.length - 1 && productoRows.length < 3 ? (
                   <button type="button" className="btn btn-primary" onClick={addRow} style={{ padding: "8px 14px" }}><Plus size={16} /></button>
                 ) : (
@@ -479,10 +479,6 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
         )}
 
         <div className="form-grid" style={{ marginTop: 18 }}>
-          <div className="field">
-            <label>Cantidad de Agua (Litros) *</label>
-            <DecimalInput type="number" step="0.01" className="input" value={form.cantidad_agua || ""} onChange={(e) => setForm({ ...form, cantidad_agua: e.target.value })} required data-testid="aplic-agua" placeholder="" />
-          </div>
           <div className="field">
             <label>Modo de Aplicación *</label>
             <select className="select" value={form.modo_aplicacion} onChange={(e) => setForm({ ...form, modo_aplicacion: e.target.value })} required data-testid="aplic-modo">
