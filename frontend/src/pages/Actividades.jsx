@@ -188,11 +188,19 @@ function PendienteCard({ aplicacion: a, lotesDisponibles, canEdit, onConfirmed }
   const [lotesDestino, setLotesDestino] = useState(initialLotes);
   const [showDetalle, setShowDetalle] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Valores REALES que registra el operario (prellenados con la estimación de la ficha)
+  const [aguaUsada, setAguaUsada] = useState(a.cantidad_agua || 0);
+  const [unidadesUsadas, setUnidadesUsadas] = useState(() => (a.insumos || []).map((i) => i.cantidad ?? 0));
+  const setUnidadUsada = (idx, val) => setUnidadesUsadas((prev) => prev.map((u, i) => (i === idx ? val : u)));
 
   const cat = catBadge(a.tipo);
   const cantidadLotes = lotesDestino.length;
   const totalHorasHombre = Number(trabajadores) * Number(horas);
   const costoTotal = totalHorasHombre * Number(precioHora);
+  // Resuelve los valores reales (si el campo quedó vacío, cae al estimado de la ficha)
+  const num = (v, fallback) => (v === "" || v === null || v === undefined ? fallback : Number(v) || 0);
+  const aguaReal = num(aguaUsada, a.cantidad_agua || 0);
+  const insumosReales = (a.insumos || []).map((i, idx) => ({ ...i, cantidad: num(unidadesUsadas[idx], i.cantidad || 0) }));
 
   const toggleLote = (lote) => {
     setLotesDestino((prev) => prev.includes(lote) ? prev.filter((x) => x !== lote) : [...prev, lote]);
@@ -207,7 +215,7 @@ function PendienteCard({ aplicacion: a, lotesDisponibles, canEdit, onConfirmed }
     if (!window.confirm(`¿Marcar como aplicada? Se descontarán los insumos del inventario y se registrará en Nómina y Plantaciones.`)) return;
     setBusy(true);
     try {
-      // 1. Confirmar la aplicación (descuenta inventario)
+      // 1. Confirmar la aplicación (descuenta inventario con las UNIDADES REALES usadas)
       await api.put(`/aplicaciones/${a._id}`, {
         tipo: a.tipo,
         subtipo: a.subtipo || null,
@@ -216,9 +224,9 @@ function PendienteCard({ aplicacion: a, lotesDisponibles, canEdit, onConfirmed }
         lotes_destino: lotesDestino,
         fecha: a.fecha,
         estado: "confirmada",
-        insumos: a.insumos || [],
+        insumos: insumosReales,
         receta_id: a.receta_id || null,
-        cantidad_agua: a.cantidad_agua || 0,
+        cantidad_agua: aguaReal,
         modo_aplicacion: a.modo_aplicacion || null,
         observaciones: a.observaciones || "",
         cantidad_trabajadores: Number(trabajadores),
@@ -294,21 +302,21 @@ function PendienteCard({ aplicacion: a, lotesDisponibles, canEdit, onConfirmed }
           </div>
         )}
 
-        {/* Agua */}
+        {/* Agua estimada (informativa, viene de Aplicaciones) */}
         {a.cantidad_agua > 0 && (
           <div style={{ marginTop: 12, fontSize: 16 }}>
             <Droplets size={16} style={{ verticalAlign: "middle", color: "#0ea5e9" }} />{" "}
-            <b>{a.cantidad_agua} L</b> <span style={{ color: "#64748b", fontSize: 13 }}>de agua (total)</span>
+            <b>{a.cantidad_agua} L</b> <span style={{ color: "#64748b", fontSize: 13 }}>de agua (estimado por el ingeniero)</span>
           </div>
         )}
 
-        {/* Insumos */}
+        {/* Insumos estimados (informativos) */}
         {a.insumos?.length > 0 && (
           <div style={{ marginTop: 10 }}>
             {a.insumos.map((i) => (
               <div key={`${i.nombre_producto}-${i.cantidad}`} style={{ display: "flex", justifyContent: "space-between", background: "#f8fafc", padding: "6px 10px", borderRadius: 6, marginBottom: 4, fontSize: 13 }}>
                 <span>{i.nombre_producto}</span>
-                <span style={{ color: "#475569" }}>{i.cantidad} {i.unidad}</span>
+                <span style={{ color: "#475569" }}>{i.cantidad} {i.unidad} <span style={{ color: "#94a3b8" }}>(estimado)</span></span>
               </div>
             ))}
           </div>
@@ -324,6 +332,35 @@ function PendienteCard({ aplicacion: a, lotesDisponibles, canEdit, onConfirmed }
         {/* Registrar ejecución */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, color: "#16a34a", marginBottom: 10 }}>
           <CheckCircle size={16} /> Registrar ejecución
+        </div>
+
+        {/* Consumo REAL que registra el operario */}
+        <div style={{ marginBottom: 12, padding: 10, background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8 }}>
+          <div style={{ fontSize: 12, color: "#1e40af", fontWeight: 700, marginBottom: 8 }}>Consumo real (lo registra el operario)</div>
+          <div className="field" style={{ marginBottom: a.insumos?.length > 0 ? 10 : 0 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <Droplets size={13} style={{ color: "#0ea5e9" }} /> Litros total de agua usada *
+              {a.cantidad_agua > 0 && <span style={{ color: "#94a3b8", fontWeight: 400, fontSize: 12 }}>· estimado: {a.cantidad_agua} L</span>}
+            </label>
+            <DecimalInput type="number" step="0.01" min="0" className="input" value={aguaUsada}
+              onChange={(e) => setAguaUsada(e.target.value)} placeholder="Litros realmente usados"
+              data-testid={`pendiente-agua-usada-${a._id}`} />
+          </div>
+          {a.insumos?.length > 0 && (
+            <div>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "#334155", marginBottom: 6 }}>
+                Unidades usadas por producto *
+              </label>
+              {a.insumos.map((i, idx) => (
+                <div key={`${i.nombre_producto}-${idx}`} style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 8, alignItems: "center", marginBottom: 6 }}>
+                  <span style={{ fontSize: 13 }}>{i.nombre_producto} <span style={{ color: "#94a3b8", fontSize: 12 }}>· estimado: {i.cantidad} {i.unidad}</span></span>
+                  <DecimalInput type="number" step="0.01" min="0" className="input" placeholder={`Usadas (${i.unidad})`}
+                    value={unidadesUsadas[idx]} onChange={(e) => setUnidadUsada(idx, e.target.value)}
+                    data-testid={`pendiente-unidades-usadas-${a._id}-${idx}`} />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="form-grid" style={{ gap: 10 }}>
@@ -393,11 +430,11 @@ function PendienteCard({ aplicacion: a, lotesDisponibles, canEdit, onConfirmed }
         {lotesDestino.length > 1 && a.insumos?.length > 0 && (
           <div style={{ marginTop: 14, padding: 10, background: "#ecfdf5", border: "1px solid #6ee7b7", borderRadius: 8, fontSize: 13 }}>
             <div style={{ fontWeight: 700, color: "#065f46", marginBottom: 4 }}>Reparto entre {lotesDestino.length} lotes (cada uno):</div>
-            {a.insumos.map((i) => (
+            {insumosReales.map((i) => (
               <div key={`${i.nombre_producto}-${i.cantidad}`} style={{ color: "#065f46" }}>• {i.nombre_producto}: {(i.cantidad / lotesDestino.length).toFixed(2)} {i.unidad}</div>
             ))}
-            {a.cantidad_agua > 0 && (
-              <div style={{ color: "#065f46" }}>• Agua: {(a.cantidad_agua / lotesDestino.length).toFixed(1)} L</div>
+            {aguaReal > 0 && (
+              <div style={{ color: "#065f46" }}>• Agua: {(aguaReal / lotesDestino.length).toFixed(1)} L</div>
             )}
             {trabajadores > 0 && (
               <div style={{ color: "#065f46" }}>• Trabajadores: {(Number(trabajadores) / lotesDestino.length).toFixed(2)} · Horas: {horas} (por persona)</div>
@@ -407,6 +444,10 @@ function PendienteCard({ aplicacion: a, lotesDisponibles, canEdit, onConfirmed }
 
         {/* Totales */}
         <div style={{ marginTop: 12, padding: 10, background: "#f0fdf4", borderRadius: 8, fontSize: 13 }}>
+          <div>Total agua usada: <b style={{ color: "#15803d" }}>{Number(aguaReal || 0).toFixed(2)} L</b></div>
+          {insumosReales.length > 0 && (
+            <div>Total unidades usadas: <b style={{ color: "#15803d" }}>{insumosReales.map((i) => `${Number(i.cantidad || 0)} ${i.unidad} (${i.nombre_producto})`).join(" · ")}</b></div>
+          )}
           <div>Total horas-hombre: <b style={{ color: "#15803d" }}>{totalHorasHombre.toFixed(2)} h</b></div>
           {precioHora > 0 && (
             <div>Costo total de mano de obra: <b style={{ color: "#15803d" }}>${costoTotal.toFixed(2)}</b></div>
