@@ -83,7 +83,7 @@ export default function GastosSemana() {
               {open && (
                 <div style={{ marginTop: 12, borderTop: "1px solid var(--border)", paddingTop: 10 }} onClick={(e) => e.stopPropagation()} data-testid={`gastos-cat-detalle-${c.key}`}>
                   {c.items.map((it, i) => (
-                    <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 13, padding: "4px 0" }}>
+                    <div key={`${it.fecha}-${it.concepto}-${i}`} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 13, padding: "4px 0" }}>
                       <span style={{ color: "#475569", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={it.concepto}>
                         <span style={{ color: "#94a3b8", marginRight: 6 }}>{(it.fecha || "").slice(5, 10)}</span>{it.concepto}
                       </span>
