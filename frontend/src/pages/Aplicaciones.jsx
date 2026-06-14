@@ -301,7 +301,7 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
     observaciones: initial?.observaciones || "",
   });
   const initRows = initial?.insumos && initial.insumos.length > 0 && initial.subtipo !== "receta"
-    ? initial.insumos.slice(0, 3).map((i) => ({ _rid: nextRid(), nombre_producto: i.nombre_producto, dosis: i.dosis || "", unidad: UNIDAD }))
+    ? initial.insumos.slice(0, 5).map((i) => ({ _rid: nextRid(), nombre_producto: i.nombre_producto, dosis: i.dosis || "", unidad: UNIDAD }))
     : [{ _rid: nextRid(), nombre_producto: "", dosis: "", unidad: UNIDAD }];
   const [productoRows, setProductoRows] = useState(initRows);
   const [loteInput, setLoteInput] = useState("");
@@ -325,7 +325,7 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
     setProductoRows(rows);
   };
   const addRow = () => {
-    if (productoRows.length >= 3) return;
+    if (productoRows.length >= 5) return;
     setProductoRows([...productoRows, { _rid: nextRid(), nombre_producto: "", dosis: "", unidad: UNIDAD }]);
   };
   const removeRow = (i) => setProductoRows(productoRows.filter((_, idx) => idx !== i));
@@ -429,7 +429,7 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
         {showProductos && (
           <div style={{ marginTop: 18 }}>
             <label style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>
-              Productos (máx. 3){catFiltro && <span style={{ color: "#64748b", fontWeight: 500 }}> · categoría <b style={{ color: "#0f172a" }}>{catFiltro}</b> + <b style={{ color: "#0f172a" }}>otros</b> (pega, regulador de pH, etc.)</span>}
+              Productos (máx. 5){catFiltro && <span style={{ color: "#64748b", fontWeight: 500 }}> · categoría <b style={{ color: "#0f172a" }}>{catFiltro}</b> + <b style={{ color: "#0f172a" }}>otros</b> (pega, regulador de pH, etc.)</span>}
             </label>
             {productosDisponibles.length === 0 && (
               <div style={{ color: "#f59e0b", fontSize: 12, marginTop: 6 }} data-testid="aplic-productos-vacio">
