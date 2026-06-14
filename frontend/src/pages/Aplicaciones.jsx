@@ -35,6 +35,7 @@ export default function Aplicaciones() {
   const [showForm, setShowForm] = useState(false);
   const [showRecetaForm, setShowRecetaForm] = useState(false);
   const [viewReceta, setViewReceta] = useState(null);
+  const [editReceta, setEditReceta] = useState(null);
   const [viewAplic, setViewAplic] = useState(null);
   const [editAplic, setEditAplic] = useState(null);
   const [filtroTipo, setFiltroTipo] = useState("");
@@ -263,6 +264,9 @@ export default function Aplicaciones() {
                   )}
                   <div style={{ display: "flex", gap: 6, marginTop: "auto", paddingTop: 6 }}>
                     <button className="btn btn-sm" onClick={() => setViewReceta(r)} data-testid={`receta-view-${r._id}`}><Eye size={14} /> Ver</button>
+                    {canEdit("aplicaciones") && (
+                      <button className="btn btn-sm" onClick={() => setEditReceta(r)} data-testid={`receta-edit-${r._id}`}><Pencil size={14} /> Editar</button>
+                    )}
                     {canDelete("aplicaciones") && (
                       <button className="btn-icon" style={{ color: "#dc2626", marginLeft: "auto" }} onClick={() => removeReceta(r)} data-testid={`receta-delete-${r._id}`}><Trash2 size={16} /></button>
                     )}
@@ -278,6 +282,7 @@ export default function Aplicaciones() {
       {editAplic && <AplicacionForm initial={editAplic} inventario={inventario} plantaciones={plantaciones} recetas={recetas} onClose={() => setEditAplic(null)} onSaved={() => { setEditAplic(null); load(); }} />}
       {viewAplic && <AplicacionDetail aplicacion={viewAplic} recetas={recetas} onClose={() => setViewAplic(null)} />}
       {showRecetaForm && <RecetaForm inventario={inventario} onClose={() => setShowRecetaForm(false)} onSaved={() => { setShowRecetaForm(false); load(); toast.show("Receta creada"); }} />}
+      {editReceta && <RecetaForm initial={editReceta} inventario={inventario} onClose={() => setEditReceta(null)} onSaved={() => { setEditReceta(null); load(); toast.show("Receta actualizada"); }} />}
       {viewReceta && <RecetaDetail receta={viewReceta} onClose={() => setViewReceta(null)} />}
     </div>
   );
@@ -552,10 +557,19 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
   );
 }
 
-function RecetaForm({ inventario, onClose, onSaved }) {
+function RecetaForm({ initial, inventario, onClose, onSaved }) {
   const toast = useToast();
-  const [form, setForm] = useState({ nombre: "", cantidad_agua: "", observaciones: "" });
-  const [productoRows, setProductoRows] = useState([{ _rid: nextRid(), nombre_producto: "", cantidad: "", unidad: UNIDAD }]);
+  const isEdit = !!initial;
+  const [form, setForm] = useState({
+    nombre: initial?.nombre || "",
+    cantidad_agua: initial?.cantidad_agua ?? "",
+    observaciones: initial?.observaciones || "",
+  });
+  const [productoRows, setProductoRows] = useState(
+    initial?.insumos && initial.insumos.length > 0
+      ? initial.insumos.map((i) => ({ _rid: nextRid(), nombre_producto: i.nombre_producto, cantidad: i.cantidad, unidad: i.unidad || UNIDAD }))
+      : [{ _rid: nextRid(), nombre_producto: "", cantidad: "", unidad: UNIDAD }]
+  );
   const [busy, setBusy] = useState(false);
 
   const updateRow = (i, key, val) => {
@@ -576,21 +590,26 @@ function RecetaForm({ inventario, onClose, onSaved }) {
     if (insumos.length === 0) { toast.show("Agrega al menos un producto", "error"); return; }
     setBusy(true);
     try {
-      await api.post("/recetas", {
+      const payload = {
         nombre: form.nombre.trim(),
         cantidad_agua: Number(form.cantidad_agua),
         observaciones: form.observaciones,
         insumos,
-      });
+      };
+      if (isEdit) {
+        await api.put(`/recetas/${initial._id}`, payload);
+      } else {
+        await api.post("/recetas", payload);
+      }
       onSaved();
-    } catch { toast.show("Error al crear receta", "error"); }
+    } catch { toast.show("Error al guardar receta", "error"); }
     finally { setBusy(false); }
   };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <form className="modal" style={{ maxWidth: 760 }} onClick={(e) => e.stopPropagation()} onSubmit={guardar} data-testid="receta-modal">
-        <h2 className="modal-title">Nueva Receta</h2>
+        <h2 className="modal-title">{isEdit ? "Editar Receta" : "Nueva Receta"}</h2>
         <div className="modal-sub">Crea una receta reutilizable que podrás aplicar a cualquier lote</div>
 
         <div className="form-grid">
@@ -633,7 +652,7 @@ function RecetaForm({ inventario, onClose, onSaved }) {
 
         <div className="modal-footer">
           <button type="button" className="btn" onClick={onClose}>Cancelar</button>
-          <button type="submit" className="btn btn-primary" disabled={busy} data-testid="receta-form-submit">{busy ? "Guardando..." : "Guardar receta"}</button>
+          <button type="submit" className="btn btn-primary" disabled={busy} data-testid="receta-form-submit">{busy ? "Guardando..." : (isEdit ? "Guardar cambios" : "Guardar receta")}</button>
         </div>
       </form>
     </div>
