@@ -1911,6 +1911,21 @@ async def _build_estado_resultados(anio: int, mes: Optional[int]) -> dict:
         if _en_periodo(g.get("fecha"), anio, mes):
             gastos_vehiculo += float(g.get("monto") or 0)
 
+    # COSECHA: kg cosechados y kg de descarte en el período (para costos por kg)
+    kg_cosechados = 0.0
+    kg_descarte = 0.0
+    for c in await db.cosechas.find({}).to_list(20000):
+        if not _en_periodo(c.get("fecha_cosecha"), anio, mes):
+            continue
+        suma = (c.get("primera_calidad", 0) or 0) + (c.get("segunda_calidad", 0) or 0) + (c.get("tercera_calidad", 0) or 0) + (c.get("descarte", 0) or 0)
+        desc = c.get("descarte", 0) or 0
+        mult = 1 if c.get("unidad") == "kg" else KG_POR_CESTA
+        kg_cosechados += suma * mult
+        kg_descarte += desc * mult
+    kg_cosechados = round(kg_cosechados, 2)
+    kg_descarte = round(kg_descarte, 2)
+    kg_vendible = round(kg_cosechados - kg_descarte, 2)
+
     # Valores guardados del periodo (manuales + snapshot de salarios congelado)
     doc = await db.estado_resultados.find_one({"anio": anio, "mes": mes})
     otros_ingresos = float(doc.get("otros_ingresos", 0)) if doc else 0.0
@@ -1934,6 +1949,7 @@ async def _build_estado_resultados(anio: int, mes: Optional[int]) -> dict:
         "ingresos": {"ventas_fresa": round(ventas_fresa, 2), "otros_ingresos": round(otros_ingresos, 2), "total": total_ingresos},
         "costo_ventas": {"fertilizantes_agroquimicos": round(fert_agro, 2), "mano_obra": round(mano_obra, 2), "total": total_costo_ventas},
         "gastos_operativos": {"salarios": round(salarios, 2), "gastos_vehiculo": round(gastos_vehiculo, 2), "software_erp": round(software_erp, 2), "total": total_gastos_op},
+        "cosecha": {"kg_cosechados": kg_cosechados, "kg_descarte": kg_descarte, "kg_vendible": kg_vendible},
         "utilidad_bruta": utilidad_bruta,
         "utilidad_operativa": utilidad_operativa,
     }
