@@ -234,9 +234,9 @@ export default function Aplicaciones() {
       {tab === "recetas" && (
         <div className="card">
           <h3 style={{ marginTop: 0 }}>Recetas guardadas</h3>
-          <p style={{ color: "#64748b", marginTop: -8, fontSize: 13 }}>Recetas reutilizables que podés seleccionar al crear una aplicación "por receta".</p>
+          <p style={{ color: "#64748b", marginTop: -8, fontSize: 13 }}>Recetas reutilizables que podés seleccionar al crear una aplicación &quot;por receta&quot;.</p>
           {recetas.length === 0 ? (
-            <div className="empty-state" data-testid="recetas-empty">No hay recetas guardadas todavía. Crea tu primera receta con el botón "Nueva Receta".</div>
+            <div className="empty-state" data-testid="recetas-empty">No hay recetas guardadas todavía. Crea tu primera receta con el botón &quot;Nueva Receta&quot;.</div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
               {recetas.map((r) => (
@@ -259,7 +259,7 @@ export default function Aplicaciones() {
                     </div>
                   )}
                   {r.observaciones && (
-                    <div style={{ fontSize: 12, color: "#64748b", fontStyle: "italic" }}>"{r.observaciones}"</div>
+                    <div style={{ fontSize: 12, color: "#64748b", fontStyle: "italic" }}>&quot;{r.observaciones}&quot;</div>
                   )}
                   <div style={{ display: "flex", gap: 6, marginTop: "auto", paddingTop: 6 }}>
                     <button className="btn btn-sm" onClick={() => setViewReceta(r)} data-testid={`receta-view-${r._id}`}><Eye size={14} /> Ver</button>
@@ -311,9 +311,10 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
   const isReceta = requiresSubtipo && form.subtipo === "receta";
   const showProductos = form.tipo && (!requiresSubtipo || form.subtipo === "producto");
 
-  // Productos seleccionables: solo los del inventario cuya categoría coincide con el tipo elegido
+  // Productos seleccionables: los de la categoría del tipo elegido + los de categoría "otros"
+  // (ej: pega/adherente, regulador de pH) que se pueden añadir a cualquier aplicación.
   const catFiltro = TIPO_TO_CAT[form.tipo];
-  const productosDisponibles = inventario.filter((x) => x.existencia && (!catFiltro || x.categoria === catFiltro));
+  const productosDisponibles = inventario.filter((x) => x.existencia && (!catFiltro || x.categoria === catFiltro || x.categoria === "otros"));
   // Mapa producto -> ingrediente activo
   const iaMap = {};
   inventario.forEach((x) => { if (x.nombre_producto) iaMap[x.nombre_producto.toLowerCase()] = x.ingrediente_activo || ""; });
@@ -428,11 +429,11 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
         {showProductos && (
           <div style={{ marginTop: 18 }}>
             <label style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>
-              Productos (máx. 3){catFiltro && <span style={{ color: "#64748b", fontWeight: 500 }}> · solo de categoría <b style={{ color: "#0f172a" }}>{catFiltro}</b></span>}
+              Productos (máx. 3){catFiltro && <span style={{ color: "#64748b", fontWeight: 500 }}> · categoría <b style={{ color: "#0f172a" }}>{catFiltro}</b> + <b style={{ color: "#0f172a" }}>otros</b> (pega, regulador de pH, etc.)</span>}
             </label>
             {productosDisponibles.length === 0 && (
               <div style={{ color: "#f59e0b", fontSize: 12, marginTop: 6 }} data-testid="aplic-productos-vacio">
-                No hay productos disponibles de categoría "{catFiltro}" en el inventario.
+                No hay productos disponibles de categoría &quot;{catFiltro}&quot; ni &quot;otros&quot; en el inventario.
               </div>
             )}
             {productoRows.map((row, i) => (
@@ -444,7 +445,7 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
                   setProductoRows(rows);
                 }}>
                   <option value="">Producto</option>
-                  {productosDisponibles.map((p) => <option key={p.nombre_producto} value={p.nombre_producto}>{p.nombre_producto} ({p.total_disponible} {UNIDAD})</option>)}
+                  {productosDisponibles.map((p) => <option key={p.nombre_producto} value={p.nombre_producto}>{p.nombre_producto} · {p.categoria} ({p.total_disponible} {UNIDAD})</option>)}
                 </select>
                 <input className="input" readOnly tabIndex={-1}
                   value={iaMap[(row.nombre_producto || "").toLowerCase()] || ""}
@@ -472,7 +473,7 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
             </select>
             {recetas.length === 0 && (
               <div style={{ color: "#f59e0b", fontSize: 12, marginTop: 4 }}>
-                No tenés recetas guardadas. Crealas desde la pestaña "Recetas".
+                No tenés recetas guardadas. Crealas desde la pestaña &quot;Recetas&quot;.
               </div>
             )}
           </div>
