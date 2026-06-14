@@ -228,6 +228,7 @@ function PendienteCard({ aplicacion: a, lotesDisponibles, canEdit, onConfirmed }
         estado: "confirmada",
         insumos: insumosReales,
         receta_id: a.receta_id || null,
+        receta_nombre: a.receta_nombre || "",
         cantidad_agua: aguaReal,
         modo_aplicacion: a.modo_aplicacion || null,
         observaciones: a.observaciones || "",

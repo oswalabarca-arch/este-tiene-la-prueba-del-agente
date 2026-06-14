@@ -1068,6 +1068,7 @@ class AplicacionIn(BaseModel):
     modo_aplicacion: Optional[str] = None  # foliar | suelo | riego | drench
     observaciones: str = ""
     receta_id: Optional[str] = None
+    receta_nombre: Optional[str] = ""  # snapshot del nombre de la receta al crear (no cambia si luego se edita la receta)
     # Datos de ejecución (se llenan al confirmar desde Pendientes)
     cantidad_trabajadores: int = 0
     horas_trabajo: float = 0  # horas por trabajador

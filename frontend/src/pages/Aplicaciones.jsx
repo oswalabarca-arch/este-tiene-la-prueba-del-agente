@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
-import { Droplets, Plus, Trash2, BookOpen, X, CheckCircle, Clock, Eye, Pencil } from "lucide-react";
+import { Droplets, Plus, Trash2, BookOpen, X, CheckCircle, Clock, Eye, Pencil, Search } from "lucide-react";
 import { catBadge, catPill } from "../lib/categoryColors";
 import { todayLocal, toLocalDateStr } from "../lib/dates";
 import { PeriodPicker, currentMonthStr, currentYearStr } from "../components/PeriodPicker";
@@ -39,6 +39,7 @@ export default function Aplicaciones() {
   const [viewAplic, setViewAplic] = useState(null);
   const [editAplic, setEditAplic] = useState(null);
   const [filtroTipo, setFiltroTipo] = useState("");
+  const [busqueda, setBusqueda] = useState("");
   const [filtroPeriodo, setFiltroPeriodo] = useState("todos");
   const [mesSel, setMesSel] = useState(currentMonthStr);
   const [anioSel, setAnioSel] = useState(currentYearStr);
@@ -94,13 +95,6 @@ export default function Aplicaciones() {
     return true;
   };
 
-  const filtered = items.filter((a) => (filtroTipo ? a.tipo === filtroTipo : true) && inPeriodo(a.fecha));
-  const aplicYearSet = new Set(items.map((a) => { const d = new Date(a.fecha); return isNaN(d.getTime()) ? null : String(d.getFullYear()); }).filter(Boolean));
-  aplicYearSet.add(currentYearStr());
-  const aplicYears = [...aplicYearSet].sort((a, b) => b.localeCompare(a));
-  const confirmadas = items.filter((a) => a.estado === "confirmada").length;
-  const pendientes = items.filter((a) => a.estado !== "confirmada").length;
-
   // Mapa producto -> ingrediente activo (desde el inventario)
   const iaMap = useMemo(() => {
     const m = {};
@@ -109,6 +103,19 @@ export default function Aplicaciones() {
   }, [inventario]);
   const getIngredientes = (a) => [...new Set((a.insumos || []).map((i) => iaMap[(i.nombre_producto || "").toLowerCase()]).filter(Boolean))].join(", ");
   const getDosis = (a) => [...new Set((a.insumos || []).map((i) => (i.dosis || "").trim()).filter(Boolean))].join(", ");
+
+  const matchesBusqueda = (a) => {
+    const q = busqueda.trim().toLowerCase();
+    if (!q) return true;
+    const prods = (a.insumos || []).map((i) => (i.nombre_producto || "").toLowerCase()).join(" ");
+    return prods.includes(q) || getIngredientes(a).toLowerCase().includes(q);
+  };
+  const filtered = items.filter((a) => (filtroTipo ? a.tipo === filtroTipo : true) && inPeriodo(a.fecha) && matchesBusqueda(a));
+  const aplicYearSet = new Set(items.map((a) => { const d = new Date(a.fecha); return isNaN(d.getTime()) ? null : String(d.getFullYear()); }).filter(Boolean));
+  aplicYearSet.add(currentYearStr());
+  const aplicYears = [...aplicYearSet].sort((a, b) => b.localeCompare(a));
+  const confirmadas = items.filter((a) => a.estado === "confirmada").length;
+  const pendientes = items.filter((a) => a.estado !== "confirmada").length;
 
   return (
     <div data-testid="aplicaciones-page">
@@ -160,6 +167,10 @@ export default function Aplicaciones() {
           </div>
 
           <div className="card" style={{ marginBottom: 18 }}>
+            <div style={{ position: "relative", maxWidth: 380, marginBottom: 14 }}>
+              <Search size={16} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
+              <input className="input" style={{ paddingLeft: 34 }} placeholder="Buscar por producto o ingrediente activo..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)} data-testid="aplic-buscar" />
+            </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
               <div>
                 <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 600, marginBottom: 6 }}>Periodo</div>
@@ -358,9 +369,11 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
     setBusy(true);
     try {
       let insumos = [];
+      let recetaNombre = "";
       if (isReceta) {
         const r = recetas.find((x) => x._id === form.receta_id);
         insumos = r?.insumos || [];
+        recetaNombre = r?.nombre || "";
       } else if (showProductos) {
         insumos = productoRows.filter((r) => r.nombre_producto).map((r) => ({
           nombre_producto: r.nombre_producto, cantidad: 0, unidad: UNIDAD, categoria: "", dosis: (r.dosis || "").trim(),
@@ -375,6 +388,7 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
         estado: form.estado || "pendiente",
         insumos,
         receta_id: form.receta_id || null,
+        receta_nombre: recetaNombre || initial?.receta_nombre || "",
         cantidad_agua: 0,
         modo_aplicacion: form.modo_aplicacion || null,
         observaciones: form.observaciones,
@@ -707,7 +721,7 @@ function RecetaDetail({ receta, onClose }) {
 
 function AplicacionDetail({ aplicacion, recetas, onClose }) {
   const a = aplicacion;
-  const receta = a.receta_id ? recetas.find((r) => r._id === a.receta_id) : null;
+  const recetaNombre = a.receta_nombre || (a.receta_id ? recetas.find((r) => r._id === a.receta_id)?.nombre : "");
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" style={{ maxWidth: 640 }} onClick={(e) => e.stopPropagation()} data-testid="aplicacion-detail">
@@ -745,9 +759,9 @@ function AplicacionDetail({ aplicacion, recetas, onClose }) {
           </div>
         </div>
 
-        {receta && (
+        {recetaNombre && (
           <div style={{ marginTop: 16, padding: 10, background: "#f5f3ff", borderRadius: 6, border: "1px solid #ddd6fe" }}>
-            <div style={{ fontSize: 12, color: "#7c3aed", fontWeight: 600 }}><BookOpen size={12} style={{ verticalAlign: "middle" }} /> Aplicada con receta: {receta.nombre}</div>
+            <div style={{ fontSize: 12, color: "#7c3aed", fontWeight: 600 }}><BookOpen size={12} style={{ verticalAlign: "middle" }} /> Aplicada con receta: {recetaNombre}</div>
           </div>
         )}
 
