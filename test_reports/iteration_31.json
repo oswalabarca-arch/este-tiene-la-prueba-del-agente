@@ -1,0 +1,26 @@
+{
+  "summary": "Testing completo del módulo 'Estado de Resultados' (Analíticas). Backend 4/4 tests OK (pytest). Frontend 8/8 flujos OK (Playwright). GET mensual 2026-06 devuelve fert=46.8, mano=16.25, salarios=6000 (match con curl previo). Anual = mensual×12 (72000). Totales calculados en UI cuadran con fórmulas. Inputs manuales (otros_ingresos, software_erp) actualizan totales EN VIVO antes de guardar. POST persiste otros_ingresos y software_erp; tras recargar siguen los valores; badge cambia a 'Registrado'; subtítulo 'congelado al registrar' aparece bajo Salarios. Verificado que las colecciones ventas_*, aplicaciones, actividades, gastos_vehiculos, trabajadores NO se modifican al hacer POST (solo lectura confirmado). Sin pantalla blanca ni crash. Cleanup: eliminé 3 docs de prueba (2027, 2099) de estado_resultados.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_estado_resultados.py",
+    "/app/test_reports/pytest/estado_resultados.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Analiticas.jsx: implementación limpia con useCallback para evitar loops; totales en vivo calculados en render (líneas 53-60). OK.",
+    "server.py _build_estado_resultados (L1885-1939): solo usa find({}) en otras colecciones, no hace update/delete sobre ellas. Confirmado solo-lectura.",
+    "Sugerencia menor (no bloqueante): server.py L1922 — al calcular salarios anuales no-registrados se hace base*12, pero ese factor *12 también aplicaría aunque algún trabajador haya sido dado de alta/baja durante el año (se asume snapshot uniforme). Esto está documentado y aceptado en el alcance del módulo.",
+    "Sugerencia menor: Analiticas.jsx L25-26 setOtrosIngresos(r.data.ingresos.otros_ingresos || 0) — si el valor guardado es 0 lo muestra como '0' literal en el input vacío esperado. Funcionalmente correcto."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_estado_resultados.py (nuevo)"
+  ],
+  "success_rate": {"backend": "100% (4/4)", "frontend": "100% (8/8)"},
+  "test_credentials": "Admin: oswaldabarca@gmail.com / 123456",
+  "seed_data_creation": "Se crearon 3 docs en estado_resultados durante el POST test (años 2027 y 2099) y se eliminaron al final del run. Ningún módulo de Ventas/Aplicaciones/Actividades/Vehículos/Trabajadores fue afectado.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Módulo Estado de Resultados verificado completamente (cálculos, filtros mensual/anual, congelamiento de salarios, persistencia, solo-lectura). El test_estado_resultados.py queda como regresión. Si se modifica el cálculo PEPS o se agregan nuevas fuentes de ventas/costos, re-correr este test.",
+  "rca of the issue": "N/A — sin issues encontrados."
+}
