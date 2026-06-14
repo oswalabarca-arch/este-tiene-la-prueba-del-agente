@@ -1,226 +1,189 @@
 import { useEffect, useState, useCallback } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
-import { BarChart3, Wallet, User, Phone, Search, ChevronRight, CreditCard, X, Calendar } from "lucide-react";
+import { FileBarChart, Save, Lock, TrendingUp, TrendingDown } from "lucide-react";
 
-const fmtMoney = (n) => "US$ " + Number(n || 0).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const fmtDate = (s) => { try { return new Date(s).toLocaleDateString("es-ES"); } catch { return s || "—"; } };
+const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+const fmt = (n) => "US$ " + Number(n || 0).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function Analiticas() {
-  const [resumen, setResumen] = useState(null);
-  const [cxc, setCxc] = useState(null);
-  const [search, setSearch] = useState("");
-  const [detalleCliente, setDetalleCliente] = useState(null); // {cliente, telefono}
-
-  const loadCxc = useCallback(() => {
-    api.get("/analiticas/cuentas-por-cobrar").then((r) => setCxc(r.data));
-  }, []);
-
-  useEffect(() => {
-    api.get("/analiticas/resumen").then((r) => setResumen(r.data));
-    loadCxc();
-  }, [loadCxc]);
-
-  if (!resumen) return <div className="page-subtitle">Cargando...</div>;
-
-  const cuentas = (cxc?.cuentas || []).filter((c) =>
-    !search || `${c.cliente} ${c.telefono}`.toLowerCase().includes(search.toLowerCase())
-  );
-
-  return (
-    <div data-testid="analiticas-page">
-      <h1 className="page-title"><BarChart3 size={24} style={{ verticalAlign: "middle", color: "#8b5cf6" }} /> Analíticas</h1>
-      <p className="page-subtitle">Métricas globales del sistema agrícola.</p>
-
-      <div className="kpi-grid" style={{ marginBottom: 18 }}>
-        <Box label="Cosechado total (kg)" value={resumen.total_kg_cosechado} color="#16a34a" />
-        <Box label="Primera calidad (kg)" value={resumen.total_primera_calidad_kg} color="#3b82f6" />
-        <Box label="Descarte (kg)" value={resumen.total_descarte_kg} color="#dc2626" />
-        <Box label="% Primera calidad" value={resumen.total_kg_cosechado ? ((resumen.total_primera_calidad_kg / resumen.total_kg_cosechado) * 100).toFixed(1) + "%" : "0%"} color="#16a34a" />
-      </div>
-
-      <div className="kpi-grid">
-        <Box label="Plantaciones" value={resumen.n_plantaciones} color="#16a34a" />
-        <Box label="Usuarios" value={resumen.n_usuarios} color="#3b82f6" />
-        <Box label="Aplicaciones registradas" value={resumen.n_aplicaciones} color="#8b5cf6" />
-        <Box label="Actividades registradas" value={resumen.n_actividades} color="#f59e0b" />
-      </div>
-
-      {/* Inversión en insumos */}
-      <div style={{ marginTop: 28 }}>
-        <h2 style={{ display: "flex", alignItems: "center", gap: 8, margin: "0 0 4px" }}>
-          <Wallet size={22} style={{ color: "#16a34a" }} /> Inversión en insumos
-        </h2>
-        <p className="page-subtitle" style={{ marginTop: 0 }}>Gasto en insumos: compras + entradas manuales de inventario.</p>
-        <div className="kpi-grid" data-testid="analiticas-inversion">
-          <Box label="Inversión total en insumos" value={fmtMoney(resumen.inversion_insumos_total)} color="#16a34a" />
-          <Box label="Compras de insumos" value={fmtMoney(resumen.inversion_compras)} color="#3b82f6" />
-          <Box label="Entradas manuales" value={fmtMoney(resumen.inversion_entradas_manuales)} color="#7c3aed" />
-        </div>
-      </div>
-
-      {/* Cuentas por cobrar */}
-      <div style={{ marginTop: 28 }}>
-        <h2 style={{ display: "flex", alignItems: "center", gap: 8, margin: "0 0 4px" }}>
-          <Wallet size={22} style={{ color: "#dc2626" }} /> Cuentas por cobrar
-        </h2>
-        <p className="page-subtitle" style={{ marginTop: 0 }}>Deuda agrupada por cliente (Venta en finca + Envío a ciudad).</p>
-
-        <div className="kpi-grid" style={{ marginBottom: 16 }}>
-          <Box label="Deuda total" value={fmtMoney(cxc?.total_deuda)} color="#dc2626" />
-          <Box label="Total vendido (con deuda)" value={fmtMoney(cxc?.total_vendido)} color="#0f172a" />
-          <Box label="Total cobrado" value={fmtMoney(cxc?.total_cobrado)} color="#3b82f6" />
-          <Box label="Deudores" value={cxc?.n_deudores ?? 0} color="#f59e0b" />
-        </div>
-
-        <div className="card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
-            <h3 style={{ margin: 0 }}>Deuda por cliente</h3>
-            <div style={{ position: "relative", width: 280, maxWidth: "100%" }}>
-              <Search size={15} style={{ position: "absolute", left: 10, top: 11, color: "#94a3b8" }} />
-              <input className="input" style={{ paddingLeft: 32 }} placeholder="Buscar cliente o teléfono..." value={search} onChange={(e) => setSearch(e.target.value)} data-testid="cxc-buscar" />
-            </div>
-          </div>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Cliente</th><th>Teléfono</th><th>Origen</th><th>Ventas</th>
-                <th>Total vendido</th><th>Abonado</th><th>Saldo / Deuda</th><th>Días</th><th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {cuentas.map((c, i) => (
-                <tr key={c.cliente || i} data-testid="cxc-row" onClick={() => setDetalleCliente({ cliente: c.cliente, telefono: c.telefono })} style={{ cursor: "pointer" }} title="Ver ventas pendientes y registrar abonos">
-                  <td><span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 600 }}><User size={14} style={{ color: "#94a3b8" }} /> {c.cliente}</span></td>
-                  <td>{c.telefono ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Phone size={13} style={{ color: "#94a3b8" }} /> {c.telefono}</span> : "—"}</td>
-                  <td>{c.modulos.map((m) => <span key={m} className="badge" style={{ background: "#ede9fe", color: "#7c3aed", marginRight: 4 }}>{m}</span>)}</td>
-                  <td>{c.n_ventas}</td>
-                  <td>{fmtMoney(c.total_vendido)}</td>
-                  <td style={{ color: "#3b82f6" }}>{fmtMoney(c.total_abonado)}</td>
-                  <td style={{ color: "#dc2626", fontWeight: 700 }}>{fmtMoney(c.saldo)}</td>
-                  <td><span className="badge" style={{ background: c.dias_max >= 30 ? "#fee2e2" : "#f1f5f9", color: c.dias_max >= 30 ? "#dc2626" : "#475569" }}>{c.dias_max}d</span></td>
-                  <td style={{ textAlign: "right" }}><ChevronRight size={16} style={{ color: "#94a3b8" }} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {cuentas.length === 0 && <div className="empty-state">{search ? "Sin coincidencias" : "No hay deudas pendientes. ¡Todo cobrado!"}</div>}
-        </div>
-      </div>
-
-      {detalleCliente && (
-        <CxcDetalleModal
-          cliente={detalleCliente.cliente}
-          telefono={detalleCliente.telefono}
-          onClose={() => setDetalleCliente(null)}
-          onAbonoRegistrado={loadCxc}
-        />
-      )}
-    </div>
-  );
-}
-
-function CxcDetalleModal({ cliente, telefono, onClose, onAbonoRegistrado }) {
   const toast = useToast();
+  const now = new Date();
+  const [modo, setModo] = useState("mensual");
+  const [anio, setAnio] = useState(now.getFullYear());
+  const [mes, setMes] = useState(now.getMonth() + 1);
   const [data, setData] = useState(null);
-  const [abonando, setAbonando] = useState(null); // venta seleccionada
-  const [monto, setMonto] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [otrosIngresos, setOtrosIngresos] = useState("");
+  const [softwareErp, setSoftwareErp] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const load = useCallback(() => {
-    api.get("/analiticas/cuentas-por-cobrar/detalle", { params: { cliente, telefono } })
-      .then((r) => setData(r.data));
-  }, [cliente, telefono]);
+    const params = { anio };
+    if (modo === "mensual") params.mes = mes;
+    api.get("/analiticas/estado-resultados", { params }).then((r) => {
+      setData(r.data);
+      setOtrosIngresos(r.data.ingresos.otros_ingresos || 0);
+      setSoftwareErp(r.data.gastos_operativos.software_erp || 0);
+    });
+  }, [modo, anio, mes]);
 
   useEffect(() => { load(); }, [load]);
 
-  const registrarAbono = async (v) => {
-    const m = Number(monto);
-    if (!m || m <= 0) { toast.show("Ingresa un monto de abono válido", "error"); return; }
-    const nuevo = Math.min((v.abono_inicial || 0) + m, v.total || 0);
-    setBusy(true);
+  const guardar = async () => {
+    setSaving(true);
     try {
-      await api.put(`/ventas-${v._tipo}/${v._id}`, {
-        fecha: v.fecha, cantidad_cestas: v.cantidad_cestas, cantidad_kg: v.cantidad_kg,
-        precio_unitario: v.precio_unitario, total: v.total, cliente,
-        telefono, abono_inicial: nuevo, observaciones: v.observaciones,
+      const r = await api.post("/analiticas/estado-resultados", {
+        anio: Number(anio),
+        mes: modo === "mensual" ? Number(mes) : null,
+        otros_ingresos: Number(otrosIngresos) || 0,
+        software_erp: Number(softwareErp) || 0,
       });
-      toast.show("Abono registrado");
-      setAbonando(null); setMonto("");
-      load();
-      onAbonoRegistrado && onAbonoRegistrado();
-    } catch (e) {
-      toast.show(e?.response?.data?.detail || "Error al registrar abono", "error");
-    } finally {
-      setBusy(false);
-    }
+      setData(r.data);
+      toast.show("Período registrado · salarios congelados");
+    } catch { toast.show("Error al guardar", "error"); }
+    finally { setSaving(false); }
   };
 
-  return (
-    <div className="modal-overlay" onClick={onClose} data-testid="cxc-detalle-modal">
-      <div className="modal" style={{ maxWidth: 720 }} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-          <div>
-            <h2 className="modal-title" style={{ marginBottom: 2 }}><User size={18} style={{ verticalAlign: "middle", color: "#94a3b8" }} /> {cliente}</h2>
-            <div className="page-subtitle" style={{ margin: 0 }}>{telefono ? `Tel: ${telefono} · ` : ""}Ventas pendientes de cobro</div>
-          </div>
-          <button className="btn-icon" onClick={onClose} data-testid="cxc-detalle-cerrar"><X size={18} /></button>
-        </div>
+  if (!data) return <div className="page-subtitle">Cargando...</div>;
 
-        {!data ? <div className="page-subtitle">Cargando...</div> : (
-          <>
-            <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "10px 14px", marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ color: "#991b1b", fontWeight: 600 }}>Saldo total pendiente</span>
-              <span style={{ color: "#dc2626", fontWeight: 800, fontSize: 18 }} data-testid="cxc-detalle-saldo-total">{fmtMoney(data.saldo_total)}</span>
-            </div>
-            <div style={{ maxHeight: "50vh", overflowY: "auto" }}>
-              <table className="table">
-                <thead>
-                  <tr><th>Fecha</th><th>Origen</th><th>Total</th><th>Abonado</th><th>Saldo</th><th>Días</th><th style={{ textAlign: "right" }}>Acción</th></tr>
-                </thead>
-                <tbody>
-                  {data.ventas.map((v) => (
-                    abonando && abonando._id === v._id ? (
-                      <tr key={v._id} data-testid="cxc-venta-row">
-                        <td colSpan={7} style={{ background: "#f8fafc" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "4px 0" }}>
-                            <span style={{ fontSize: 13 }}>Abonar a venta del <b>{fmtDate(v.fecha)}</b> · Saldo <b style={{ color: "#dc2626" }}>{fmtMoney(v.saldo)}</b></span>
-                            <input className="input" style={{ width: 140 }} type="number" min="0" step="0.01" placeholder="Monto $" value={monto} onChange={(e) => setMonto(e.target.value)} autoFocus data-testid="cxc-abono-monto" />
-                            <button className="btn btn-primary" onClick={() => registrarAbono(v)} disabled={busy} data-testid="cxc-abono-confirmar">{busy ? "..." : "Registrar abono"}</button>
-                            <button className="btn" onClick={() => { setAbonando(null); setMonto(""); }} data-testid="cxc-abono-cancelar">Cancelar</button>
-                          </div>
-                        </td>
-                      </tr>
-                    ) : (
-                      <tr key={v._id} data-testid="cxc-venta-row">
-                        <td><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Calendar size={13} style={{ color: "#94a3b8" }} /> {fmtDate(v.fecha)}</span></td>
-                        <td><span className="badge" style={{ background: "#ede9fe", color: "#7c3aed" }}>{v._modulo}</span></td>
-                        <td>{fmtMoney(v.total)}</td>
-                        <td style={{ color: "#3b82f6" }}>{fmtMoney(v.abono_inicial)}</td>
-                        <td style={{ color: "#dc2626", fontWeight: 700 }}>{fmtMoney(v.saldo)}</td>
-                        <td><span className="badge" style={{ background: v.dias >= 30 ? "#fee2e2" : "#f1f5f9", color: v.dias >= 30 ? "#dc2626" : "#475569" }}>{v.dias}d</span></td>
-                        <td style={{ textAlign: "right" }}>
-                          <button className="btn-icon" style={{ color: "#3b82f6" }} title="Registrar abono" onClick={() => { setAbonando(v); setMonto(""); }} data-testid="cxc-abonar-btn"><CreditCard size={16} /></button>
-                        </td>
-                      </tr>
-                    )
-                  ))}
-                </tbody>
-              </table>
-              {data.ventas.length === 0 && <div className="empty-state" data-testid="cxc-detalle-vacio">Este cliente ya no tiene ventas pendientes.</div>}
-            </div>
-          </>
+  const years = [];
+  for (let y = now.getFullYear() + 1; y >= now.getFullYear() - 5; y--) years.push(y);
+
+  // Totales en vivo (reflejan los campos manuales mientras se escriben, antes de guardar)
+  const oi = Number(otrosIngresos) || 0;
+  const se = Number(softwareErp) || 0;
+  const totalIngresos = data.ingresos.ventas_fresa + oi;
+  const totalCosto = data.costo_ventas.total;
+  const totalGastosOp = data.gastos_operativos.salarios + data.gastos_operativos.gastos_vehiculo + se;
+  const utilidadBruta = totalIngresos - totalCosto;
+  const utilidadOperativa = utilidadBruta - totalGastosOp;
+  const periodoLabel = modo === "mensual" ? `${MESES[mes - 1]} ${anio}` : `Año ${anio}`;
+
+  return (
+    <div data-testid="analiticas-page">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <h1 className="page-title"><FileBarChart size={26} style={{ verticalAlign: "middle", color: "#7c3aed" }} /> Estado de Resultados</h1>
+          <p className="page-subtitle">Recopilación de datos de otros módulos · {periodoLabel}</p>
+        </div>
+        <button className="btn btn-primary" onClick={guardar} disabled={saving} data-testid="er-guardar">
+          <Save size={16} /> {saving ? "Guardando..." : "Registrar período"}
+        </button>
+      </div>
+
+      {/* Filtros */}
+      <div className="card" style={{ marginBottom: 18, display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
+        <div style={{ display: "inline-flex", background: "#f1f5f9", borderRadius: 10, padding: 3 }}>
+          {["mensual", "anual"].map((m) => (
+            <button key={m} onClick={() => setModo(m)} data-testid={`er-modo-${m}`}
+              style={{ padding: "7px 18px", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 14,
+                background: modo === m ? "#7c3aed" : "transparent", color: modo === m ? "#fff" : "#475569" }}>
+              {m === "mensual" ? "Mensual" : "Anual"}
+            </button>
+          ))}
+        </div>
+        {modo === "mensual" && (
+          <select className="select" style={{ width: 150 }} value={mes} onChange={(e) => setMes(Number(e.target.value))} data-testid="er-mes">
+            {MESES.map((nm, i) => <option key={nm} value={i + 1}>{nm}</option>)}
+          </select>
         )}
+        <select className="select" style={{ width: 120 }} value={anio} onChange={(e) => setAnio(Number(e.target.value))} data-testid="er-anio">
+          {years.map((y) => <option key={y} value={y}>{y}</option>)}
+        </select>
+        <span className="badge" style={{ background: data.registrado ? "#dcfce7" : "#fef3c7", color: data.registrado ? "#15803d" : "#b45309" }} data-testid="er-estado">
+          {data.registrado ? "Registrado" : "No registrado"}
+        </span>
+      </div>
+
+      {/* Estado de resultados */}
+      <div className="card" style={{ maxWidth: 720 }}>
+        <Section title="INGRESO POR VENTAS" color="#16a34a">
+          <Row label="Ventas de fresa fresca" value={data.ingresos.ventas_fresa} testid="er-ventas-fresa" />
+          <RowInput label="Otros ingresos" value={otrosIngresos} onChange={setOtrosIngresos} testid="er-otros-ingresos" />
+          <RowTotal label="Total ingresos" value={totalIngresos} testid="er-total-ingresos" />
+        </Section>
+
+        <Section title="COSTO DE VENTAS" color="#dc2626">
+          <Row label="Fertilizantes y agroquímicos" value={data.costo_ventas.fertilizantes_agroquimicos} sub="costo real (PEPS)" testid="er-fert" />
+          <Row label="Costo mano de obra" value={data.costo_ventas.mano_obra} sub="actividades" testid="er-mano-obra" />
+          <RowTotal label="Total costo de ventas" value={totalCosto} testid="er-total-costo" />
+        </Section>
+
+        <Section title="GASTOS OPERATIVOS" color="#dc2626">
+          <Row label="Salarios" value={data.gastos_operativos.salarios} sub={data.registrado ? "congelado al registrar" : "actual (se congela al registrar)"} icon={data.registrado ? Lock : null} testid="er-salarios" />
+          <Row label="Gastos del vehículo" value={data.gastos_operativos.gastos_vehiculo} sub="gasolina + repuestos + mano de obra" testid="er-vehiculo" />
+          <RowInput label="Software ERP" value={softwareErp} onChange={setSoftwareErp} testid="er-software" />
+          <RowTotal label="Total gastos operativos" value={totalGastosOp} testid="er-total-gastos" />
+        </Section>
+
+        {/* Utilidades */}
+        <div style={{ marginTop: 18, borderTop: "2px solid #e2e8f0", paddingTop: 14 }}>
+          <UtilidadRow label="UTILIDAD BRUTA" hint="Ingresos − Costo de ventas" value={utilidadBruta} testid="er-utilidad-bruta" />
+          <UtilidadRow label="UTILIDAD OPERATIVA" hint="Ingresos − Costo de ventas − Gastos operativos" value={utilidadOperativa} strong testid="er-utilidad-operativa" />
+        </div>
+      </div>
+
+      <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 12, maxWidth: 720 }}>
+        Salario mensual = salario diario × {30} (RRHH › Trabajadores activos). Los salarios se congelan al registrar el período, por lo que cambiarlos luego no afecta los períodos ya registrados.
+      </p>
+    </div>
+  );
+}
+
+function Section({ title, color, children }) {
+  return (
+    <div style={{ marginBottom: 18 }}>
+      <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: 0.5, color, marginBottom: 6 }}>{title}</div>
+      {children}
+    </div>
+  );
+}
+
+function Row({ label, value, sub, icon: Icon, testid }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0 7px 16px", borderBottom: "1px solid #f1f5f9" }}>
+      <span style={{ color: "#475569", fontSize: 14 }}>
+        {label}{sub && <span style={{ color: "#94a3b8", fontSize: 12 }}> · {sub}</span>}{Icon && <Icon size={12} style={{ marginLeft: 5, verticalAlign: "middle", color: "#94a3b8" }} />}
+      </span>
+      <span style={{ fontWeight: 600, color: "#0f172a" }} data-testid={testid}>{fmt(value)}</span>
+    </div>
+  );
+}
+
+function RowInput({ label, value, onChange, testid }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0 7px 16px", borderBottom: "1px solid #f1f5f9" }}>
+      <span style={{ color: "#475569", fontSize: 14 }}>{label} <span style={{ color: "#7c3aed", fontSize: 11, fontWeight: 600 }}>(manual)</span></span>
+      <div style={{ position: "relative" }}>
+        <span style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", color: "#94a3b8", fontSize: 13 }}>$</span>
+        <input type="number" step="0.01" min="0" className="input" style={{ width: 140, textAlign: "right", paddingLeft: 18, height: 34 }}
+          value={value} onChange={(e) => onChange(e.target.value)} data-testid={testid} />
       </div>
     </div>
   );
 }
 
-function Box({ label, value, color }) {
+function RowTotal({ label, value, testid }) {
   return (
-    <div className="card kpi-card">
-      <div className="kpi-label">{label}</div>
-      <div className="kpi-value" style={{ color }}>{value}</div>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 0", borderTop: "1px solid #e2e8f0", marginTop: 2 }}>
+      <span style={{ fontWeight: 700, color: "#0f172a", fontSize: 14 }}>{label}</span>
+      <span style={{ fontWeight: 800, color: "#0f172a" }} data-testid={testid}>{fmt(value)}</span>
+    </div>
+  );
+}
+
+function UtilidadRow({ label, hint, value, strong, testid }) {
+  const positive = value >= 0;
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", marginBottom: 8, borderRadius: 10,
+      background: strong ? (positive ? "#ecfdf5" : "#fef2f2") : "#f8fafc", border: `1px solid ${strong ? (positive ? "#a7f3d0" : "#fecaca") : "#e2e8f0"}` }}>
+      <div>
+        <div style={{ fontWeight: 800, color: "#0f172a", fontSize: strong ? 16 : 15 }}>{label}</div>
+        <div style={{ color: "#94a3b8", fontSize: 12 }}>{hint}</div>
+      </div>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: strong ? 22 : 18, color: positive ? "#15803d" : "#dc2626" }} data-testid={testid}>
+        {positive ? <TrendingUp size={strong ? 20 : 16} /> : <TrendingDown size={strong ? 20 : 16} />} {fmt(value)}
+      </span>
     </div>
   );
 }

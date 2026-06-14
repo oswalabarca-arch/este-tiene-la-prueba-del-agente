@@ -1850,6 +1850,120 @@ async def dashboard_gastos_semana(offset: int = 0, _: dict = Depends(get_current
 
 
 # ============================================================
+# ANALÍTICAS - Estado de Resultados (solo lectura + valores manuales por periodo)
+# Recopila datos de otros módulos (NO los modifica) y los agrupa.
+# Salarios: snapshot por periodo para no afectar periodos ya registrados.
+# ============================================================
+class EstadoResultadosIn(BaseModel):
+    anio: int
+    mes: Optional[int] = None  # 1-12 = mensual; None = anual
+    otros_ingresos: float = 0
+    software_erp: float = 0
+
+
+VENTA_SYSTEM_ORIGENES = ("asignacion_destino", "ajuste_entrada", "ajuste_salida", "reasignacion_salida")
+SALARIO_DIAS_MES = 30  # factor para convertir salario diario -> mensual
+
+
+def _en_periodo(s, anio: int, mes: Optional[int]) -> bool:
+    """Compara por prefijo de fecha (YYYY-MM-DD) para agrupar por mes/año calendario sin desfases de zona horaria."""
+    if not s:
+        return False
+    d = str(s)[:10]
+    if len(d) < 7:
+        return False
+    if mes:
+        return d[:7] == f"{anio:04d}-{mes:02d}"
+    return d[:4] == f"{anio:04d}"
+
+
+async def _current_salarios_mensual() -> float:
+    trabajadores = await db.trabajadores.find({}).to_list(5000)
+    return sum((float(t.get("salario_diario") or 0) * SALARIO_DIAS_MES) for t in trabajadores if t.get("activo", True))
+
+
+async def _build_estado_resultados(anio: int, mes: Optional[int]) -> dict:
+    # INGRESO POR VENTAS: total vendido de los 4 submenús (solo ventas reales)
+    ventas_fresa = 0.0
+    for tipo in ("finca", "ciudad", "donaciones", "descarte"):
+        for v in await db[f"ventas_{tipo}"].find({}).to_list(20000):
+            if v.get("origen") in VENTA_SYSTEM_ORIGENES:
+                continue
+            if _en_periodo(v.get("fecha"), anio, mes):
+                ventas_fresa += float(v.get("total") or 0)
+
+    # COSTO DE VENTAS: fertilizantes y agroquímicos = costo real PEPS de aplicaciones confirmadas
+    fifo = await _compute_fifo_costs_per_aplicacion()
+    fert_agro = 0.0
+    for a in await db.aplicaciones.find({"estado": "confirmada"}).to_list(20000):
+        if _en_periodo(a.get("fecha"), anio, mes):
+            fert_agro += float(fifo.get(a.get("_id"), {}).get("total_costo", 0) or 0)
+
+    # COSTO DE VENTAS: mano de obra = costo de actividades
+    mano_obra = 0.0
+    for act in await db.actividades.find({}).to_list(20000):
+        if _en_periodo(act.get("fecha_actividad"), anio, mes):
+            mano_obra += float(act.get("costo_total") or 0)
+
+    # GASTOS OPERATIVOS: gastos del vehículo = total (gasolina + repuestos + mano de obra)
+    gastos_vehiculo = 0.0
+    for g in await db.gastos_vehiculos.find({}).to_list(20000):
+        if _en_periodo(g.get("fecha"), anio, mes):
+            gastos_vehiculo += float(g.get("monto") or 0)
+
+    # Valores guardados del periodo (manuales + snapshot de salarios congelado)
+    doc = await db.estado_resultados.find_one({"anio": anio, "mes": mes})
+    otros_ingresos = float(doc.get("otros_ingresos", 0)) if doc else 0.0
+    software_erp = float(doc.get("software_erp", 0)) if doc else 0.0
+    if doc and doc.get("salarios_snapshot") is not None:
+        salarios = float(doc["salarios_snapshot"])
+    else:
+        base = await _current_salarios_mensual()
+        salarios = base if mes else base * 12
+
+    total_ingresos = round(ventas_fresa + otros_ingresos, 2)
+    total_costo_ventas = round(fert_agro + mano_obra, 2)
+    total_gastos_op = round(salarios + gastos_vehiculo + software_erp, 2)
+    utilidad_bruta = round(total_ingresos - total_costo_ventas, 2)
+    utilidad_operativa = round(utilidad_bruta - total_gastos_op, 2)
+
+    return {
+        "anio": anio, "mes": mes,
+        "registrado": bool(doc),
+        "fecha_registro": doc.get("fecha_registro") if doc else None,
+        "ingresos": {"ventas_fresa": round(ventas_fresa, 2), "otros_ingresos": round(otros_ingresos, 2), "total": total_ingresos},
+        "costo_ventas": {"fertilizantes_agroquimicos": round(fert_agro, 2), "mano_obra": round(mano_obra, 2), "total": total_costo_ventas},
+        "gastos_operativos": {"salarios": round(salarios, 2), "gastos_vehiculo": round(gastos_vehiculo, 2), "software_erp": round(software_erp, 2), "total": total_gastos_op},
+        "utilidad_bruta": utilidad_bruta,
+        "utilidad_operativa": utilidad_operativa,
+    }
+
+
+@api.get("/analiticas/estado-resultados")
+async def get_estado_resultados(anio: int, mes: Optional[int] = None, _: dict = Depends(get_current_user)):
+    return await _build_estado_resultados(anio, mes)
+
+
+@api.post("/analiticas/estado-resultados")
+async def guardar_estado_resultados(payload: EstadoResultadosIn, _: dict = Depends(get_current_user)):
+    base = await _current_salarios_mensual()
+    salarios = base if payload.mes else base * 12
+    await db.estado_resultados.update_one(
+        {"anio": payload.anio, "mes": payload.mes},
+        {"$set": {
+            "anio": payload.anio, "mes": payload.mes,
+            "otros_ingresos": float(payload.otros_ingresos or 0),
+            "software_erp": float(payload.software_erp or 0),
+            "salarios_snapshot": salarios,
+            "registrado": True,
+            "fecha_registro": now_iso(),
+        }},
+        upsert=True,
+    )
+    return await _build_estado_resultados(payload.anio, payload.mes)
+
+
+# ============================================================
 # SEED
 # ============================================================
 @app.on_event("startup")
