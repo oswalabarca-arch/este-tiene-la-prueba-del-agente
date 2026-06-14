@@ -14,6 +14,7 @@
 - **Gastos de la semana** (solo lectura): panel que totaliza lun 5am→dom 6pm (VE/UTC-4) los gastos de Compras (insumos), Vehículos, Pago de trabajadores (actividades), Herramientas y Motores nuevos. Navegación de semanas. Backend `GET /api/dashboard/gastos-semana`.
 
 ### Analíticas
+- **Estado de Resultados (solo lectura)** [14/06/2026]: el módulo Analíticas se reescribió como un Estado de Resultados que AGREGA (no modifica) datos de otros módulos. Ingreso por ventas (ventas reales finca/ciudad/donaciones/descarte), Costo de ventas (fertilizantes/agroquímicos vía PEPS de aplicaciones confirmadas + mano de obra de actividades), Gastos operativos (Salarios = salario_diario×30, Gastos del vehículo, + manuales Otros ingresos y Software ERP). Filtros Mensual/Anual (anual = mensual×12 para salarios). "Registrar período" guarda manuales y CONGELA snapshot de salarios. Backend `GET/POST /api/analiticas/estado-resultados` (colección nueva `estado_resultados`; solo escribe en su propia colección). Testing: backend 4/4 + frontend 8/8 (iteration_31.json), `tests/test_estado_resultados.py`. Confirmado solo-lectura sobre ventas_*/aplicaciones/actividades/gastos_vehiculos/trabajadores.
 - **Cuentas por cobrar clickeable**: filas abren modal con ventas pendientes por cliente (finca+ciudad) y permiten registrar abonos. Backend `GET /api/analiticas/cuentas-por-cobrar/detalle`.
 
 ### Inventario
