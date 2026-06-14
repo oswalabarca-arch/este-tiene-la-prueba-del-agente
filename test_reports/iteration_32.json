@@ -1,0 +1,30 @@
+{
+  "summary": "Validación de las 2 adiciones al módulo Analíticas (Estado de Resultados): panel lateral 'COSTOS POR KILOGRAMO' y gráfico de TENDENCIA MENSUAL. Backend: 7/7 pytest OK (estructura del endpoint /api/analiticas/costos-kg-tendencia con 12 meses y 4 costos por kg + kg breakdown; valores de Mayo 2026: kg_cosechados=98, costo_total_por_kg=61.2245, costo_total_real_vendible=71.4286; estado vacío para año sin cosecha sin NaN ni 500; auth requerida; estado-resultados expone bloque 'cosecha'; solo lectura confirmado vía snapshot de cosechas/aplicaciones/actividades/gastos_vehiculos antes y después). Frontend: login admin OK, /dashboard/analiticas carga sin pantalla blanca (data-testid analiticas-page presente). Panel er-costos-kg-card visible con 3 chips (kg-cosechados=98,00 kg, kg-descarte=14,00 kg, kg-vendible=84,00 kg) y 4 filas con valores coherentes con el backend. Tarjeta er-tendencia-card visible con título 'TENDENCIA DE COSTOS POR KG · 2026'; LineChart (er-tendencia-chart) renderiza con etiquetas Ene/May/Dic. Los 4 toggles cambian de estilo on/off al hacer clic; al apagar todos, el contenedor persiste; al volver a encender, las líneas reaparecen. Selector de años va 2027→2021; al elegir 2021 (sin cosechas) aparece er-tendencia-vacio; al volver a 2026, el chart se recarga. Sin errores rojos en consola (solo warnings de recharts width/height en mount inicial, no funcionales).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_costos_kg_tendencia.py",
+    "/app/test_reports/pytest/costos_kg_tendencia.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py L1982-2028 /analiticas/costos-kg-tendencia: cálculo limpio y O(1) por colección (find() una sola vez, agregación por mes en memoria). División por cero protegida correctamente (devuelve 0 cuando kg_cos==0 o kg_vend==0). Solo lectura (sin update/delete sobre cosechas/aplicaciones/actividades/gastos).",
+    "Analiticas.jsx L43-49 loadTendencia: useCallback dependiendo solo de 'anio' evita loops y solo recarga al cambiar año. Estado 'visibles' se inicializa con las 4 claves, y la lógica de toggleSerie funciona correctamente.",
+    "Sugerencia menor (no bloqueante): cuando todas las series se ocultan, el chart container queda vacío pero visible (height 340). Considerar mostrar mensaje 'Mostrá al menos una serie' para mejor UX. No es bug.",
+    "Warning de recharts en consola ('width(-1) and height(-1)'): aparece al montar antes de que el contenedor mida su ancho. Es un warning conocido de recharts ResponsiveContainer y no afecta el render final. Si molesta, se puede envolver con un 'mounted' boolean para retrasar el render."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_costos_kg_tendencia.py (nuevo)"
+  ],
+  "success_rate": {"backend": "100% (7/7)", "frontend": "100% (todos los flujos validados)"},
+  "test_credentials": "Admin: oswaldabarca@gmail.com / 123456",
+  "seed_data_creation": "Ninguno. El test de solo-lectura solo hace GETs y compara conteos antes/después. No se crearon docs en estado_resultados ni en otras colecciones.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Las adiciones (panel costos-por-kg + gráfico de tendencia mensual) están 100% funcionales y solo lectura. test_costos_kg_tendencia.py queda como regresión junto con test_estado_resultados.py (iteración 31). Si se modifica el cálculo PEPS, KG_POR_CESTA, _current_salarios_mensual o se cambia la fórmula de costos por kg, re-correr ambos. Para verificar la UI: año 2026/Mayo muestra kg=98 y costo_total_por_kg=61.2245.",
+  "rca of the issue": "N/A — sin issues."
+}

@@ -1,10 +1,19 @@
 import { useEffect, useState, useCallback } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
-import { FileBarChart, Save, Lock, TrendingUp, TrendingDown } from "lucide-react";
+import { FileBarChart, Save, Lock, TrendingUp, TrendingDown, LineChart as LineChartIcon } from "lucide-react";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+const MESES_CORTO = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 const fmt = (n) => "US$ " + Number(n || 0).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const SERIES = [
+  { key: "costo_por_kg", label: "Costo por kg", color: "#16a34a" },
+  { key: "costo_total_por_kg", label: "Costo total por kg", color: "#7c3aed" },
+  { key: "costo_real_vendible", label: "Costo real vendible", color: "#0ea5e9" },
+  { key: "costo_total_real_vendible", label: "Costo total real vendible", color: "#dc2626" },
+];
 
 export default function Analiticas() {
   const toast = useToast();
@@ -16,6 +25,8 @@ export default function Analiticas() {
   const [otrosIngresos, setOtrosIngresos] = useState("");
   const [softwareErp, setSoftwareErp] = useState("");
   const [saving, setSaving] = useState(false);
+  const [tendencia, setTendencia] = useState([]);
+  const [visibles, setVisibles] = useState(SERIES.map((s) => s.key));
 
   const load = useCallback(() => {
     const params = { anio };
@@ -29,6 +40,16 @@ export default function Analiticas() {
 
   useEffect(() => { load(); }, [load]);
 
+  const loadTendencia = useCallback(() => {
+    api.get("/analiticas/costos-kg-tendencia", { params: { anio } }).then((r) => {
+      setTendencia((r.data.meses || []).map((m) => ({ ...m, mesNombre: MESES_CORTO[m.mes - 1] })));
+    });
+  }, [anio]);
+
+  useEffect(() => { loadTendencia(); }, [loadTendencia]);
+
+  const toggleSerie = (key) => setVisibles((v) => (v.includes(key) ? v.filter((k) => k !== key) : [...v, key]));
+
   const guardar = async () => {
     setSaving(true);
     try {
@@ -40,6 +61,7 @@ export default function Analiticas() {
       });
       setData(r.data);
       toast.show("Período registrado · salarios congelados");
+      loadTendencia();
     } catch { toast.show("Error al guardar", "error"); }
     finally { setSaving(false); }
   };
@@ -152,6 +174,51 @@ export default function Analiticas() {
         <CostoKgRow num={3} label="COSTO REAL VENDIBLE" hint="Costo total de ventas ÷ (kg cosechados − descarte)" value={costoRealVendible} testid="er-costo-real-vendible" />
         <CostoKgRow num={4} label="COSTO TOTAL REAL VENDIBLE" hint="(Costo de ventas + gastos operativos) ÷ (kg cosechados − descarte)" value={costoTotalRealVendible} testid="er-costo-total-real-vendible" />
       </div>
+      </div>
+
+      {/* Tendencia mensual de costos por kg */}
+      <div className="card" style={{ marginTop: 18 }} data-testid="er-tendencia-card">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 4 }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: 0.5, color: "#7c3aed" }}>
+              <LineChartIcon size={15} style={{ verticalAlign: "middle", marginRight: 5 }} />TENDENCIA DE COSTOS POR KG · {anio}
+            </div>
+            <div style={{ color: "#94a3b8", fontSize: 12 }}>Evolución mes a mes (US$/kg). Tocá las leyendas para mostrar u ocultar líneas.</div>
+          </div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {SERIES.map((s) => {
+              const on = visibles.includes(s.key);
+              return (
+                <button key={s.key} onClick={() => toggleSerie(s.key)} data-testid={`er-tend-toggle-${s.key}`}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 8, cursor: "pointer",
+                    border: `1px solid ${on ? s.color : "#e2e8f0"}`, background: on ? `${s.color}14` : "#f8fafc", color: on ? s.color : "#94a3b8", fontSize: 12, fontWeight: 600 }}>
+                  <span style={{ width: 10, height: 10, borderRadius: 3, background: on ? s.color : "#cbd5e1" }} />{s.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        {tendencia.some((m) => m.kg_cosechados > 0) ? (
+          <div style={{ width: "100%", height: 340 }} data-testid="er-tendencia-chart">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={tendencia} margin={{ top: 16, right: 20, left: 4, bottom: 4 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="mesNombre" tick={{ fontSize: 12, fill: "#64748b" }} />
+                <YAxis tick={{ fontSize: 12, fill: "#64748b" }} tickFormatter={(v) => `$${v}`} width={56} />
+                <Tooltip formatter={(v, name) => [fmt(v) + "/kg", name]} labelFormatter={(l) => `Mes: ${l}`}
+                  contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 13 }} />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                {SERIES.filter((s) => visibles.includes(s.key)).map((s) => (
+                  <Line key={s.key} type="monotone" dataKey={s.key} name={s.label} stroke={s.color} strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} connectNulls />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <p style={{ color: "#b45309", background: "#fef3c7", borderRadius: 8, padding: "10px 14px", fontSize: 13, marginTop: 8 }} data-testid="er-tendencia-vacio">
+            No hay cosecha registrada en {anio}. El gráfico de tendencia se muestra cuando hay producción en el año.
+          </p>
+        )}
       </div>
 
       <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 12, maxWidth: 720 }}>

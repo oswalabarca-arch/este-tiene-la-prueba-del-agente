@@ -1979,6 +1979,55 @@ async def guardar_estado_resultados(payload: EstadoResultadosIn, _: dict = Depen
     return await _build_estado_resultados(payload.anio, payload.mes)
 
 
+@api.get("/analiticas/costos-kg-tendencia")
+async def costos_kg_tendencia(anio: int, _: dict = Depends(get_current_user)):
+    """Tendencia mensual (12 meses) de los 4 costos por kg para el año dado.
+    Calcula cada colección una sola vez y agrega por mes (solo lectura)."""
+    fifo = await _compute_fifo_costs_per_aplicacion()
+    aplicaciones = await db.aplicaciones.find({"estado": "confirmada"}).to_list(20000)
+    actividades = await db.actividades.find({}).to_list(20000)
+    gastos = await db.gastos_vehiculos.find({}).to_list(20000)
+    cosechas = await db.cosechas.find({}).to_list(20000)
+    docs_by_mes = {d.get("mes"): d for d in await db.estado_resultados.find({"anio": anio}).to_list(200)}
+    base_salario = await _current_salarios_mensual()
+
+    meses = []
+    for m in range(1, 13):
+        fert = sum(float(fifo.get(a.get("_id"), {}).get("total_costo", 0) or 0)
+                   for a in aplicaciones if _en_periodo(a.get("fecha"), anio, m))
+        mano = sum(float(a.get("costo_total") or 0)
+                   for a in actividades if _en_periodo(a.get("fecha_actividad"), anio, m))
+        gveh = sum(float(g.get("monto") or 0)
+                   for g in gastos if _en_periodo(g.get("fecha"), anio, m))
+        doc = docs_by_mes.get(m)
+        soft = float(doc.get("software_erp", 0)) if doc else 0.0
+        sal = float(doc["salarios_snapshot"]) if (doc and doc.get("salarios_snapshot") is not None) else base_salario
+
+        kg_cos = 0.0
+        kg_desc = 0.0
+        for c in cosechas:
+            if not _en_periodo(c.get("fecha_cosecha"), anio, m):
+                continue
+            suma = (c.get("primera_calidad", 0) or 0) + (c.get("segunda_calidad", 0) or 0) + (c.get("tercera_calidad", 0) or 0) + (c.get("descarte", 0) or 0)
+            mult = 1 if c.get("unidad") == "kg" else KG_POR_CESTA
+            kg_cos += suma * mult
+            kg_desc += (c.get("descarte", 0) or 0) * mult
+        kg_vend = kg_cos - kg_desc
+        costo_ventas = fert + mano
+        costo_con_op = costo_ventas + sal + gveh + soft
+        meses.append({
+            "mes": m,
+            "kg_cosechados": round(kg_cos, 2),
+            "kg_descarte": round(kg_desc, 2),
+            "kg_vendible": round(kg_vend, 2),
+            "costo_por_kg": round(costo_ventas / kg_cos, 4) if kg_cos > 0 else 0,
+            "costo_total_por_kg": round(costo_con_op / kg_cos, 4) if kg_cos > 0 else 0,
+            "costo_real_vendible": round(costo_ventas / kg_vend, 4) if kg_vend > 0 else 0,
+            "costo_total_real_vendible": round(costo_con_op / kg_vend, 4) if kg_vend > 0 else 0,
+        })
+    return {"anio": anio, "meses": meses}
+
+
 # ============================================================
 # SEED
 # ============================================================
