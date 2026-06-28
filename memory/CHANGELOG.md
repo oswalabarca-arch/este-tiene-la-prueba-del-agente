@@ -2,6 +2,13 @@
 
 ## 2026-06 (sesión fork actual)
 
+### Dashboard · Producción general (3 gráficas agregadas) [14/06/2026]
+- Se reemplazaron las 4 tarjetas KPI (Usuarios Activos, Plantaciones, Cosechado, Productividad) por la sección **"Producción general"** con 3 donuts que agregan TODOS los lotes de Plantaciones (solo lectura, vía GET /cosechas, /actividades, /aplicaciones; sin endpoint nuevo):
+  - **Cosechas por calidad**: suma de primera/segunda/tercera/descarte en kg. Toggle kg/Cestas/%.
+  - **Labores de personal por tipo**: suma de actividades por tipo. Toggle Horas/Costo.
+  - **Aplicaciones por tipo**: suma de aplicaciones por tipo. Toggle Cantidad/Costo.
+  - Componente `components/DashboardTotales.jsx` (reusa colores catColor/actColor/CAL_COLORS y estilo donut de PlantacionDetail). Testing: frontend 100% (iteration_35.json).
+
 ### Ventas · Venta por kg y disponible dual en Refrigerar/Congelar [14/06/2026]
 - **Disponible dual**: bajo "Disponible acumulado" ahora se muestra la cantidad en cestas Y en kg (`X cestas · Y kg`, 1 cesta = 14 kg).
 - **Venta por kg**: en los canales Refrigerar y Congelar el formulario "Registrar nueva venta" tiene un toggle **Vender por: Cestas | Kilogramos**. En modo kg se ingresa Cantidad (kg) y Precio por kg; Total = kg × precio_kg y se descuenta del disponible (cestas = kg/14). El registro muestra "28 kg · $2.50/kg" o "3 cestas · $10.00/cesta" según `unidad_venta`. Finca/Ciudad siguen solo por cesta (regresión OK).

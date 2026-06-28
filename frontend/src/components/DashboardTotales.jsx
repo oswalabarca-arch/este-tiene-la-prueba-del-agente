@@ -42,7 +42,7 @@ function DonutCard({ icon: Icon, iconColor, iconBg, title, subtitle, data, total
           <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
             <div style={{ position: "relative", width: 180, height: 180, flexShrink: 0, margin: "0 auto" }}>
               <PieChart width={180} height={180}>
-                <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={56} outerRadius={86} paddingAngle={3} stroke="#fff" strokeWidth={2} cornerRadius={6}>
+                <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={56} outerRadius={86} paddingAngle={data.length === 1 ? 0 : 3} stroke="#fff" strokeWidth={2} cornerRadius={data.length === 1 ? 0 : 6}>
                   {data.map((d) => <Cell key={d.key} fill={d.color} />)}
                 </Pie>
                 <Tooltip formatter={(v, _n, p) => [fmt(Number(v)), p?.payload?.name]} contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12 }} />
