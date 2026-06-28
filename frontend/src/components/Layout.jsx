@@ -81,7 +81,7 @@ export default function Layout() {
           <Menu size={22} />
         </button>
         <div className="topbar-brand">
-          <div className="topbar-brand-icon" style={{ background: "#fff", padding: 0, overflow: "hidden" }}><img src={logo} alt="Logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} /></div>
+          <div className="topbar-brand-icon" style={{ background: "transparent", padding: 0, overflow: "hidden" }}><img src={logo} alt="Logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} /></div>
           <span className="topbar-brand-text">ERP Agrícola</span>
         </div>
       </header>
@@ -96,7 +96,7 @@ export default function Layout() {
 
       <aside className={`sidebar ${mobileOpen ? "sidebar-open" : ""}`} data-testid="sidebar">
         <div className="sidebar-brand">
-          <div className="sidebar-brand-icon" style={{ background: "#fff", padding: 0, overflow: "hidden" }}><img src={logo} alt="Logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} /></div>
+          <div className="sidebar-brand-icon" style={{ background: "transparent", padding: 0, overflow: "hidden" }}><img src={logo} alt="Logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} /></div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="sidebar-brand-text">ERP Agrícola</div>
             <div className="sidebar-brand-sub">Sistema Premium</div>
