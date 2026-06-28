@@ -3,12 +3,13 @@ import { useAuth } from "../lib/auth";
 import {
   LayoutGrid, Users, Sprout, Truck, Activity, Droplets, Send,
   DollarSign, Snowflake, Boxes, ShoppingCart, BarChart3, ChevronDown,
-  ChevronUp, Briefcase, Leaf, LogOut, Car, Cog, Wrench,
+  ChevronUp, Briefcase, LogOut, Car, Cog, Wrench,
   Home, Building2, AlertCircle, Heart, Clock, PlusCircle,
   UserCheck, Wallet, Menu, X,
 } from "lucide-react";
 import { Strawberry } from "./icons/Strawberry";
 import { useState } from "react";
+import logo from "../assets/logo.png";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutGrid, module: null },
@@ -80,7 +81,7 @@ export default function Layout() {
           <Menu size={22} />
         </button>
         <div className="topbar-brand">
-          <div className="topbar-brand-icon"><Leaf size={18} /></div>
+          <div className="topbar-brand-icon" style={{ background: "#fff", padding: 0, overflow: "hidden" }}><img src={logo} alt="Logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} /></div>
           <span className="topbar-brand-text">ERP Agrícola</span>
         </div>
       </header>
@@ -95,7 +96,7 @@ export default function Layout() {
 
       <aside className={`sidebar ${mobileOpen ? "sidebar-open" : ""}`} data-testid="sidebar">
         <div className="sidebar-brand">
-          <div className="sidebar-brand-icon"><Leaf size={22} /></div>
+          <div className="sidebar-brand-icon" style={{ background: "#fff", padding: 0, overflow: "hidden" }}><img src={logo} alt="Logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} /></div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="sidebar-brand-text">ERP Agrícola</div>
             <div className="sidebar-brand-sub">Sistema Premium</div>

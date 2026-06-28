@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useAuth } from "../lib/auth";
-import { Leaf } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
+import logo from "../assets/logo.png";
 
 export default function Login() {
   const { login } = useAuth();
@@ -46,7 +46,7 @@ export default function Login() {
     <div className="login-bg">
       <div className="login-card">
         <div className="login-brand">
-          <div className="login-brand-icon"><Leaf size={32} /></div>
+          <div className="login-brand-icon" style={{ background: "#fff", padding: 0, overflow: "hidden" }}><img src={logo} alt="Logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} /></div>
           <div style={{ textAlign: "center" }}>
             <h1 style={{ margin: 0, fontSize: 32, color: "#15803d" }} data-testid="login-title">ERP Agrícola</h1>
             <div style={{ color: "#64748b" }}>Sistema profesional de gestión agrícola</div>
