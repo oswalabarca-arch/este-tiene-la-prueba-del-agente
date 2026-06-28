@@ -2,6 +2,17 @@
 
 ## 2026-06 (sesión fork actual)
 
+### Ventas · Refrigerar y Congelar como canales de venta completos [14/06/2026]
+- **Refrigerar** y **Congelar** ahora son canales de venta completos (idénticos a "Envío a ciudad"): panel "Acumulado de hoy" con Disponible acumulado, barra de dinero, "Registrar nueva venta" inline, filtros, registro de ventas y stock en cestas/kg.
+- **Renombre Frío → Congelar**: el viejo módulo "Frío" desaparece del menú; "Congelar" vive bajo el menú **Ventas** (`/dashboard/ventas/congelar`). La ruta vieja `/dashboard/frio` redirige a Congelar. (El usuario confirmó que no tenía datos en Frío.)
+- **Reasignación de sobrantes encadenada** (helper backend `_reasignar_ventas`):
+  - Envío a ciudad → Descarte / Donaciones / **Refrigerar**
+  - Refrigerar → **Congelar** / Donaciones / Descarte
+  - Congelar → Donaciones / Descarte
+  - Endpoints: `POST /api/ventas-{ciudad|refrigerar|congelar}/reasignar`. La entrada al destino (salvo descarte) llega como stock disponible (origen `asignacion_destino`).
+- **Asignación de destino**: "Refrigerar" → `ventas_refrigerar` y "Congelar" → `ventas_congelar` (antes iban a `frio_registros`). El stock asignado queda disponible para vender en cada canal.
+- Testing: backend 5/5 + frontend 100% (iteration_33.json), `tests/test_canales_refrigerar_congelar.py` + regresión `test_reasignar_y_cascada.py`.
+
 ### Aplicaciones
 - **Ingrediente activo**: nuevo campo en Compras y Entradas manuales de Inventario; se muestra en el inventario y en el form/tabla de Aplicaciones. (backend: `CompraIn`, `EntradaInventarioIn`, `InsumoItem`)
 - **Dosis como texto libre**: en "Nueva aplicación" se eliminó "Cantidad de agua"; "Dosis" pasó a texto (ej: `2cc/L`). Producto + dosis son informativos. La dosis se muestra en su columna en "Aplicaciones registradas".
