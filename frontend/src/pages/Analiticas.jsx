@@ -84,7 +84,8 @@ export default function Analiticas() {
   // Costos por kg (panel lateral)
   const kgCos = data.cosecha?.kg_cosechados || 0;
   const kgDesc = data.cosecha?.kg_descarte || 0;
-  const kgVend = kgCos - kgDesc;
+  const kgDon = data.cosecha?.kg_donaciones || 0;
+  const kgVend = kgCos - kgDesc - kgDon;
   const costoConOp = totalCosto + totalGastosOp;
   const costoPorKg = kgCos > 0 ? totalCosto / kgCos : 0;
   const costoTotalPorKg = kgCos > 0 ? costoConOp / kgCos : 0;
@@ -162,6 +163,7 @@ export default function Analiticas() {
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
           <KgChip label="Kg cosechados" value={kgCos} testid="er-kg-cosechados" />
           <KgChip label="Kg descarte" value={kgDesc} testid="er-kg-descarte" />
+          <KgChip label="Kg donaciones" value={kgDon} testid="er-kg-donaciones" />
           <KgChip label="Kg vendible" value={kgVend} testid="er-kg-vendible" />
         </div>
         {kgCos <= 0 && (
@@ -171,8 +173,8 @@ export default function Analiticas() {
         )}
         <CostoKgRow num={1} label="COSTO POR KG" hint="Costo total de ventas ÷ kg cosechados" value={costoPorKg} testid="er-costo-por-kg" />
         <CostoKgRow num={2} label="COSTO TOTAL POR KG" hint="(Costo de ventas + gastos operativos) ÷ kg cosechados" value={costoTotalPorKg} testid="er-costo-total-por-kg" />
-        <CostoKgRow num={3} label="COSTO REAL VENDIBLE" hint="Costo total de ventas ÷ (kg cosechados − descarte)" value={costoRealVendible} testid="er-costo-real-vendible" />
-        <CostoKgRow num={4} label="COSTO TOTAL REAL VENDIBLE" hint="(Costo de ventas + gastos operativos) ÷ (kg cosechados − descarte)" value={costoTotalRealVendible} testid="er-costo-total-real-vendible" />
+        <CostoKgRow num={3} label="COSTO REAL VENDIBLE" hint="Costo total de ventas ÷ (kg cosechados − descarte − donaciones)" value={costoRealVendible} testid="er-costo-real-vendible" />
+        <CostoKgRow num={4} label="COSTO TOTAL REAL VENDIBLE" hint="(Costo de ventas + gastos operativos) ÷ (kg cosechados − descarte − donaciones)" value={costoTotalRealVendible} testid="er-costo-total-real-vendible" />
       </div>
       </div>
 

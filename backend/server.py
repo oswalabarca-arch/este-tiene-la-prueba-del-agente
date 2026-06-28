@@ -1980,9 +1980,17 @@ async def _build_estado_resultados(anio: int, mes: Optional[int]) -> dict:
         mult = 1 if c.get("unidad") == "kg" else KG_POR_CESTA
         kg_cosechados += suma * mult
         kg_descarte += desc * mult
+    # DONACIONES: kg realmente donados en el período (registros de donación, no movimientos del sistema)
+    kg_donaciones = 0.0
+    for d in await db.ventas_donaciones.find({}).to_list(20000):
+        if d.get("origen") in VENTA_SYSTEM_ORIGENES:
+            continue
+        if _en_periodo(d.get("fecha"), anio, mes):
+            kg_donaciones += float(d.get("cantidad_kg") or (d.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
     kg_cosechados = round(kg_cosechados, 2)
     kg_descarte = round(kg_descarte, 2)
-    kg_vendible = round(kg_cosechados - kg_descarte, 2)
+    kg_donaciones = round(kg_donaciones, 2)
+    kg_vendible = round(kg_cosechados - kg_descarte - kg_donaciones, 2)
 
     # Valores guardados del periodo (manuales + snapshot de salarios congelado)
     doc = await db.estado_resultados.find_one({"anio": anio, "mes": mes})
@@ -2007,7 +2015,7 @@ async def _build_estado_resultados(anio: int, mes: Optional[int]) -> dict:
         "ingresos": {"ventas_fresa": round(ventas_fresa, 2), "otros_ingresos": round(otros_ingresos, 2), "total": total_ingresos},
         "costo_ventas": {"fertilizantes_agroquimicos": round(fert_agro, 2), "mano_obra": round(mano_obra, 2), "total": total_costo_ventas},
         "gastos_operativos": {"salarios": round(salarios, 2), "gastos_vehiculo": round(gastos_vehiculo, 2), "software_erp": round(software_erp, 2), "total": total_gastos_op},
-        "cosecha": {"kg_cosechados": kg_cosechados, "kg_descarte": kg_descarte, "kg_vendible": kg_vendible},
+        "cosecha": {"kg_cosechados": kg_cosechados, "kg_descarte": kg_descarte, "kg_donaciones": kg_donaciones, "kg_vendible": kg_vendible},
         "utilidad_bruta": utilidad_bruta,
         "utilidad_operativa": utilidad_operativa,
     }
@@ -2046,6 +2054,7 @@ async def costos_kg_tendencia(anio: int, _: dict = Depends(get_current_user)):
     actividades = await db.actividades.find({}).to_list(20000)
     gastos = await db.gastos_vehiculos.find({}).to_list(20000)
     cosechas = await db.cosechas.find({}).to_list(20000)
+    donaciones = await db.ventas_donaciones.find({}).to_list(20000)
     docs_by_mes = {d.get("mes"): d for d in await db.estado_resultados.find({"anio": anio}).to_list(200)}
     base_salario = await _current_salarios_mensual()
 
@@ -2070,13 +2079,20 @@ async def costos_kg_tendencia(anio: int, _: dict = Depends(get_current_user)):
             mult = 1 if c.get("unidad") == "kg" else KG_POR_CESTA
             kg_cos += suma * mult
             kg_desc += (c.get("descarte", 0) or 0) * mult
-        kg_vend = kg_cos - kg_desc
+        kg_don = 0.0
+        for d in donaciones:
+            if d.get("origen") in VENTA_SYSTEM_ORIGENES:
+                continue
+            if _en_periodo(d.get("fecha"), anio, m):
+                kg_don += float(d.get("cantidad_kg") or (d.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
+        kg_vend = kg_cos - kg_desc - kg_don
         costo_ventas = fert + mano
         costo_con_op = costo_ventas + sal + gveh + soft
         meses.append({
             "mes": m,
             "kg_cosechados": round(kg_cos, 2),
             "kg_descarte": round(kg_desc, 2),
+            "kg_donaciones": round(kg_don, 2),
             "kg_vendible": round(kg_vend, 2),
             "costo_por_kg": round(costo_ventas / kg_cos, 4) if kg_cos > 0 else 0,
             "costo_total_por_kg": round(costo_con_op / kg_cos, 4) if kg_cos > 0 else 0,
