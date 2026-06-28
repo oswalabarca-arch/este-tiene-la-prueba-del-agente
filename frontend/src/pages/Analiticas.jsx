@@ -131,7 +131,7 @@ export default function Analiticas() {
       {/* Estado de resultados */}
       <div className="card" style={{ flex: "1 1 460px", maxWidth: 720 }}>
         <Section title="INGRESO POR VENTAS" color="#16a34a">
-          <Row label="Ventas de fresa fresca" value={data.ingresos.ventas_fresa} testid="er-ventas-fresa" />
+          <Row label="Ventas de fresa fresca" value={data.ingresos.ventas_fresa} sub="finca + ciudad + refrigerar + congelar" testid="er-ventas-fresa" />
           <RowInput label="Otros ingresos" value={otrosIngresos} onChange={setOtrosIngresos} testid="er-otros-ingresos" />
           <RowTotal label="Total ingresos" value={totalIngresos} testid="er-total-ingresos" />
         </Section>

@@ -1940,9 +1940,9 @@ async def _current_salarios_mensual() -> float:
 
 
 async def _build_estado_resultados(anio: int, mes: Optional[int]) -> dict:
-    # INGRESO POR VENTAS: total vendido de los 4 submenús (solo ventas reales)
+    # INGRESO POR VENTAS: total vendido de los 4 canales con dinero (solo ventas reales)
     ventas_fresa = 0.0
-    for tipo in ("finca", "ciudad", "donaciones", "descarte"):
+    for tipo in ("finca", "ciudad", "refrigerar", "congelar"):
         for v in await db[f"ventas_{tipo}"].find({}).to_list(20000):
             if v.get("origen") in VENTA_SYSTEM_ORIGENES:
                 continue
