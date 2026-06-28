@@ -18,7 +18,7 @@ const TIPO_META = {
 
 // Destinos de reasignación de cestas sobrantes por canal de origen
 const REASIGNAR_DESTINOS = {
-  ciudad: ["descarte", "donaciones", "refrigerar"],
+  ciudad: ["descarte", "donaciones", "refrigerar", "congelar"],
   refrigerar: ["congelar", "donaciones", "descarte"],
   congelar: ["donaciones", "descarte"],
 };

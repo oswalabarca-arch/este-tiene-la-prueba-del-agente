@@ -1544,7 +1544,7 @@ async def _reasignar_ventas(source_tipo: str, payload: ReasignarIn, allowed: tup
 
 @api.post("/ventas-ciudad/reasignar")
 async def reasignar_ciudad(payload: ReasignarIn, user: dict = Depends(get_current_user)):
-    return await _reasignar_ventas("ciudad", payload, ("descarte", "donaciones", "refrigerar"), user)
+    return await _reasignar_ventas("ciudad", payload, ("descarte", "donaciones", "refrigerar", "congelar"), user)
 
 
 @api.post("/ventas-refrigerar/reasignar")
