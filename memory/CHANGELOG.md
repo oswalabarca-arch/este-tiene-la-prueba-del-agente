@@ -2,6 +2,11 @@
 
 ## 2026-06 (sesión fork actual)
 
+### Ventas · Venta por kg y disponible dual en Refrigerar/Congelar [14/06/2026]
+- **Disponible dual**: bajo "Disponible acumulado" ahora se muestra la cantidad en cestas Y en kg (`X cestas · Y kg`, 1 cesta = 14 kg).
+- **Venta por kg**: en los canales Refrigerar y Congelar el formulario "Registrar nueva venta" tiene un toggle **Vender por: Cestas | Kilogramos**. En modo kg se ingresa Cantidad (kg) y Precio por kg; Total = kg × precio_kg y se descuenta del disponible (cestas = kg/14). El registro muestra "28 kg · $2.50/kg" o "3 cestas · $10.00/cesta" según `unidad_venta`. Finca/Ciudad siguen solo por cesta (regresión OK).
+- Backend: `VentaIn` agrega `unidad_venta` (cestas|kg, default cestas, retrocompatible). Abono y edición preservan la unidad. Testing: backend 7/7 (`tests/test_ventas_kg_refrigerar_congelar.py`) + frontend 100% (iteration_34.json).
+
 ### Dashboard · Stock por canal [14/06/2026]
 - Nuevo panel **"Stock por canal"** (solo lectura) en el Dashboard: muestra cuántas cestas/kg hay disponibles AHORA en cada canal (Envío a ciudad, Refrigerar, Congelar) y la **antigüedad (días)** del lote más viejo que sigue disponible (FIFO). Toggle Cestas/kg y badge de días con color (verde <2, ámbar 2-4, rojo ≥5).
 - Backend `GET /api/dashboard/stock-canales`: disponible = recibido − usado por canal; antigüedad calculada consumiendo lo usado de los recibidos más antiguos (solo lectura). Componente `components/StockCanales.jsx`.

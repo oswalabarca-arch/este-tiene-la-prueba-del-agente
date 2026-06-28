@@ -113,9 +113,12 @@ def test_asignacion_refrigerar_y_congelar_crean_stock_en_canales_correctos(clien
         assert not any(f.get("asignacion_id") in asig_ids for f in frio), \
             "Ya no debe escribirse en frio_registros vía Asignación de destino"
 
-        # Disponibles iniciales
-        assert abs(_disponible_canal(client, "refrigerar") - 6) < 0.01
-        assert abs(_disponible_canal(client, "congelar") - 5) < 0.01
+        # Stock aportado POR ESTAS asignaciones (robusto ante datos reales del usuario en preview):
+        # se filtra por asignacion_id en vez del disponible global del canal.
+        refri_aporte = sum(v.get("cantidad_cestas", 0) or 0 for v in ref if v.get("asignacion_id") in asig_ids)
+        cong_aporte = sum(v.get("cantidad_cestas", 0) or 0 for v in cong if v.get("asignacion_id") in asig_ids)
+        assert abs(refri_aporte - 6) < 0.01
+        assert abs(cong_aporte - 5) < 0.01
     finally:
         _cleanup(client, cosecha_id, asig_ids)
 
