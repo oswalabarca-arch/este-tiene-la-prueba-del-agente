@@ -2,6 +2,10 @@
 
 ## 2026-06 (sesión fork actual)
 
+### Dashboard · Stock por canal [14/06/2026]
+- Nuevo panel **"Stock por canal"** (solo lectura) en el Dashboard: muestra cuántas cestas/kg hay disponibles AHORA en cada canal (Envío a ciudad, Refrigerar, Congelar) y la **antigüedad (días)** del lote más viejo que sigue disponible (FIFO). Toggle Cestas/kg y badge de días con color (verde <2, ámbar 2-4, rojo ≥5).
+- Backend `GET /api/dashboard/stock-canales`: disponible = recibido − usado por canal; antigüedad calculada consumiendo lo usado de los recibidos más antiguos (solo lectura). Componente `components/StockCanales.jsx`.
+
 ### Ventas · Refrigerar y Congelar como canales de venta completos [14/06/2026]
 - **Refrigerar** y **Congelar** ahora son canales de venta completos (idénticos a "Envío a ciudad"): panel "Acumulado de hoy" con Disponible acumulado, barra de dinero, "Registrar nueva venta" inline, filtros, registro de ventas y stock en cestas/kg.
 - **Renombre Frío → Congelar**: el viejo módulo "Frío" desaparece del menú; "Congelar" vive bajo el menú **Ventas** (`/dashboard/ventas/congelar`). La ruta vieja `/dashboard/frio` redirige a Congelar. (El usuario confirmó que no tenía datos en Frío.)

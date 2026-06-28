@@ -1557,6 +1557,46 @@ async def reasignar_congelar(payload: ReasignarIn, user: dict = Depends(get_curr
     return await _reasignar_ventas("congelar", payload, ("donaciones", "descarte"), user)
 
 
+@api.get("/dashboard/stock-canales")
+async def stock_canales(_: dict = Depends(get_current_user)):
+    """Stock disponible actual por canal (cestas/kg) y antigüedad (días) del lote más viejo
+    que aún sigue disponible (FIFO: lo usado se descuenta de los recibidos más antiguos)."""
+    hoy = datetime.now(VE_TZ).date()
+    canales = [("ciudad", "Envío a ciudad"), ("refrigerar", "Refrigerar"), ("congelar", "Congelar")]
+    out = []
+    for tipo, label in canales:
+        docs = await db[f"ventas_{tipo}"].find({}).to_list(20000)
+        recibidos = [d for d in docs if d.get("origen") in RECIBIDO_ORIGINS]
+        recibido_total = sum((d.get("cantidad_cestas", 0) or 0) for d in recibidos)
+        usado = sum((d.get("cantidad_cestas", 0) or 0) for d in docs if d.get("origen") not in RECIBIDO_ORIGINS)
+        disponible = round(recibido_total - usado, 2)
+        dias = 0
+        fecha_mas_antigua = None
+        if disponible > 0.001:
+            rem = usado
+            for d in sorted(recibidos, key=lambda x: (x.get("fecha") or "")):
+                c = d.get("cantidad_cestas", 0) or 0
+                if rem >= c - 0.0001:
+                    rem -= c
+                    continue
+                fecha_mas_antigua = (d.get("fecha") or "")[:10]
+                break
+            if fecha_mas_antigua:
+                try:
+                    fd = datetime.strptime(fecha_mas_antigua, "%Y-%m-%d").date()
+                    dias = max((hoy - fd).days, 0)
+                except ValueError:
+                    dias = 0
+        out.append({
+            "tipo": tipo, "label": label,
+            "cestas": disponible,
+            "kg": round(max(disponible, 0) * KG_POR_CESTA, 2),
+            "dias": dias,
+            "fecha_mas_antigua": fecha_mas_antigua,
+        })
+    return {"canales": out}
+
+
 # ============================================================
 # FRIO - cámara fría con cestas almacenadas
 # ============================================================
