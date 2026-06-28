@@ -2,6 +2,9 @@
 
 ## 2026-06 (sesión fork actual)
 
+### Analíticas · Precio promedio de venta [14/06/2026]
+- Nuevo panel **"Precio promedio de venta"** en Analíticas, debajo de "Costos por kilogramo" (solo lectura sobre los canales de Ventas; no toca otros módulos). Calcula el **promedio ponderado por kg y por cesta** de todas las ventas reales (finca + ciudad + refrigerar + congelar) del período: precio_prom_kg = ingreso_total ÷ kg_vendidos; precio_prom_cesta = precio_prom_kg × 14. Muestra además kg vendidos, cestas vendidas e ingreso total. Backend: campo `venta_promedio` en `_build_estado_resultados`. Verificado por curl (mezcla ventas por cesta y por kg).
+
 ### Dashboard · Producción general (3 gráficas agregadas) [14/06/2026]
 - Se reemplazaron las 4 tarjetas KPI (Usuarios Activos, Plantaciones, Cosechado, Productividad) por la sección **"Producción general"** con 3 donuts que agregan TODOS los lotes de Plantaciones (solo lectura, vía GET /cosechas, /actividades, /aplicaciones; sin endpoint nuevo):
   - **Cosechas por calidad**: suma de primera/segunda/tercera/descarte en kg. Toggle kg/Cestas/%.

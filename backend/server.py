@@ -1943,12 +1943,18 @@ async def _current_salarios_mensual() -> float:
 async def _build_estado_resultados(anio: int, mes: Optional[int]) -> dict:
     # INGRESO POR VENTAS: total vendido de los 4 canales con dinero (solo ventas reales)
     ventas_fresa = 0.0
+    kg_vendidos = 0.0
     for tipo in ("finca", "ciudad", "refrigerar", "congelar"):
         for v in await db[f"ventas_{tipo}"].find({}).to_list(20000):
             if v.get("origen") in VENTA_SYSTEM_ORIGENES:
                 continue
             if _en_periodo(v.get("fecha"), anio, mes):
                 ventas_fresa += float(v.get("total") or 0)
+                kg_vendidos += float(v.get("cantidad_kg") or (v.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
+    kg_vendidos = round(kg_vendidos, 2)
+    cestas_vendidas = round(kg_vendidos / KG_POR_CESTA, 2)
+    precio_prom_kg = round(ventas_fresa / kg_vendidos, 4) if kg_vendidos > 0 else 0
+    precio_prom_cesta = round(precio_prom_kg * KG_POR_CESTA, 2)
 
     # COSTO DE VENTAS: fertilizantes y agroquímicos = costo real PEPS de aplicaciones confirmadas
     fifo = await _compute_fifo_costs_per_aplicacion()
@@ -2016,6 +2022,7 @@ async def _build_estado_resultados(anio: int, mes: Optional[int]) -> dict:
         "costo_ventas": {"fertilizantes_agroquimicos": round(fert_agro, 2), "mano_obra": round(mano_obra, 2), "total": total_costo_ventas},
         "gastos_operativos": {"salarios": round(salarios, 2), "gastos_vehiculo": round(gastos_vehiculo, 2), "software_erp": round(software_erp, 2), "total": total_gastos_op},
         "cosecha": {"kg_cosechados": kg_cosechados, "kg_descarte": kg_descarte, "kg_donaciones": kg_donaciones, "kg_vendible": kg_vendible},
+        "venta_promedio": {"kg_vendidos": kg_vendidos, "cestas_vendidas": cestas_vendidas, "ingreso_total": round(ventas_fresa, 2), "precio_prom_kg": precio_prom_kg, "precio_prom_cesta": precio_prom_cesta},
         "utilidad_bruta": utilidad_bruta,
         "utilidad_operativa": utilidad_operativa,
     }

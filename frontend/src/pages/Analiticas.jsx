@@ -91,6 +91,7 @@ export default function Analiticas() {
   const costoTotalPorKg = kgCos > 0 ? costoConOp / kgCos : 0;
   const costoRealVendible = kgVend > 0 ? totalCosto / kgVend : 0;
   const costoTotalRealVendible = kgVend > 0 ? costoConOp / kgVend : 0;
+  const vp = data.venta_promedio || { precio_prom_kg: 0, precio_prom_cesta: 0, kg_vendidos: 0, cestas_vendidas: 0, ingreso_total: 0 };
 
   return (
     <div data-testid="analiticas-page">
@@ -176,6 +177,29 @@ export default function Analiticas() {
         <CostoKgRow num={3} label="COSTO REAL VENDIBLE" hint="Costo total de ventas ÷ (kg cosechados − descarte − donaciones)" value={costoRealVendible} testid="er-costo-real-vendible" />
         <CostoKgRow num={4} label="COSTO TOTAL REAL VENDIBLE" hint="(Costo de ventas + gastos operativos) ÷ (kg cosechados − descarte − donaciones)" value={costoTotalRealVendible} testid="er-costo-total-real-vendible" />
       </div>
+      </div>
+
+      {/* Precio promedio de venta (extraído de los canales de Ventas) */}
+      <div className="card" style={{ marginTop: 18, borderColor: "#bbf7d0", background: "linear-gradient(135deg,#fff,#f0fdf4)" }} data-testid="er-venta-promedio-card">
+        <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: 0.5, color: "#15803d", marginBottom: 4 }}>PRECIO PROMEDIO DE VENTA</div>
+        <div style={{ color: "#64748b", fontSize: 12, marginBottom: 14 }}>
+          Promedio ponderado de todas las ventas reales (finca + ciudad + refrigerar + congelar) del período. 1 cesta = 14 kg.
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14 }}>
+          <div style={{ background: "#fff", border: "1px solid #bbf7d0", borderRadius: 12, padding: 16 }}>
+            <div style={{ color: "#64748b", fontSize: 13, fontWeight: 600 }}>Precio promedio por kg</div>
+            <div style={{ fontSize: 30, fontWeight: 800, color: "#15803d", lineHeight: 1.2 }} data-testid="er-precio-prom-kg">{fmt(vp.precio_prom_kg)}<span style={{ fontSize: 14, color: "#94a3b8", fontWeight: 600 }}>/kg</span></div>
+          </div>
+          <div style={{ background: "#fff", border: "1px solid #bbf7d0", borderRadius: 12, padding: 16 }}>
+            <div style={{ color: "#64748b", fontSize: 13, fontWeight: 600 }}>Precio promedio por cesta</div>
+            <div style={{ fontSize: 30, fontWeight: 800, color: "#15803d", lineHeight: 1.2 }} data-testid="er-precio-prom-cesta">{fmt(vp.precio_prom_cesta)}<span style={{ fontSize: 14, color: "#94a3b8", fontWeight: 600 }}>/cesta</span></div>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginTop: 14, color: "#475569", fontSize: 13 }}>
+          <span data-testid="er-vp-kg">Kg vendidos: <b>{Number(vp.kg_vendidos || 0).toLocaleString("es-ES", { maximumFractionDigits: 2 })}</b></span>
+          <span data-testid="er-vp-cestas">Cestas vendidas: <b>{Number(vp.cestas_vendidas || 0).toLocaleString("es-ES", { maximumFractionDigits: 2 })}</b></span>
+          <span data-testid="er-vp-ingreso">Ingreso total: <b>{fmt(vp.ingreso_total)}</b></span>
+        </div>
       </div>
 
       {/* Tendencia mensual de costos por kg */}
