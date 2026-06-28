@@ -11,15 +11,25 @@ const TIPO_META = {
   finca: { label: "Venta en finca", icon: Home, color: "#16a34a" },
   ciudad: { label: "Envío a ciudad", icon: Truck, color: "#3b82f6" },
   refrigerar: { label: "Refrigerar", icon: Snowflake, color: "#0ea5e9" },
+  congelar: { label: "Congelar", icon: Snowflake, color: "#6366f1" },
   descarte: { label: "Descarte", icon: AlertCircle, color: "#dc2626" },
   donaciones: { label: "Donaciones", icon: Heart, color: "#ec4899" },
 };
+
+// Destinos de reasignación de cestas sobrantes por canal de origen
+const REASIGNAR_DESTINOS = {
+  ciudad: ["descarte", "donaciones", "refrigerar"],
+  refrigerar: ["congelar", "donaciones", "descarte"],
+  congelar: ["donaciones", "descarte"],
+};
+const DESTINO_LABEL = { descarte: "Descarte", donaciones: "Donaciones", refrigerar: "Refrigerar", congelar: "Congelar" };
 
 const fmtMoney = (n) => "US$ " + Number(n || 0).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function VentasFinca() { return <Ventas tipo="finca" />; }
 export function VentasCiudad() { return <Ventas tipo="ciudad" />; }
 export function VentasRefrigerar() { return <Ventas tipo="refrigerar" />; }
+export function VentasCongelar() { return <Ventas tipo="congelar" />; }
 export function VentasDescarte() { return <Ventas tipo="descarte" />; }
 export function VentasDonaciones() { return <Ventas tipo="donaciones" />; }
 
@@ -64,8 +74,10 @@ function Ventas({ tipo }) {
   const emptyNv = { cliente: "", telefono: "", cantidad_cestas: "", precio_unitario: "", abono_inicial: "", fecha: todayLocal(), observaciones: "" };
   const [nv, setNv] = useState(emptyNv);
   const [abonando, setAbonando] = useState(null);
-  // Reasignar cestas sobrantes de "Envío a ciudad" a Descarte/Donaciones
-  const [reasign, setReasign] = useState({ cantidad: "", destino: "descarte" });
+  // Reasignar cestas sobrantes a otros canales (ciudad / refrigerar / congelar)
+  const destinosReasignar = REASIGNAR_DESTINOS[tipo] || [];
+  const tieneReasignar = destinosReasignar.length > 0;
+  const [reasign, setReasign] = useState({ cantidad: "", destino: destinosReasignar[0] || "descarte" });
   const [reasignBusy, setReasignBusy] = useState(false);
   // Ajustar saldo disponible (corrige descuadres por ventas históricas sin "recibido")
   const [ajusteOpen, setAjusteOpen] = useState(false);
@@ -84,7 +96,7 @@ function Ventas({ tipo }) {
 
   const meta = TIPO_META[tipo] || TIPO_META.finca;
   const Icon = meta.icon;
-  const esIngreso = tipo === "finca" || tipo === "ciudad";  // ventas con $$ (cliente/abono/saldo)
+  const esIngreso = tipo === "finca" || tipo === "ciudad" || tipo === "refrigerar" || tipo === "congelar";  // ventas con $$ (cliente/abono/saldo)
   const esDonacion = tipo === "donaciones";                  // sin dinero (beneficiario/cestas)
   const conPanel = esIngreso || esDonacion;                  // muestran panel + formulario inline + registro
   const persona = esDonacion ? "beneficiario" : "cliente";
@@ -248,8 +260,8 @@ function Ventas({ tipo }) {
     if (cant > disponible + 0.001) { toast.show(`Solo hay ${disponible.toFixed(2)} cesta(s) disponible(s) para reasignar`, "error"); return; }
     setReasignBusy(true);
     try {
-      await api.post("/ventas-ciudad/reasignar", { cantidad_cestas: cant, destino: reasign.destino, fecha: realToday });
-      toast.show(`${cant} cesta(s) reasignada(s) a ${{ descarte: "Descarte", donaciones: "Donaciones", refrigerar: "Refrigerar" }[reasign.destino]}`);
+      await api.post(`/ventas-${tipo}/reasignar`, { cantidad_cestas: cant, destino: reasign.destino, fecha: realToday });
+      toast.show(`${cant} cesta(s) reasignada(s) a ${DESTINO_LABEL[reasign.destino] || reasign.destino}`);
       setReasign({ cantidad: "", destino: reasign.destino });
       load();
     } catch (err) {
@@ -327,11 +339,11 @@ function Ventas({ tipo }) {
                 </div>
               </div>
             )}
-            <div className="kpi-grid" style={{ marginTop: 16, gridTemplateColumns: tipo === "ciudad" ? "repeat(4, 1fr)" : "repeat(3, 1fr)" }}>
+            <div className="kpi-grid" style={{ marginTop: 16, gridTemplateColumns: tieneReasignar ? "repeat(4, 1fr)" : "repeat(3, 1fr)" }}>
               <SubCard label="Asignado hoy" value={fc(asignadoHoy)} sub={`${movAsignadoHoy} movimiento(s) desde Asignación de destino`} color="#16a34a" />
               <SubCard label={esDonacion ? "Donado hoy" : "Vendido hoy"} value={fc(vendidoHoyCestas)} sub={`${ventasHoyReales.length} ${esDonacion ? "donación(es)" : "venta(s)"} hoy`} color="#3b82f6" />
-              {tipo === "ciudad" && (
-                <SubCard label="Reasignado hoy" value={fc(reasignadoHoy)} sub="Enviado a Descarte / Donaciones / Refrigerar" color="#ea580c" />
+              {tieneReasignar && (
+                <SubCard label="Reasignado hoy" value={fc(reasignadoHoy)} sub={`Enviado a ${destinosReasignar.map((d) => DESTINO_LABEL[d]).join(" / ")}`} color="#ea580c" />
               )}
               <SubCard label="Disponible hoy" value={fc(disponibleHoy)} sub="De lo asignado hoy" color={disponibleHoy < -0.001 ? "#dc2626" : disponibleHoy > 0.001 ? "#16a34a" : "#94a3b8"} />
             </div>
@@ -384,12 +396,12 @@ function Ventas({ tipo }) {
             </div>
           </div>
 
-          {/* Reasignar cestas sobrantes (solo Envío a ciudad) */}
-          {tipo === "ciudad" && disponible > 0.001 && (
+          {/* Reasignar cestas sobrantes (ciudad / refrigerar / congelar) */}
+          {tieneReasignar && disponible > 0.001 && (
             <div className="card" style={{ background: "#fff7ed", borderColor: "#fed7aa", marginBottom: 16 }} data-testid="reasignar-card">
               <h3 style={{ margin: 0, color: "#c2410c", display: "flex", alignItems: "center", gap: 8 }}><Truck size={18} /> Reasignar cestas sobrantes</h3>
               <div style={{ color: "#64748b", fontSize: 13, margin: "4px 0 16px" }}>
-                Quedan <b style={{ color: "#c2410c" }}>{fc(disponible)}</b> sin vender. Podés enviarlas a Descarte, Donaciones o Refrigerar.
+                Quedan <b style={{ color: "#c2410c" }}>{fc(disponible)}</b> sin vender. Podés enviarlas a {destinosReasignar.map((d) => DESTINO_LABEL[d]).join(", ")}.
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, alignItems: "end" }}>
                 <div className="field" style={{ margin: 0 }}>
@@ -399,9 +411,7 @@ function Ventas({ tipo }) {
                 <div className="field" style={{ margin: 0 }}>
                   <label>Destino</label>
                   <select className="select" value={reasign.destino} onChange={(e) => setReasign({ ...reasign, destino: e.target.value })} data-testid="reasign-destino">
-                    <option value="descarte">Descarte</option>
-                    <option value="donaciones">Donaciones</option>
-                    <option value="refrigerar">Refrigerar</option>
+                    {destinosReasignar.map((d) => <option key={d} value={d}>{DESTINO_LABEL[d]}</option>)}
                   </select>
                 </div>
                 <button className="btn btn-primary" style={{ background: "#ea580c", borderColor: "#ea580c" }} onClick={reasignarSobrantes} disabled={reasignBusy} data-testid="reasign-btn">

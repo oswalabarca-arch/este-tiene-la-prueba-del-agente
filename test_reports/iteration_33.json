@@ -1,0 +1,25 @@
+{
+  "summary": "Validación completa de Refrigerar y Congelar como canales de venta completos (renombre de Frío → Congelar bajo Ventas). Backend: 5/5 pytest OK (3 nuevos en test_canales_refrigerar_congelar.py + 2 de regresión de test_reasignar_y_cascada.py). Cubre: (a) asignar destino 'refrigerar' crea doc en ventas_refrigerar con origen=asignacion_destino + asignacion_id, idem 'congelar' → ventas_congelar; (b) frio_registros NO se alimenta vía asignación (sólo /api/frio-registros legacy responde 200); (c) cadena ciudad(10)→refrigerar(6) → congelar(4) → donaciones(3) con disponibles 4/2/1/3 verificados después de cada paso; (d) validaciones 400: refrigerar/reasignar destino='refrigerar', destino='congelar' con cantidad>disponible, congelar/reasignar destino='congelar', destino='refrigerar', cantidad<=0. Frontend: login OK, submenú Ventas muestra Venta en finca, Envío a ciudad, Refrigerar, Congelar, Descarte, Donaciones; NO existe 'Frío' top-level; /dashboard/frio redirige a /dashboard/ventas/congelar (verificado por URL final). Páginas Refrigerar y Congelar son páginas de ventas completas (data-testid ventas-refrigerar-page / ventas-congelar-page, ventas-acumulado-hoy con barra Vendido/Total/Cobrado/Saldo, registrar-venta-card inline con nv-cliente/nv-cestas/nv-precio, filtro-periodo-*, toggle Cestas/kg). Integración E2E vía UI: con seed de 4 cestas asignadas a Refrigerar, el disponible-grande muestra '4.00 cestas'; al reasignar 2 a Congelar (data-testid reasign-cantidad + reasign-destino + reasign-btn) Refrigerar baja a 2.00 y Congelar muestra 2.00. Selectores de destino observados: ciudad=[Descarte,Donaciones,Refrigerar] · refrigerar=[Congelar,Donaciones,Descarte] · congelar=[Donaciones,Descarte] (sin Congelar ni Refrigerar) — coincide exactamente con REASIGNAR_DESTINOS y el backend allowed tuples. Tarjeta 'REASIGNADO HOY' en ciudad muestra 'Enviado a Descarte / Donaciones / Refrigerar'. Sin errores JS en consola. Cleanup E2E: 4 ventas, 2 asignaciones y 1 cosecha test eliminadas (verificado: 0 docs TEST_ remanentes en ninguno de los 6 canales).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_canales_refrigerar_congelar.py",
+    "/app/backend/tests/test_reasignar_y_cascada.py",
+    "/app/test_reports/pytest/canales_refrigerar_congelar.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py L450-477 _VENTAS_DESTINO + _build_linked_doc: mapeo limpio destino→colección; refrigerar→ventas_refrigerar y congelar→ventas_congelar son consistentes. La nota 'desde Asignación de destino' es identificable.",
+    "server.py L1502-1542 _reasignar_ventas: helper único y reutilizable. La validación de allowed por endpoint es explícita (línea 1547/1552/1557). La salida usa origen='reasignacion_salida' y la entrada usa 'asignacion_destino' (excepto descarte → 'reasignacion_ciudad', nombre histórico). El cálculo de disponible (RECIBIDO_ORIGINS - resto) coincide con el frontend.",
+    "Ventas.jsx L20-24 REASIGNAR_DESTINOS y backend allowed están en sync 1:1. Mantener ambas listas alineadas si se agregan canales nuevos (sugerencia: exportar destinos vía endpoint para evitar drift, no bloqueante).",
+    "Sugerencia menor: el origen 'reasignacion_ciudad' al reasignar desde refrigerar/congelar hacia descarte es un naming legacy — se entiende, pero quizás 'reasignacion_descarte' sería más expresivo. No es bug. Los tests asumen el nombre actual."
+  ],
+  "updated_files": ["/app/backend/tests/test_canales_refrigerar_congelar.py (nuevo)"],
+  "success_rate": {"backend": "100% (5/5)", "frontend": "100% (todos los flujos validados)"},
+  "test_credentials": "Admin: oswaldabarca@gmail.com / 123456",
+  "seed_data_creation": "Cero datos persistentes. Todos los tests siembran su propia cosecha+asignación y limpian al final (verificado: 0 docs TEST_ en ventas_ciudad/refrigerar/congelar/donaciones/descarte/finca al término).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteración 33: Refrigerar y Congelar son canales de ventas completos (idénticos a Envío a ciudad). Si se agrega un nuevo canal o cambia REASIGNAR_DESTINOS en Ventas.jsx, debe actualizarse también el tuple 'allowed' en /ventas-XXX/reasignar de server.py (L1545-1557). Re-correr test_canales_refrigerar_congelar.py + test_reasignar_y_cascada.py como regresión. El endpoint legacy /api/frio-registros (no /api/frio) sigue activo pero ya no es alimentado por asignaciones.",
+  "rca of the issue": "N/A — sin issues. Único ajuste menor en test inicial: la ruta legacy es /api/frio-registros (no /api/frio) — corregido en el test antes de finalizar."
+}

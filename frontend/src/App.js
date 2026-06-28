@@ -13,8 +13,7 @@ import Compras from "./pages/Compras";
 import Inventario from "./pages/Inventario";
 import Aplicaciones from "./pages/Aplicaciones";
 import { ActividadesPendientes, ActividadesRegistrar } from "./pages/Actividades";
-import { VentasFinca, VentasCiudad, VentasRefrigerar, VentasDescarte, VentasDonaciones } from "./pages/Ventas";
-import Frio from "./pages/Frio";
+import { VentasFinca, VentasCiudad, VentasRefrigerar, VentasCongelar, VentasDescarte, VentasDonaciones } from "./pages/Ventas";
 import Equipos from "./pages/Equipos";
 import Vehiculos from "./pages/Vehiculos";
 import { Trabajadores, Nomina } from "./pages/RRHH";
@@ -58,9 +57,10 @@ function App() {
               <Route path="ventas/finca" element={<VentasFinca />} />
               <Route path="ventas/ciudad" element={<VentasCiudad />} />
               <Route path="ventas/refrigerar" element={<VentasRefrigerar />} />
+              <Route path="ventas/congelar" element={<VentasCongelar />} />
               <Route path="ventas/descarte" element={<VentasDescarte />} />
               <Route path="ventas/donaciones" element={<VentasDonaciones />} />
-              <Route path="frio" element={<Frio />} />
+              <Route path="frio" element={<Navigate to="/dashboard/ventas/congelar" replace />} />
               <Route path="equipos" element={<Equipos />} />
               <Route path="equipos/vehiculos" element={<Vehiculos />} />
               <Route path="equipos/:categoria" element={<Equipos />} />

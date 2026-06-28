@@ -446,34 +446,34 @@ class AsignacionIn(BaseModel):
     observaciones: str = ""
 
 
-# Módulos vinculados: alimenta Ventas / Frío según el destino (trazabilidad)
+# Módulos vinculados: alimenta los canales de Ventas según el destino (trazabilidad)
 _VENTAS_DESTINO = {
     "venta_finca": "finca",
     "enviar_ciudad": "ciudad",
     "enviar_otra_ciudad": "ciudad",
+    "refrigerar": "refrigerar",
+    "congelar": "congelar",
     "descarte": "descarte",
     "donaciones": "donaciones",
 }
-_FRIO_DESTINO = {"refrigerar": "refrigerado", "congelar": "congelado"}
-_LINKED_COLLS = ["ventas_finca", "ventas_ciudad", "ventas_descarte", "ventas_donaciones", "frio_registros"]
+_LINKED_COLLS = ["ventas_finca", "ventas_ciudad", "ventas_refrigerar", "ventas_congelar", "ventas_descarte", "ventas_donaciones", "frio_registros"]
 
 
 def _build_linked_doc(destino, cestas, kg, fecha, asignacion_id):
     """Devuelve (coleccion, doc) para alimentar el módulo destino, o None."""
     base = {"origen": "asignacion_destino", "asignacion_id": asignacion_id}
     if destino in _VENTAS_DESTINO:
-        nota = "Otra ciudad · desde Asignación de destino" if destino == "enviar_otra_ciudad" else "Desde Asignación de destino"
+        notas = {
+            "enviar_otra_ciudad": "Otra ciudad · desde Asignación de destino",
+            "refrigerar": "Refrigerar · desde Asignación de destino",
+            "congelar": "Congelar · desde Asignación de destino",
+        }
+        nota = notas.get(destino, "Desde Asignación de destino")
         doc = {
             "fecha": fecha, "cantidad_cestas": cestas, "cantidad_kg": kg,
             "precio_unitario": 0, "total": 0, "cliente": "", "observaciones": nota, **base,
         }
         return (f"ventas_{_VENTAS_DESTINO[destino]}", doc)
-    if destino in _FRIO_DESTINO:
-        doc = {
-            "fecha_ingreso": fecha, "cantidad_cestas": cestas, "lote": "", "variedad": "",
-            "tipo_conservacion": _FRIO_DESTINO[destino], "observaciones": "Desde Asignación de destino", **base,
-        }
-        return ("frio_registros", doc)
     return None
 
 
@@ -1483,42 +1483,44 @@ def _ventas_router(tipo: str):
 _ventas_router("finca")
 _ventas_router("ciudad")
 _ventas_router("refrigerar")
+_ventas_router("congelar")
 _ventas_router("descarte")
 _ventas_router("donaciones")
 
 
-# ── Reasignar cestas sobrantes de "Envío a ciudad" a Descarte o Donaciones ──
-class ReasignarCiudadIn(BaseModel):
+# ── Reasignar cestas sobrantes entre canales (ciudad → ..., refrigerar → ..., congelar → ...) ──
+class ReasignarIn(BaseModel):
     cantidad_cestas: float
-    destino: str  # descarte | donaciones | refrigerar
+    destino: str
     fecha: str    # YYYY-MM-DD o ISO
 
 
-@api.post("/ventas-ciudad/reasignar")
-async def reasignar_ciudad(payload: ReasignarCiudadIn, user: dict = Depends(get_current_user)):
-    """Mueve cestas no vendidas de Envío a ciudad hacia Descarte, Donaciones o Refrigerar.
-    Crea un registro de salida en ventas_ciudad (reduce el disponible del día) y
-    un registro de entrada en el módulo destino elegido."""
-    if payload.destino not in ("descarte", "donaciones", "refrigerar"):
-        raise HTTPException(400, "Destino inválido. Usa 'descarte', 'donaciones' o 'refrigerar'.")
+_REASIGNAR_LABELS = {"descarte": "Descarte", "donaciones": "Donaciones", "refrigerar": "Refrigerar", "congelar": "Congelar"}
+_FUENTE_LABELS = {"ciudad": "Envío a ciudad", "refrigerar": "Refrigerar", "congelar": "Congelar"}
+
+
+async def _reasignar_ventas(source_tipo: str, payload: ReasignarIn, allowed: tuple, user: dict):
+    """Mueve cestas no vendidas de un canal de ventas hacia otro destino.
+    Crea una salida en el canal origen (reduce su disponible) y una entrada en el destino."""
+    if payload.destino not in allowed:
+        raise HTTPException(400, f"Destino inválido. Opciones: {', '.join(allowed)}.")
     cestas = round(payload.cantidad_cestas or 0, 4)
     if cestas <= 0:
         raise HTTPException(400, "La cantidad debe ser mayor a 0.")
     fecha_prefix = (payload.fecha or "")[:10]
     if not fecha_prefix:
         raise HTTPException(400, "Fecha inválida.")
-    # Disponible en 'ciudad' = ACUMULADO (no se reinicia por día):
-    # todo lo recibido (asignación + ajustes de entrada) menos lo usado (ventas/salidas/ajustes de salida).
-    docs = await db.ventas_ciudad.find({}).to_list(20000)
+    coll = f"ventas_{source_tipo}"
+    docs = await db[coll].find({}).to_list(20000)
     asignado = sum((d.get("cantidad_cestas", 0) or 0) for d in docs if d.get("origen") in RECIBIDO_ORIGINS)
     usado = sum((d.get("cantidad_cestas", 0) or 0) for d in docs if d.get("origen") not in RECIBIDO_ORIGINS)
     disponible = asignado - usado
     if cestas > disponible + 0.001:
-        raise HTTPException(400, f"Solo hay {round(max(disponible, 0), 2)} cesta(s) disponible(s) en Envío a ciudad para reasignar.")
+        raise HTTPException(400, f"Solo hay {round(max(disponible, 0), 2)} cesta(s) disponible(s) en {_FUENTE_LABELS.get(source_tipo, source_tipo)} para reasignar.")
     kg = round(cestas * KG_POR_CESTA, 2)
     fecha_full = fecha_prefix + "T12:00:00.000Z"
-    destino_label = {"descarte": "Descarte", "donaciones": "Donaciones", "refrigerar": "Refrigerar"}[payload.destino]
-    # 1) Salida de ciudad (reduce el disponible): registro manual, no asignacion_destino
+    destino_label = _REASIGNAR_LABELS[payload.destino]
+    # 1) Salida del canal origen (reduce su disponible): registro de salida, no es venta real
     salida = {
         "fecha": fecha_full, "cantidad_cestas": cestas, "cantidad_kg": kg,
         "precio_unitario": 0, "total": 0, "cliente": f"Reasignado a {destino_label}",
@@ -1526,18 +1528,33 @@ async def reasignar_ciudad(payload: ReasignarCiudadIn, user: dict = Depends(get_
         "observaciones": f"Reasignación de cestas sobrantes a {destino_label}",
         "origen": "reasignacion_salida",
     }
-    await _create("ventas_ciudad", salida, user)
+    await _create(coll, salida, user)
     # 2) Entrada en el destino elegido
+    # En canales que se siguen vendiendo/donando (refrigerar/congelar/donaciones) cuenta como
+    # stock disponible (origen=asignacion_destino). En descarte queda solo como registro.
     entrada = {
         "fecha": fecha_full, "cantidad_cestas": cestas, "cantidad_kg": kg,
         "precio_unitario": 0, "total": 0, "cliente": "", "telefono": "", "abono_inicial": 0,
-        "observaciones": "Reasignado desde Envío a ciudad",
-        # En Donaciones y Refrigerar cuenta como 'disponible' (igual que una asignación);
-        # en Descarte queda como un registro de descarte.
-        "origen": "asignacion_destino" if payload.destino in ("donaciones", "refrigerar") else "reasignacion_ciudad",
+        "observaciones": f"Reasignado desde {_FUENTE_LABELS.get(source_tipo, source_tipo)}",
+        "origen": "reasignacion_ciudad" if payload.destino == "descarte" else "asignacion_destino",
     }
     await _create(f"ventas_{payload.destino}", entrada, user)
     return {"success": True, "cantidad_cestas": cestas, "destino": payload.destino}
+
+
+@api.post("/ventas-ciudad/reasignar")
+async def reasignar_ciudad(payload: ReasignarIn, user: dict = Depends(get_current_user)):
+    return await _reasignar_ventas("ciudad", payload, ("descarte", "donaciones", "refrigerar"), user)
+
+
+@api.post("/ventas-refrigerar/reasignar")
+async def reasignar_refrigerar(payload: ReasignarIn, user: dict = Depends(get_current_user)):
+    return await _reasignar_ventas("refrigerar", payload, ("congelar", "donaciones", "descarte"), user)
+
+
+@api.post("/ventas-congelar/reasignar")
+async def reasignar_congelar(payload: ReasignarIn, user: dict = Depends(get_current_user)):
+    return await _reasignar_ventas("congelar", payload, ("donaciones", "descarte"), user)
 
 
 # ============================================================
