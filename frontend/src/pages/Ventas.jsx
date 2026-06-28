@@ -249,7 +249,7 @@ function Ventas({ tipo }) {
     setReasignBusy(true);
     try {
       await api.post("/ventas-ciudad/reasignar", { cantidad_cestas: cant, destino: reasign.destino, fecha: realToday });
-      toast.show(`${cant} cesta(s) reasignada(s) a ${reasign.destino === "descarte" ? "Descarte" : "Donaciones"}`);
+      toast.show(`${cant} cesta(s) reasignada(s) a ${{ descarte: "Descarte", donaciones: "Donaciones", refrigerar: "Refrigerar" }[reasign.destino]}`);
       setReasign({ cantidad: "", destino: reasign.destino });
       load();
     } catch (err) {
@@ -331,7 +331,7 @@ function Ventas({ tipo }) {
               <SubCard label="Asignado hoy" value={fc(asignadoHoy)} sub={`${movAsignadoHoy} movimiento(s) desde Asignación de destino`} color="#16a34a" />
               <SubCard label={esDonacion ? "Donado hoy" : "Vendido hoy"} value={fc(vendidoHoyCestas)} sub={`${ventasHoyReales.length} ${esDonacion ? "donación(es)" : "venta(s)"} hoy`} color="#3b82f6" />
               {tipo === "ciudad" && (
-                <SubCard label="Reasignado hoy" value={fc(reasignadoHoy)} sub="Enviado a Descarte / Donaciones" color="#ea580c" />
+                <SubCard label="Reasignado hoy" value={fc(reasignadoHoy)} sub="Enviado a Descarte / Donaciones / Refrigerar" color="#ea580c" />
               )}
               <SubCard label="Disponible hoy" value={fc(disponibleHoy)} sub="De lo asignado hoy" color={disponibleHoy < -0.001 ? "#dc2626" : disponibleHoy > 0.001 ? "#16a34a" : "#94a3b8"} />
             </div>
@@ -389,7 +389,7 @@ function Ventas({ tipo }) {
             <div className="card" style={{ background: "#fff7ed", borderColor: "#fed7aa", marginBottom: 16 }} data-testid="reasignar-card">
               <h3 style={{ margin: 0, color: "#c2410c", display: "flex", alignItems: "center", gap: 8 }}><Truck size={18} /> Reasignar cestas sobrantes</h3>
               <div style={{ color: "#64748b", fontSize: 13, margin: "4px 0 16px" }}>
-                Quedan <b style={{ color: "#c2410c" }}>{fc(disponible)}</b> sin vender. Podés enviarlas a Descarte o Donaciones.
+                Quedan <b style={{ color: "#c2410c" }}>{fc(disponible)}</b> sin vender. Podés enviarlas a Descarte, Donaciones o Refrigerar.
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, alignItems: "end" }}>
                 <div className="field" style={{ margin: 0 }}>
@@ -401,6 +401,7 @@ function Ventas({ tipo }) {
                   <select className="select" value={reasign.destino} onChange={(e) => setReasign({ ...reasign, destino: e.target.value })} data-testid="reasign-destino">
                     <option value="descarte">Descarte</option>
                     <option value="donaciones">Donaciones</option>
+                    <option value="refrigerar">Refrigerar</option>
                   </select>
                 </div>
                 <button className="btn btn-primary" style={{ background: "#ea580c", borderColor: "#ea580c" }} onClick={reasignarSobrantes} disabled={reasignBusy} data-testid="reasign-btn">
