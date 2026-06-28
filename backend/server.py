@@ -1406,6 +1406,7 @@ class VentaIn(BaseModel):
     cantidad_kg: float = 0
     precio_unitario: float = 0
     total: float = 0
+    unidad_venta: str = "cestas"  # cestas | kg (forma en que se registró la venta)
     cliente: str = ""
     telefono: str = ""
     abono_inicial: float = 0

@@ -1,0 +1,37 @@
+{
+  "summary": "Iteración 34: ventas por kg en canales Refrigerar y Congelar. Backend: 7/7 pytest OK en test_ventas_kg_refrigerar_congelar.py — (a) POST /api/ventas-refrigerar y /api/ventas-congelar con unidad_venta='kg' (cantidad_kg=28, precio_unitario=2.5, total=70) persiste todos los campos y descuenta 2 cestas (28/14) del disponible; (b) modo cestas sigue funcionando (regresión: unidad_venta='cestas' persiste); (c) PUT abono sobre venta hecha por kg conserva unidad_venta='kg', cantidad_kg=14, total=42 y abono=20; (d) cálculo matemático 35 kg @ 3.2/kg = 112 verificado. Cleanup estricto por _id de lo creado (no toca datos reales). Frontend: login OK, navegación a /dashboard/ventas/refrigerar y /congelar muestra data-testid='ventas-disponible-dual' con formato 'X cestas · Y kg'; toggle 'Vender por' con data-testid nv-modo-cestas (default activo, azul) / nv-modo-kg en la tarjeta 'Registrar nueva venta'; click nv-modo-kg cambia los inputs a nv-kg (label 'Cantidad (kg) *') y nv-precio-kg (label 'Precio por kg *'); click nv-modo-cestas vuelve a nv-cestas / nv-precio. REGRESIÓN UI verificada: /dashboard/ventas/finca y /dashboard/ventas/ciudad NO muestran el toggle nv-modo-kg, y conservan nv-cestas/nv-precio. Sin errores JS. La línea dual también aparece en Finca/Ciudad (es informativa, no es bug — el spec no restringe; sólo el toggle de venta por kg está condicionado a refrigerar/congelar vía puedeVenderKg).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "test_canales_refrigerar_congelar.py::test_asignacion_refrigerar_y_congelar_crean_stock_en_canales_correctos", "issue": "Test pre-existente de iteración 33 falla porque el preview ahora tiene datos reales del usuario en ventas_refrigerar (disponible=8 vs esperado=6 cestas hoy). No está relacionado con la feature kg; es supuesto de aislamiento que ya no se cumple. Los otros 2 tests del file pasan. Sugerencia: el test debería filtrar por origen+asignacion_id específico, no por _disponible_canal global del día."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_ventas_kg_refrigerar_congelar.py",
+    "/app/test_reports/pytest/ventas_kg.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py L1403-1416 VentaIn: el campo `unidad_venta: str = 'cestas'` con default es retrocompatible. Bien.",
+    "Ventas.jsx L192-196 nvCestasEff / nvTotal: la conversión 1 cesta = 14 kg está hardcoded en frontend (línea 193: `Number(nv.cantidad_kg)/14` y 222: `cestasVenta*14`). El backend NO recalcula cantidad_cestas a partir de cantidad_kg — confía en lo que envía el cliente. Si en el futuro cambia la equivalencia, hay que actualizar ambos lados. Considerar exponer KG_POR_CESTA por endpoint o que el backend recalcule cestas cuando unidad_venta='kg'. No bloqueante.",
+    "Ventas.jsx L210-217 validación: usa `cestasVenta > disponible + 0.001`. En modo kg, cestasVenta = kg/14, así que la validación queda correcta. El mensaje de error muestra cestas y kg disponibles — UX buena.",
+    "Ventas.jsx L240-242 registrarAbono: envía `unidad_venta: v.unidad_venta || 'cestas'` — preserva correctamente la unidad original al abonar. Verificado por test backend.",
+    "Ventas.jsx L518-519 tabla del registro: muestra `28 kg` o `3 cestas` y `$2.50/kg` o `$10.00/cesta` según `v.unidad_venta`. Correcto.",
+    "El toggle nv-modo-* sólo se renderiza si `puedeVenderKg` (tipo === 'refrigerar' || 'congelar'), por lo que finca/ciudad/descarte/donaciones siguen siendo solo-cestas. Validado en UI."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_ventas_kg_refrigerar_congelar.py (nuevo - 7 tests)"
+  ],
+  "success_rate": {"backend": "100% (7/7 nuevos en feature kg)", "frontend": "100% (todas las aserciones de toggle, inputs, dual line y regresiones pasaron)"},
+  "test_credentials": "Admin: oswaldabarca@gmail.com / 123456",
+  "seed_data_creation": "Tests backend crean cosechas+asignaciones de prueba (TEST_KG, TEST_kg) y las limpian por _id en teardown (fixture client scope=module). Verificado: ningún rastro persistente. NO se tocan datos reales del usuario.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteración 34: La feature de ventas por kg en Refrigerar/Congelar funciona end-to-end (backend + frontend). Selectores nuevos: ventas-disponible-dual (info), nv-modo-cestas, nv-modo-kg (toggle), nv-kg, nv-precio-kg (inputs modo kg). VentaIn ahora incluye `unidad_venta: str = 'cestas'`. Conversión KG_POR_CESTA=14 está hardcoded en Ventas.jsx (no en backend; el backend confía en lo que el cliente calcula). El test de regresión iter33 test_asignacion_refrigerar_y_congelar_crean_stock_en_canales_correctos falla por datos reales del usuario en el preview (no por bug). Si se va a re-correr, considerar saltar ese test o reescribirlo para que filtre por asignacion_id en vez de todos los docs del día.",
+  "rca of the issue": "N/A — sin issues bloqueantes. Único detalle: el test pre-existente de iter33 quedó frágil ante datos reales en el preview porque calcula 'disponible' sumando todo lo del día. Para el nuevo feature de kg no hay issues."
+}

@@ -71,7 +71,7 @@ function Ventas({ tipo }) {
   const [diasMin, setDiasMin] = useState("");
   const [soloDeudores, setSoloDeudores] = useState(false);
   // Formulario inline + abono
-  const emptyNv = { cliente: "", telefono: "", cantidad_cestas: "", precio_unitario: "", abono_inicial: "", fecha: todayLocal(), observaciones: "" };
+  const emptyNv = { cliente: "", telefono: "", cantidad_cestas: "", precio_unitario: "", abono_inicial: "", fecha: todayLocal(), observaciones: "", modo: "cestas", cantidad_kg: "", precio_kg: "" };
   const [nv, setNv] = useState(emptyNv);
   const [abonando, setAbonando] = useState(null);
   // Reasignar cestas sobrantes a otros canales (ciudad / refrigerar / congelar)
@@ -97,6 +97,7 @@ function Ventas({ tipo }) {
   const meta = TIPO_META[tipo] || TIPO_META.finca;
   const Icon = meta.icon;
   const esIngreso = tipo === "finca" || tipo === "ciudad" || tipo === "refrigerar" || tipo === "congelar";  // ventas con $$ (cliente/abono/saldo)
+  const puedeVenderKg = tipo === "refrigerar" || tipo === "congelar";  // pueden vender por cesta o por kg
   const esDonacion = tipo === "donaciones";                  // sin dinero (beneficiario/cestas)
   const conPanel = esIngreso || esDonacion;                  // muestran panel + formulario inline + registro
   const persona = esDonacion ? "beneficiario" : "cliente";
@@ -188,29 +189,40 @@ function Ventas({ tipo }) {
   const u = unidad === "kg" ? "kg" : "cestas";
   const fc = (cestas) => `${(cestas * factor).toFixed(2)} ${u}`;
 
-  const nvTotal = Number(nv.cantidad_cestas || 0) * Number(nv.precio_unitario || 0);
+  const modoKg = puedeVenderKg && nv.modo === "kg";
+  const nvCestasEff = modoKg ? Number(nv.cantidad_kg || 0) / 14 : Number(nv.cantidad_cestas || 0);
+  const nvTotal = modoKg
+    ? Number(nv.cantidad_kg || 0) * Number(nv.precio_kg || 0)
+    : Number(nv.cantidad_cestas || 0) * Number(nv.precio_unitario || 0);
   const nvSaldo = nvTotal - Number(nv.abono_inicial || 0);
   const numv = (v) => (v === 0 || v === "" || v == null ? "" : v);
 
   const registrarVenta = async () => {
     if (!nv.cliente.trim()) { toast.show(esDonacion ? "Ingresa el beneficiario" : "Ingresa el nombre del cliente", "error"); return; }
-    if (!Number(nv.cantidad_cestas)) { toast.show("La cantidad de cestas es obligatoria", "error"); return; }
-    if (esIngreso && !Number(nv.precio_unitario)) { toast.show("El precio por cesta es obligatorio", "error"); return; }
-    if (Number(nv.cantidad_cestas) > disponible + 0.001) {
+    const cestasVenta = nvCestasEff;
+    if (modoKg) {
+      if (!Number(nv.cantidad_kg)) { toast.show("La cantidad de kg es obligatoria", "error"); return; }
+      if (!Number(nv.precio_kg)) { toast.show("El precio por kg es obligatorio", "error"); return; }
+    } else {
+      if (!Number(nv.cantidad_cestas)) { toast.show("La cantidad de cestas es obligatoria", "error"); return; }
+      if (esIngreso && !Number(nv.precio_unitario)) { toast.show("El precio por cesta es obligatorio", "error"); return; }
+    }
+    if (cestasVenta > disponible + 0.001) {
       toast.show(
         disponible <= 0.001
           ? `No hay cestas disponibles. Asigná cestas desde "Asignación de destino" antes de ${esDonacion ? "donar" : "vender"}.`
-          : `Solo hay ${disponible.toFixed(2)} cesta(s) disponible(s). No podés ${esDonacion ? "donar" : "vender"} más de lo disponible.`,
+          : `Solo hay ${disponible.toFixed(2)} cesta(s) disponible(s) (${(disponible * 14).toFixed(2)} kg). No podés ${esDonacion ? "donar" : "vender"} más de lo disponible.`,
         "error"
       );
       return;
     }
     await api.post(`/ventas-${tipo}`, {
       fecha: nv.fecha + "T12:00:00.000Z",
-      cantidad_cestas: Number(nv.cantidad_cestas),
-      cantidad_kg: Number(nv.cantidad_cestas) * 14,
-      precio_unitario: esDonacion ? 0 : Number(nv.precio_unitario),
+      cantidad_cestas: cestasVenta,
+      cantidad_kg: modoKg ? Number(nv.cantidad_kg) : cestasVenta * 14,
+      precio_unitario: esDonacion ? 0 : (modoKg ? Number(nv.precio_kg) : Number(nv.precio_unitario)),
       total: esDonacion ? 0 : nvTotal,
+      unidad_venta: modoKg ? "kg" : "cestas",
       cliente: nv.cliente,
       telefono: nv.telefono,
       abono_inicial: esDonacion ? 0 : Number(nv.abono_inicial || 0),
@@ -226,8 +238,8 @@ function Ventas({ tipo }) {
     const nuevo = Math.min((v.abono_inicial || 0) + Number(monto), v.total || 0);
     await api.put(`/ventas-${tipo}/${v._id}`, {
       fecha: v.fecha, cantidad_cestas: v.cantidad_cestas, cantidad_kg: v.cantidad_kg,
-      precio_unitario: v.precio_unitario, total: v.total, cliente: v.cliente,
-      telefono: v.telefono, abono_inicial: nuevo, observaciones: v.observaciones,
+      precio_unitario: v.precio_unitario, total: v.total, unidad_venta: v.unidad_venta || "cestas",
+      cliente: v.cliente, telefono: v.telefono, abono_inicial: nuevo, observaciones: v.observaciones,
     });
     toast.show("Abono registrado");
     setAbonando(null);
@@ -316,6 +328,7 @@ function Ventas({ tipo }) {
               </div>
               <div style={{ textAlign: "right" }}>
                 <div style={{ fontSize: 32, fontWeight: 800, color: disponibleAcum < -0.001 ? "#dc2626" : disponibleAcum > 0.001 ? "#15803d" : "#94a3b8" }} data-testid="ventas-disponible-grande">{fc(disponibleAcum)}</div>
+                <div style={{ color: "#475569", fontSize: 12, fontWeight: 600 }} data-testid="ventas-disponible-dual">{disponibleAcum.toFixed(2)} cestas · {(disponibleAcum * 14).toFixed(2)} kg</div>
                 <div style={{ color: "#15803d", fontSize: 12, fontWeight: 600 }}>Disponible acumulado</div>
                 <div style={{ color: "#94a3b8", fontSize: 11 }}>arrastra al día siguiente</div>
                 {canEdit("ventas") && (
@@ -374,11 +387,34 @@ function Ventas({ tipo }) {
           <div className="card" style={{ background: "#f0fdf4", borderColor: "#bbf7d0", marginBottom: 16 }} data-testid="registrar-venta-card">
             <h3 style={{ margin: 0, color: "#15803d", display: "flex", alignItems: "center", gap: 8 }}><Plus size={18} /> Registrar nueva venta</h3>
             <div style={{ color: "#64748b", fontSize: 13, margin: "4px 0 16px" }}>Completá los campos y pulsá "Registrar". La venta se agrega al registro de abajo.</div>
+            {puedeVenderKg && (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+                <span style={{ color: "#475569", fontSize: 13, fontWeight: 600 }}>Vender por:</span>
+                <div style={{ display: "inline-flex", background: "#f1f5f9", borderRadius: 10, padding: 3 }}>
+                  {[["cestas", "Cestas"], ["kg", "Kilogramos"]].map(([m, lbl]) => (
+                    <button key={m} type="button" onClick={() => setNv({ ...nv, modo: m })} data-testid={`nv-modo-${m}`}
+                      style={{ padding: "6px 16px", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 13,
+                        background: nv.modo === m ? "#0ea5e9" : "transparent", color: nv.modo === m ? "#fff" : "#475569" }}>
+                      {lbl}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
               <div className="field"><label>Nombre del cliente *</label><input className="input" placeholder="Ej: Juan Pérez" value={nv.cliente} onChange={(e) => setNv({ ...nv, cliente: e.target.value })} data-testid="nv-cliente" /></div>
               <div className="field"><label>Teléfono</label><input className="input" placeholder="Ej: 0414-1234567" value={nv.telefono} onChange={(e) => setNv({ ...nv, telefono: e.target.value })} data-testid="nv-telefono" /></div>
-              <div className="field"><label>Cantidad de cestas *</label><DecimalInput type="number" step="0.01" min="0" className="input" placeholder="0" value={numv(nv.cantidad_cestas)} onChange={(e) => setNv({ ...nv, cantidad_cestas: e.target.value })} data-testid="nv-cestas" /></div>
-              <div className="field"><label>Precio por cesta *</label><DecimalInput type="number" step="0.01" min="0" className="input" placeholder="0.00" value={numv(nv.precio_unitario)} onChange={(e) => setNv({ ...nv, precio_unitario: e.target.value })} data-testid="nv-precio" /></div>
+              {modoKg ? (
+                <>
+                  <div className="field"><label>Cantidad (kg) *</label><DecimalInput type="number" step="0.01" min="0" className="input" placeholder="0" value={numv(nv.cantidad_kg)} onChange={(e) => setNv({ ...nv, cantidad_kg: e.target.value })} data-testid="nv-kg" /></div>
+                  <div className="field"><label>Precio por kg *</label><DecimalInput type="number" step="0.01" min="0" className="input" placeholder="0.00" value={numv(nv.precio_kg)} onChange={(e) => setNv({ ...nv, precio_kg: e.target.value })} data-testid="nv-precio-kg" /></div>
+                </>
+              ) : (
+                <>
+                  <div className="field"><label>Cantidad de cestas *</label><DecimalInput type="number" step="0.01" min="0" className="input" placeholder="0" value={numv(nv.cantidad_cestas)} onChange={(e) => setNv({ ...nv, cantidad_cestas: e.target.value })} data-testid="nv-cestas" /></div>
+                  <div className="field"><label>Precio por cesta *</label><DecimalInput type="number" step="0.01" min="0" className="input" placeholder="0.00" value={numv(nv.precio_unitario)} onChange={(e) => setNv({ ...nv, precio_unitario: e.target.value })} data-testid="nv-precio" /></div>
+                </>
+              )}
               <div className="field"><label>Abono inicial</label><DecimalInput type="number" step="0.01" min="0" className="input" placeholder="0.00" value={numv(nv.abono_inicial)} onChange={(e) => setNv({ ...nv, abono_inicial: e.target.value })} data-testid="nv-abono" /></div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1.6fr 1.2fr", gap: 12, marginTop: 12, alignItems: "end" }}>
@@ -469,7 +505,7 @@ function Ventas({ tipo }) {
             <h3 style={{ marginTop: 0, marginBottom: 2 }}>Registro de Ventas</h3>
             <div style={{ color: "#64748b", fontSize: 13, marginBottom: 14 }}>{ventasFiltradas.length} venta(s) · {deudores} con saldo pendiente</div>
             <table className="table">
-              <thead><tr><th>Cliente</th><th>Teléfono</th><th>Cestas</th><th>Precio/cesta</th><th>Total</th><th>Abono</th><th>Saldo</th><th>Fecha</th><th>Días</th><th>Estado</th><th style={{ textAlign: "right" }}>Acciones</th></tr></thead>
+              <thead><tr><th>Cliente</th><th>Teléfono</th><th>Cantidad</th><th>Precio</th><th>Total</th><th>Abono</th><th>Saldo</th><th>Fecha</th><th>Días</th><th>Estado</th><th style={{ textAlign: "right" }}>Acciones</th></tr></thead>
               <tbody>
                 {rows.map((v) => {
                   const saldo = saldoDe(v);
@@ -479,8 +515,8 @@ function Ventas({ tipo }) {
                     <tr key={v._id} data-testid="venta-row">
                       <td><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><User size={14} style={{ color: "#94a3b8" }} /> {v.cliente || "—"}</span></td>
                       <td>{v.telefono ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Phone size={13} style={{ color: "#94a3b8" }} /> {v.telefono}</span> : "—"}</td>
-                      <td>{v.cantidad_cestas}</td>
-                      <td>{fmtMoney(v.precio_unitario)}</td>
+                      <td>{v.unidad_venta === "kg" ? `${Number(v.cantidad_kg || 0)} kg` : `${Number(v.cantidad_cestas || 0)} cestas`}</td>
+                      <td>{fmtMoney(v.precio_unitario)}<span style={{ color: "#94a3b8", fontSize: 11 }}>{v.unidad_venta === "kg" ? "/kg" : "/cesta"}</span></td>
                       <td style={{ fontWeight: 700 }}>{fmtMoney(v.total)}</td>
                       <td style={{ color: "#3b82f6" }}>{fmtMoney(v.abono_inicial || 0)}</td>
                       <td style={{ color: saldo > 0.001 ? "#dc2626" : "#16a34a", fontWeight: 600 }}>{fmtMoney(saldo)}</td>
@@ -632,6 +668,7 @@ function VentaForm({ tipo, initial = {}, onClose, onSaved }) {
     cantidad_kg: initial.cantidad_kg ?? 0,
     precio_unitario: initial.precio_unitario ?? 0,
     total: initial.total ?? 0,
+    unidad_venta: initial.unidad_venta || "cestas",
     cliente: initial.cliente || "",
     telefono: initial.telefono || "",
     abono_inicial: initial.abono_inicial ?? 0,
