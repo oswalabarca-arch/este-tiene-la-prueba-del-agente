@@ -1,0 +1,30 @@
+{
+  "summary": "Iteración 35 (frontend only): se reemplazaron las 4 tarjetas KPI viejas del Dashboard por la sección 'Producción general' con 3 gráficas donut (Cosechas por calidad, Labores de personal por tipo, Aplicaciones por tipo). Login admin OK. /dashboard renderiza correctamente: aparece data-testid='dashboard-totales' con los 3 cards (totales-cosechas, totales-labores, totales-aplicaciones). Las 4 KPI viejas (Usuarios Activos, Cosechado, Productividad) ya NO aparecen. Valores verificados con datos actuales: Cosechas total=420 kg (350 Primera + 70 Descarte, exactamente lo esperado); Labores=12,67 horas-hombre (Plaguicida 12 h + Fungicida 0,67 h); Aplicaciones=1 (Fungicida). Toggles cosechas verificados: kg→cestas (420→30, que es 420/14), kg→pct (100%), back→kg(420). Toggle labores: horas(12,67)→costo($15,83)→horas. Toggle aplicaciones: cantidad(1)→costo(muestra estado vacío 'totales-aplicaciones-vacio' porque costo_insumos=0 en el único registro y se filtra por value>0, comportamiento correcto)→cantidad(1). Stock por canal y Gastos de la semana siguen visibles debajo. Sin errores JS (pageerrors=[]). Sólo lectura: el componente sólo hace GET /cosechas, /actividades, /aplicaciones (verificado en el código L88-97). No se crean ni borran datos.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dashboard - tarjeta 'Aplicaciones por tipo'", "issues": ["Cuando la gráfica tiene UN SOLO segmento (1 fungicida = 100%), recharts Pie con paddingAngle=3 + cornerRadius=6 renderiza un arco fino/parcial en vez de un donut completo (sólo se ve un pequeño arco a la derecha). Es un quirk conocido de recharts con pies de un solo segmento. La leyenda y el total central (1) sí se ven correctamente. Sugerencia opcional: si data.length===1 hacer paddingAngle=0 para que el donut se vea completo. No bloqueante."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "DashboardTotales.jsx L84-86: el estado de toggles está local (useState). Si el usuario navega fuera del dashboard y vuelve, se pierden las preferencias kg/cestas/% y horas/costo y cantidad/costo. Aceptable (sólo dashboard), pero considerar persistir en localStorage si el usuario lo pide. No bloqueante.",
+    "DashboardTotales.jsx L89-93: las 3 llamadas GET están en Promise.all con .catch(()=>({data:{}})) - bien manejado para tolerar fallos parciales (un endpoint caído no rompe los otros 2 donuts).",
+    "DashboardTotales.jsx L101-106: agregación de calidades — multiplica por KG_POR_CESTA (14) si c.unidad !== 'kg', asumiendo que es 'cestas' o cualquier otro. Funciona porque sólo hay dos valores posibles. OK.",
+    "DashboardTotales.jsx L111: agrupa actividades por `tipo_personalizado || tipo || '—'`. Si una actividad tiene tipo_personalizado='', usaría '' y el grupo sería '' (no '—'). Edge minor — el cap('') devuelve '—'. Funcional.",
+    "DashboardTotales.jsx L46: las keys de los <Cell> usan d.key — bien.",
+    "DashboardTotales.jsx L59: los row testids usan ${testid}-row-${d.key} donde d.key es el tipo en minúsculas (raw del backend). Para actividades el tipo viene en minúsculas (ej 'plaguicida'), así que el data-testid sería totales-labores-row-plaguicida. Esto está bien, sólo hay que tener consciencia para tests futuros.",
+    "Dashboard.jsx: se removieron correctamente las 4 KpiCard antiguas y el grid de KPIs; sólo queda <DashboardTotales/> arriba de StockCanales y GastosSemana. Limpio.",
+    "Solo-lectura confirmado: NINGÚN POST/PUT/DELETE en DashboardTotales.jsx. Sólo 3 GETs. ✓"
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped per request)", "frontend": "100% (todos los checks de testids, valores 420 kg / 30 cestas / 100% / 12,67 h / $15,83 / 1 apl, estado vacío y ausencia de KPIs viejas pasaron)"},
+  "test_credentials": "Admin: oswaldabarca@gmail.com / 123456",
+  "seed_data_creation": "Ninguna - sólo lectura.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteración 35: Las 4 KPI viejas del Dashboard fueron reemplazadas por la sección 'Producción general' (data-testid='dashboard-totales') con 3 DonutCard. Testids estables: totales-cosechas, totales-labores, totales-aplicaciones; pills: totales-cosechas-unidad-{kg|cestas|pct}, totales-labores-metric-{horas|costo}, totales-aplicaciones-metric-{cantidad|costo}; total central: ${testid}-total; estado vacío: ${testid}-vacio (aparece cuando data.length===0 tras filter value>0); filas legend: ${testid}-row-${key minúsculas}. La aplicación con costo_insumos=0 produce estado vacío al togglear a 'Costo' — esto es comportamiento correcto. Una minor cosmética: pies de un solo segmento se ven como arco fino por paddingAngle=3. No bloqueante."
+}
