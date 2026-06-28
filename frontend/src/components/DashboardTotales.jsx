@@ -16,6 +16,21 @@ const CAL_DEFS = [
 const cap = (s) => String(s || "—").charAt(0).toUpperCase() + String(s || "—").slice(1);
 const num = (n) => Number(n || 0).toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
+const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+const MESES_C = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+// Rango [inicio, fin] según granularidad ancladas a una fecha YYYY-MM-DD
+function periodoRange(gran, anchor) {
+  const d = new Date(anchor + "T00:00:00");
+  if (gran === "anio") return [new Date(d.getFullYear(), 0, 1), new Date(d.getFullYear(), 11, 31, 23, 59, 59, 999)];
+  if (gran === "mes") return [new Date(d.getFullYear(), d.getMonth(), 1), new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999)];
+  // semana lunes→domingo
+  const offset = (d.getDay() + 6) % 7;
+  const start = new Date(d); start.setDate(d.getDate() - offset); start.setHours(0, 0, 0, 0);
+  const end = new Date(start); end.setDate(start.getDate() + 6); end.setHours(23, 59, 59, 999);
+  return [start, end];
+}
+
 const Pill = ({ active, onClick, children, testid }) => (
   <button type="button" onClick={onClick} data-testid={testid}
     style={{ padding: "4px 11px", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 12,
@@ -84,6 +99,8 @@ export default function DashboardTotales() {
   const [calUnidad, setCalUnidad] = useState("kg");   // kg | cestas | pct
   const [laborMetric, setLaborMetric] = useState("horas"); // horas | costo
   const [aplicMetric, setAplicMetric] = useState("cantidad"); // cantidad | costo
+  const [gran, setGran] = useState("todo"); // todo | semana | mes | anio
+  const [anchor, setAnchor] = useState(() => new Date().toISOString().slice(0, 10));
 
   const load = useCallback(async () => {
     const [co, ac, ap] = await Promise.all([
@@ -97,31 +114,51 @@ export default function DashboardTotales() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
+  // Filtro de período (solo lectura sobre los datos cargados)
+  const enPeriodo = useMemo(() => {
+    if (gran === "todo") return () => true;
+    const [start, end] = periodoRange(gran, anchor);
+    const a = start.getTime(), b = end.getTime();
+    return (s) => { const t = new Date(s).getTime(); return !isNaN(t) && t >= a && t <= b; };
+  }, [gran, anchor]);
+
+  const periodoLabel = useMemo(() => {
+    if (gran === "todo") return "Todos los registros";
+    const [s, e] = periodoRange(gran, anchor);
+    if (gran === "anio") return `Año ${s.getFullYear()}`;
+    if (gran === "mes") return `${MESES[s.getMonth()]} ${s.getFullYear()}`;
+    return `Semana del ${s.getDate()} ${MESES_C[s.getMonth()]} al ${e.getDate()} ${MESES_C[e.getMonth()]} ${e.getFullYear()}`;
+  }, [gran, anchor]);
+
+  const cosF = useMemo(() => cosechas.filter((c) => enPeriodo(c.fecha_cosecha)), [cosechas, enPeriodo]);
+  const actF = useMemo(() => actividades.filter((a) => enPeriodo(a.fecha_actividad)), [actividades, enPeriodo]);
+  const aplF = useMemo(() => aplicaciones.filter((a) => enPeriodo(a.fecha)), [aplicaciones, enPeriodo]);
+
   // 1) Producción por calidad (suma de TODOS los lotes, en kg)
   const { calData, calTotalKg } = useMemo(() => {
     const agg = { primera: 0, segunda: 0, tercera: 0, descarte: 0 };
-    cosechas.forEach((c) => { const f = c.unidad === "kg" ? 1 : KG_POR_CESTA; CAL_DEFS.forEach((d) => { agg[d.key] += (c[d.field] || 0) * f; }); });
+    cosF.forEach((c) => { const f = c.unidad === "kg" ? 1 : KG_POR_CESTA; CAL_DEFS.forEach((d) => { agg[d.key] += (c[d.field] || 0) * f; }); });
     const data = CAL_DEFS.map((d) => ({ key: d.key, name: d.name, value: agg[d.key], color: CAL_COLORS[d.key] })).filter((d) => d.value > 0);
     return { calData: data, calTotalKg: CAL_DEFS.reduce((s, d) => s + agg[d.key], 0) };
-  }, [cosechas]);
+  }, [cosF]);
 
   // 2) Labores de personal por tipo (suma de TODOS los lotes)
   const labData = useMemo(() => {
     const agg = {};
-    actividades.forEach((a) => { const t = a.tipo_personalizado || a.tipo || "—"; if (!agg[t]) agg[t] = { tipo: t, hh: 0, costo: 0 }; agg[t].hh += (a.horas_hombre || 0); agg[t].costo += (a.costo_total || 0); });
+    actF.forEach((a) => { const t = a.tipo_personalizado || a.tipo || "—"; if (!agg[t]) agg[t] = { tipo: t, hh: 0, costo: 0 }; agg[t].hh += (a.horas_hombre || 0); agg[t].costo += (a.costo_total || 0); });
     return Object.values(agg)
       .map((r) => ({ key: r.tipo, name: cap(r.tipo), value: laborMetric === "horas" ? r.hh : r.costo, color: actColor(r.tipo).color }))
       .filter((d) => d.value > 0).sort((a, b) => b.value - a.value);
-  }, [actividades, laborMetric]);
+  }, [actF, laborMetric]);
 
   // 3) Aplicaciones por tipo (suma de TODOS los lotes)
   const aplData = useMemo(() => {
     const agg = {};
-    aplicaciones.forEach((a) => { const t = a.tipo || "otros"; if (!agg[t]) agg[t] = { tipo: t, count: 0, costo: 0 }; agg[t].count += 1; agg[t].costo += (a.costo_insumos || 0); });
+    aplF.forEach((a) => { const t = a.tipo || "otros"; if (!agg[t]) agg[t] = { tipo: t, count: 0, costo: 0 }; agg[t].count += 1; agg[t].costo += (a.costo_insumos || 0); });
     return Object.values(agg)
       .map((r) => ({ key: r.tipo, name: cap(r.tipo), value: aplicMetric === "cantidad" ? r.count : r.costo, color: catColor(r.tipo).color }))
       .filter((d) => d.value > 0).sort((a, b) => b.value - a.value);
-  }, [aplicaciones, aplicMetric]);
+  }, [aplF, aplicMetric]);
 
   const labTotal = labData.reduce((s, d) => s + d.value, 0);
   const aplTotal = aplData.reduce((s, d) => s + d.value, 0);
@@ -132,9 +169,25 @@ export default function DashboardTotales() {
 
   return (
     <div style={{ marginBottom: 24 }} data-testid="dashboard-totales">
-      <div style={{ marginBottom: 12 }}>
-        <h2 style={{ margin: 0 }}>Producción general</h2>
-        <p style={{ color: "#64748b", fontSize: 13, margin: "2px 0 0" }}>Totales acumulados de todos los lotes registrados en Plantaciones.</p>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+        <div>
+          <h2 style={{ margin: 0 }}>Producción general</h2>
+          <p style={{ color: "#64748b", fontSize: 13, margin: "2px 0 0" }}>Totales de todos los lotes · {periodoLabel}</p>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }} data-testid="totales-filtro">
+          <div style={{ display: "inline-flex", background: "#f1f5f9", borderRadius: 10, padding: 3 }}>
+            {[["todo", "Todo"], ["semana", "Semana"], ["mes", "Mes"], ["anio", "Año"]].map(([k, l]) => (
+              <button key={k} type="button" onClick={() => setGran(k)} data-testid={`totales-gran-${k}`}
+                style={{ padding: "6px 14px", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 13,
+                  background: gran === k ? "#16a34a" : "transparent", color: gran === k ? "#fff" : "#475569" }}>
+                {l}
+              </button>
+            ))}
+          </div>
+          {gran !== "todo" && (
+            <input type="date" className="input" style={{ width: 160 }} value={anchor} onChange={(e) => setAnchor(e.target.value)} data-testid="totales-fecha" />
+          )}
+        </div>
       </div>
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "stretch" }}>
         <DonutCard

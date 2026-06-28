@@ -7,6 +7,7 @@
   - **Cosechas por calidad**: suma de primera/segunda/tercera/descarte en kg. Toggle kg/Cestas/%.
   - **Labores de personal por tipo**: suma de actividades por tipo. Toggle Horas/Costo.
   - **Aplicaciones por tipo**: suma de aplicaciones por tipo. Toggle Cantidad/Costo.
+  - **Filtro de período** [14/06/2026]: barra Todo/Semana/Mes/Año + selector de fecha que ancla el período (semana lunes→domingo). Filtra las 3 gráficas por fecha (cosecha/actividad/aplicación). Default "Todo".
   - Componente `components/DashboardTotales.jsx` (reusa colores catColor/actColor/CAL_COLORS y estilo donut de PlantacionDetail). Testing: frontend 100% (iteration_35.json).
 
 ### Ventas · Venta por kg y disponible dual en Refrigerar/Congelar [14/06/2026]
