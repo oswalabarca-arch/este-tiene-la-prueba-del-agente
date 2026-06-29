@@ -112,7 +112,7 @@ export default function PrecioPromedioVenta() {
   const deltaPct = (prevPromKg && prevPromKg > 0 && promKg > 0) ? ((promKg - prevPromKg) / prevPromKg) * 100 : null;
 
   return (
-    <div className="card" style={{ marginTop: 18, borderColor: "#bbf7d0", background: "linear-gradient(135deg,#fff,#f0fdf4)" }} data-testid="er-venta-promedio-card">
+    <div className="card" style={{ borderColor: "#bbf7d0", background: "linear-gradient(135deg,#fff,#f0fdf4)", margin: 0 }} data-testid="er-venta-promedio-card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
         <div>
           <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: 0.5, color: "#15803d" }}>

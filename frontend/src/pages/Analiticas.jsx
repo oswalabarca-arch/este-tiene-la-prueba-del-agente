@@ -158,8 +158,10 @@ export default function Analiticas() {
         </div>
       </div>
 
+      {/* Columna derecha: Costos por kg + Precio promedio (apilados, mismo ancho) */}
+      <div style={{ flex: "1 1 360px", maxWidth: 480, minWidth: 0, display: "flex", flexDirection: "column", gap: 18 }}>
       {/* Costos por kg */}
-      <div className="card" style={{ flex: "1 1 360px", maxWidth: 480 }} data-testid="er-costos-kg-card">
+      <div className="card" style={{ width: "100%", margin: 0 }} data-testid="er-costos-kg-card">
         <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: 0.5, color: "#7c3aed", marginBottom: 10 }}>COSTOS POR KILOGRAMO</div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
           <KgChip label="Kg cosechados" value={kgCos} testid="er-kg-cosechados" />
@@ -177,10 +179,11 @@ export default function Analiticas() {
         <CostoKgRow num={3} label="COSTO REAL VENDIBLE" hint="Costo total de ventas ÷ (kg cosechados − descarte − donaciones)" value={costoRealVendible} testid="er-costo-real-vendible" />
         <CostoKgRow num={4} label="COSTO TOTAL REAL VENDIBLE" hint="(Costo de ventas + gastos operativos) ÷ (kg cosechados − descarte − donaciones)" value={costoTotalRealVendible} testid="er-costo-total-real-vendible" />
       </div>
-      </div>
 
-      {/* Precio promedio de venta (componente independiente con su propio filtro Semana/Mes/Año) */}
+      {/* Precio promedio de venta (mismo ancho, debajo de Costos por kilogramo) */}
       <PrecioPromedioVenta />
+      </div>
+      </div>
 
       {/* Tendencia mensual de costos por kg */}
       <div className="card" style={{ marginTop: 18 }} data-testid="er-tendencia-card">
