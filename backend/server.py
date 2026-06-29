@@ -1944,13 +1944,27 @@ async def _build_estado_resultados(anio: int, mes: Optional[int]) -> dict:
     # INGRESO POR VENTAS: total vendido de los 4 canales con dinero (solo ventas reales)
     ventas_fresa = 0.0
     kg_vendidos = 0.0
-    for tipo in ("finca", "ciudad", "refrigerar", "congelar"):
+    venta_por_canal = []
+    for tipo, label in (("finca", "Venta en finca"), ("ciudad", "Envío a ciudad"), ("refrigerar", "Refrigerar"), ("congelar", "Congelar")):
+        c_rev = 0.0
+        c_kg = 0.0
         for v in await db[f"ventas_{tipo}"].find({}).to_list(20000):
             if v.get("origen") in VENTA_SYSTEM_ORIGENES:
                 continue
             if _en_periodo(v.get("fecha"), anio, mes):
-                ventas_fresa += float(v.get("total") or 0)
-                kg_vendidos += float(v.get("cantidad_kg") or (v.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
+                c_rev += float(v.get("total") or 0)
+                c_kg += float(v.get("cantidad_kg") or (v.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
+        ventas_fresa += c_rev
+        kg_vendidos += c_kg
+        c_kg = round(c_kg, 2)
+        venta_por_canal.append({
+            "tipo": tipo, "label": label,
+            "kg_vendidos": c_kg,
+            "cestas_vendidas": round(c_kg / KG_POR_CESTA, 2),
+            "ingreso_total": round(c_rev, 2),
+            "precio_prom_kg": round(c_rev / c_kg, 4) if c_kg > 0 else 0,
+            "precio_prom_cesta": round((c_rev / c_kg) * KG_POR_CESTA, 2) if c_kg > 0 else 0,
+        })
     kg_vendidos = round(kg_vendidos, 2)
     cestas_vendidas = round(kg_vendidos / KG_POR_CESTA, 2)
     precio_prom_kg = round(ventas_fresa / kg_vendidos, 4) if kg_vendidos > 0 else 0
@@ -2022,7 +2036,7 @@ async def _build_estado_resultados(anio: int, mes: Optional[int]) -> dict:
         "costo_ventas": {"fertilizantes_agroquimicos": round(fert_agro, 2), "mano_obra": round(mano_obra, 2), "total": total_costo_ventas},
         "gastos_operativos": {"salarios": round(salarios, 2), "gastos_vehiculo": round(gastos_vehiculo, 2), "software_erp": round(software_erp, 2), "total": total_gastos_op},
         "cosecha": {"kg_cosechados": kg_cosechados, "kg_descarte": kg_descarte, "kg_donaciones": kg_donaciones, "kg_vendible": kg_vendible},
-        "venta_promedio": {"kg_vendidos": kg_vendidos, "cestas_vendidas": cestas_vendidas, "ingreso_total": round(ventas_fresa, 2), "precio_prom_kg": precio_prom_kg, "precio_prom_cesta": precio_prom_cesta},
+        "venta_promedio": {"kg_vendidos": kg_vendidos, "cestas_vendidas": cestas_vendidas, "ingreso_total": round(ventas_fresa, 2), "precio_prom_kg": precio_prom_kg, "precio_prom_cesta": precio_prom_cesta, "por_canal": venta_por_canal},
         "utilidad_bruta": utilidad_bruta,
         "utilidad_operativa": utilidad_operativa,
     }

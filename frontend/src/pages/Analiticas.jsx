@@ -200,6 +200,28 @@ export default function Analiticas() {
           <span data-testid="er-vp-cestas">Cestas vendidas: <b>{Number(vp.cestas_vendidas || 0).toLocaleString("es-ES", { maximumFractionDigits: 2 })}</b></span>
           <span data-testid="er-vp-ingreso">Ingreso total: <b>{fmt(vp.ingreso_total)}</b></span>
         </div>
+
+        {/* Desglose por canal */}
+        {(vp.por_canal || []).some((c) => c.kg_vendidos > 0) && (
+          <div style={{ marginTop: 16 }} data-testid="er-vp-por-canal">
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#15803d", marginBottom: 8 }}>PROMEDIO POR CANAL</div>
+            <div style={{ overflowX: "auto" }}>
+              <table className="table" style={{ minWidth: 460 }}>
+                <thead><tr><th>Canal</th><th style={{ textAlign: "right" }}>Kg vendidos</th><th style={{ textAlign: "right" }}>Prom. por kg</th><th style={{ textAlign: "right" }}>Prom. por cesta</th></tr></thead>
+                <tbody>
+                  {(vp.por_canal || []).map((c) => (
+                    <tr key={c.tipo} data-testid={`er-vp-canal-${c.tipo}`} style={{ opacity: c.kg_vendidos > 0 ? 1 : 0.5 }}>
+                      <td style={{ fontWeight: 600 }}>{c.label}</td>
+                      <td style={{ textAlign: "right" }}>{Number(c.kg_vendidos || 0).toLocaleString("es-ES", { maximumFractionDigits: 2 })}</td>
+                      <td style={{ textAlign: "right", fontWeight: 700, color: "#15803d" }}>{c.kg_vendidos > 0 ? `${fmt(c.precio_prom_kg)}/kg` : "—"}</td>
+                      <td style={{ textAlign: "right", fontWeight: 700, color: "#15803d" }}>{c.kg_vendidos > 0 ? `${fmt(c.precio_prom_cesta)}/cesta` : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Tendencia mensual de costos por kg */}
