@@ -3,6 +3,7 @@ import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { FileBarChart, Save, Lock, TrendingUp, TrendingDown, LineChart as LineChartIcon } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import PrecioPromedioVenta from "../components/PrecioPromedioVenta";
 
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const MESES_CORTO = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
@@ -91,7 +92,6 @@ export default function Analiticas() {
   const costoTotalPorKg = kgCos > 0 ? costoConOp / kgCos : 0;
   const costoRealVendible = kgVend > 0 ? totalCosto / kgVend : 0;
   const costoTotalRealVendible = kgVend > 0 ? costoConOp / kgVend : 0;
-  const vp = data.venta_promedio || { precio_prom_kg: 0, precio_prom_cesta: 0, kg_vendidos: 0, cestas_vendidas: 0, ingreso_total: 0 };
 
   return (
     <div data-testid="analiticas-page">
@@ -179,50 +179,8 @@ export default function Analiticas() {
       </div>
       </div>
 
-      {/* Precio promedio de venta (extraído de los canales de Ventas) */}
-      <div className="card" style={{ marginTop: 18, borderColor: "#bbf7d0", background: "linear-gradient(135deg,#fff,#f0fdf4)" }} data-testid="er-venta-promedio-card">
-        <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: 0.5, color: "#15803d", marginBottom: 4 }}>PRECIO PROMEDIO DE VENTA</div>
-        <div style={{ color: "#64748b", fontSize: 12, marginBottom: 14 }}>
-          Promedio ponderado de todas las ventas reales (finca + ciudad + refrigerar + congelar) del período. 1 cesta = 14 kg.
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14 }}>
-          <div style={{ background: "#fff", border: "1px solid #bbf7d0", borderRadius: 12, padding: 16 }}>
-            <div style={{ color: "#64748b", fontSize: 13, fontWeight: 600 }}>Precio promedio por kg</div>
-            <div style={{ fontSize: 30, fontWeight: 800, color: "#15803d", lineHeight: 1.2 }} data-testid="er-precio-prom-kg">{fmt(vp.precio_prom_kg)}<span style={{ fontSize: 14, color: "#94a3b8", fontWeight: 600 }}>/kg</span></div>
-          </div>
-          <div style={{ background: "#fff", border: "1px solid #bbf7d0", borderRadius: 12, padding: 16 }}>
-            <div style={{ color: "#64748b", fontSize: 13, fontWeight: 600 }}>Precio promedio por cesta</div>
-            <div style={{ fontSize: 30, fontWeight: 800, color: "#15803d", lineHeight: 1.2 }} data-testid="er-precio-prom-cesta">{fmt(vp.precio_prom_cesta)}<span style={{ fontSize: 14, color: "#94a3b8", fontWeight: 600 }}>/cesta</span></div>
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginTop: 14, color: "#475569", fontSize: 13 }}>
-          <span data-testid="er-vp-kg">Kg vendidos: <b>{Number(vp.kg_vendidos || 0).toLocaleString("es-ES", { maximumFractionDigits: 2 })}</b></span>
-          <span data-testid="er-vp-cestas">Cestas vendidas: <b>{Number(vp.cestas_vendidas || 0).toLocaleString("es-ES", { maximumFractionDigits: 2 })}</b></span>
-          <span data-testid="er-vp-ingreso">Ingreso total: <b>{fmt(vp.ingreso_total)}</b></span>
-        </div>
-
-        {/* Desglose por canal */}
-        {(vp.por_canal || []).some((c) => c.kg_vendidos > 0) && (
-          <div style={{ marginTop: 16 }} data-testid="er-vp-por-canal">
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#15803d", marginBottom: 8 }}>PROMEDIO POR CANAL</div>
-            <div style={{ overflowX: "auto" }}>
-              <table className="table" style={{ minWidth: 460 }}>
-                <thead><tr><th>Canal</th><th style={{ textAlign: "right" }}>Kg vendidos</th><th style={{ textAlign: "right" }}>Prom. por kg</th><th style={{ textAlign: "right" }}>Prom. por cesta</th></tr></thead>
-                <tbody>
-                  {(vp.por_canal || []).map((c) => (
-                    <tr key={c.tipo} data-testid={`er-vp-canal-${c.tipo}`} style={{ opacity: c.kg_vendidos > 0 ? 1 : 0.5 }}>
-                      <td style={{ fontWeight: 600 }}>{c.label}</td>
-                      <td style={{ textAlign: "right" }}>{Number(c.kg_vendidos || 0).toLocaleString("es-ES", { maximumFractionDigits: 2 })}</td>
-                      <td style={{ textAlign: "right", fontWeight: 700, color: "#15803d" }}>{c.kg_vendidos > 0 ? `${fmt(c.precio_prom_kg)}/kg` : "—"}</td>
-                      <td style={{ textAlign: "right", fontWeight: 700, color: "#15803d" }}>{c.kg_vendidos > 0 ? `${fmt(c.precio_prom_cesta)}/cesta` : "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </div>
+      {/* Precio promedio de venta (componente independiente con su propio filtro Semana/Mes/Año) */}
+      <PrecioPromedioVenta />
 
       {/* Tendencia mensual de costos por kg */}
       <div className="card" style={{ marginTop: 18 }} data-testid="er-tendencia-card">

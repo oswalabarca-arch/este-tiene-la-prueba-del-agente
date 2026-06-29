@@ -3,7 +3,8 @@
 ## 2026-06 (sesión fork actual)
 
 ### Analíticas · Precio promedio de venta [14/06/2026]
-- Nuevo panel **"Precio promedio de venta"** en Analíticas, debajo de "Costos por kilogramo" (solo lectura sobre los canales de Ventas; no toca otros módulos). Calcula el **promedio ponderado por kg y por cesta** de todas las ventas reales (finca + ciudad + refrigerar + congelar) del período: precio_prom_kg = ingreso_total ÷ kg_vendidos; precio_prom_cesta = precio_prom_kg × 14. Muestra además kg vendidos, cestas vendidas e ingreso total. Backend: campo `venta_promedio` en `_build_estado_resultados`. Verificado por curl (mezcla ventas por cesta y por kg).
+- Nuevo panel **"Precio promedio de venta"** en Analíticas, debajo de "Costos por kilogramo" (solo lectura sobre los canales de Ventas; no toca otros módulos). Promedio ponderado por kg y por cesta de todas las ventas reales (finca + ciudad + refrigerar + congelar), con desglose **por canal**. 1 cesta = 14 kg.
+- **Filtro propio Semana/Mes/Año** [14/06/2026]: el panel se movió a su propio componente `components/PrecioPromedioVenta.jsx` con filtro independiente (Todo/Semana/Mes/Año + fecha ancla, semana lunes→domingo). Calcula todo en el frontend con los GET de los 4 canales de ventas (desacoplado del filtro del Estado de Resultados, que NO cambió). Se removió el cálculo `venta_promedio` del backend `_build_estado_resultados`.
 
 ### Dashboard · Producción general (3 gráficas agregadas) [14/06/2026]
 - Se reemplazaron las 4 tarjetas KPI (Usuarios Activos, Plantaciones, Cosechado, Productividad) por la sección **"Producción general"** con 3 donuts que agregan TODOS los lotes de Plantaciones (solo lectura, vía GET /cosechas, /actividades, /aplicaciones; sin endpoint nuevo):
