@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
-import { Tag } from "lucide-react";
+import { Tag, ArrowUp, ArrowDown, Minus } from "lucide-react";
 
 const KG_POR_CESTA = 14;
 const SYSTEM_ORIGENES = ["asignacion_destino", "ajuste_entrada", "ajuste_salida", "reasignacion_salida"];
@@ -23,6 +23,28 @@ function periodoRange(gran, anchor) {
   const s = new Date(d); s.setDate(d.getDate() - off); s.setHours(0, 0, 0, 0);
   const e = new Date(s); e.setDate(s.getDate() + 6); e.setHours(23, 59, 59, 999);
   return [s, e];
+}
+
+const isoD = (d) => d.toISOString().slice(0, 10);
+// Ancla del período ANTERIOR (semana pasada / mes pasado / año pasado)
+function prevAnchor(gran, anchor) {
+  const d = new Date(anchor + "T00:00:00");
+  if (gran === "semana") { const p = new Date(d); p.setDate(d.getDate() - 7); return isoD(p); }
+  if (gran === "mes") return isoD(new Date(d.getFullYear(), d.getMonth() - 1, 1));
+  if (gran === "anio") return isoD(new Date(d.getFullYear() - 1, 0, 1));
+  return null;
+}
+
+function Trend({ pct, testid }) {
+  if (pct === null || pct === undefined) return null;
+  const up = pct > 0.05, down = pct < -0.05;
+  const color = up ? "#15803d" : down ? "#dc2626" : "#64748b";
+  const Icon = up ? ArrowUp : down ? ArrowDown : Minus;
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 12, fontWeight: 700, color, marginTop: 4 }} data-testid={testid}>
+      <Icon size={13} />{Math.abs(pct).toFixed(1)}% vs período anterior
+    </span>
+  );
 }
 
 export default function PrecioPromedioVenta() {
@@ -71,6 +93,24 @@ export default function PrecioPromedioVenta() {
 
   const hayDatos = porCanal.some((c) => c.kg > 0);
 
+  // Promedio por kg del período ANTERIOR (para la tendencia ↑/↓)
+  const prevPromKg = useMemo(() => {
+    if (gran === "todo") return null;
+    const [s, e] = periodoRange(gran, prevAnchor(gran, anchor));
+    const a = s.getTime(), b = e.getTime();
+    let kg = 0, rev = 0;
+    CANALES.forEach((c) => (ventas[c.tipo] || []).forEach((v) => {
+      if (SYSTEM_ORIGENES.includes(v.origen)) return;
+      const t = new Date(v.fecha).getTime();
+      if (isNaN(t) || t < a || t > b) return;
+      rev += Number(v.total || 0);
+      kg += Number(v.cantidad_kg || (Number(v.cantidad_cestas || 0) * KG_POR_CESTA));
+    }));
+    return kg > 0 ? rev / kg : null;
+  }, [ventas, gran, anchor]);
+
+  const deltaPct = (prevPromKg && prevPromKg > 0 && promKg > 0) ? ((promKg - prevPromKg) / prevPromKg) * 100 : null;
+
   return (
     <div className="card" style={{ marginTop: 18, borderColor: "#bbf7d0", background: "linear-gradient(135deg,#fff,#f0fdf4)" }} data-testid="er-venta-promedio-card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
@@ -100,10 +140,12 @@ export default function PrecioPromedioVenta() {
         <div style={{ background: "#fff", border: "1px solid #bbf7d0", borderRadius: 12, padding: 16 }}>
           <div style={{ color: "#64748b", fontSize: 13, fontWeight: 600 }}>Precio promedio por kg</div>
           <div style={{ fontSize: 30, fontWeight: 800, color: "#15803d", lineHeight: 1.2 }} data-testid="er-precio-prom-kg">{fmt(promKg)}<span style={{ fontSize: 14, color: "#94a3b8", fontWeight: 600 }}>/kg</span></div>
+          <Trend pct={deltaPct} testid="er-prom-kg-trend" />
         </div>
         <div style={{ background: "#fff", border: "1px solid #bbf7d0", borderRadius: 12, padding: 16 }}>
           <div style={{ color: "#64748b", fontSize: 13, fontWeight: 600 }}>Precio promedio por cesta</div>
           <div style={{ fontSize: 30, fontWeight: 800, color: "#15803d", lineHeight: 1.2 }} data-testid="er-precio-prom-cesta">{fmt(promCesta)}<span style={{ fontSize: 14, color: "#94a3b8", fontWeight: 600 }}>/cesta</span></div>
+          <Trend pct={deltaPct} testid="er-prom-cesta-trend" />
         </div>
       </div>
       <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginTop: 14, color: "#475569", fontSize: 13 }}>
