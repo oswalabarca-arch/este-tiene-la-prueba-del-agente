@@ -227,7 +227,7 @@ function CompraModal({ initial, compras = [], onClose, onSaved }) {
     e.preventDefault();
     setBusy(true);
     try {
-      const payload = { ...form, es_equipo: false, precio: Number(form.precio), cantidad: Number(form.cantidad), fecha_compra: form.fecha_compra + "T00:00:00.000Z" };
+      const payload = { ...form, es_equipo: false, precio: Number(form.precio), cantidad: Number(form.cantidad), fecha_compra: form.fecha_compra + "T12:00:00.000Z" };
       if (isNew) await api.post("/compras", payload);
       else await api.put(`/compras/${initial._id}`, payload);
       toast.show(isNew ? "Compra registrada" : "Actualizada");

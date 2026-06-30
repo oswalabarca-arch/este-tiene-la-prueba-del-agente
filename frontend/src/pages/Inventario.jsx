@@ -219,7 +219,7 @@ function EntradaModal({ productos = [], initial = null, onClose, onSaved }) {
         unidad: form.unidad || "Unidades",
         precio: Number(form.precio) || 0,
         descripcion: form.descripcion,
-        fecha: form.fecha + "T00:00:00.000Z",
+        fecha: form.fecha + "T12:00:00.000Z",
       };
       if (isEdit) {
         await api.put(`/inventario/entradas/${initial._id}`, payload);
