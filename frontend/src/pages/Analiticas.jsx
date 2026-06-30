@@ -4,6 +4,7 @@ import { useToast } from "../lib/toast";
 import { FileBarChart, Save, Lock, TrendingUp, TrendingDown, LineChart as LineChartIcon } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import PrecioPromedioVenta from "../components/PrecioPromedioVenta";
+import CostosPorKg from "../components/CostosPorKg";
 
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const MESES_CORTO = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
@@ -82,17 +83,6 @@ export default function Analiticas() {
   const utilidadOperativa = utilidadBruta - totalGastosOp;
   const periodoLabel = modo === "mensual" ? `${MESES[mes - 1]} ${anio}` : `Año ${anio}`;
 
-  // Costos por kg (panel lateral)
-  const kgCos = data.cosecha?.kg_cosechados || 0;
-  const kgDesc = data.cosecha?.kg_descarte || 0;
-  const kgDon = data.cosecha?.kg_donaciones || 0;
-  const kgVend = kgCos - kgDesc - kgDon;
-  const costoConOp = totalCosto + totalGastosOp;
-  const costoPorKg = kgCos > 0 ? totalCosto / kgCos : 0;
-  const costoTotalPorKg = kgCos > 0 ? costoConOp / kgCos : 0;
-  const costoRealVendible = kgVend > 0 ? totalCosto / kgVend : 0;
-  const costoTotalRealVendible = kgVend > 0 ? costoConOp / kgVend : 0;
-
   return (
     <div data-testid="analiticas-page">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
@@ -160,25 +150,8 @@ export default function Analiticas() {
 
       {/* Columna derecha: Costos por kg + Precio promedio (apilados, mismo ancho) */}
       <div style={{ flex: "1 1 360px", maxWidth: 480, minWidth: 0, display: "flex", flexDirection: "column", gap: 18 }}>
-      {/* Costos por kg */}
-      <div className="card" style={{ width: "100%", margin: 0 }} data-testid="er-costos-kg-card">
-        <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: 0.5, color: "#7c3aed", marginBottom: 10 }}>COSTOS POR KILOGRAMO</div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
-          <KgChip label="Kg cosechados" value={kgCos} testid="er-kg-cosechados" />
-          <KgChip label="Kg descarte" value={kgDesc} testid="er-kg-descarte" />
-          <KgChip label="Kg donaciones" value={kgDon} testid="er-kg-donaciones" />
-          <KgChip label="Kg vendible" value={kgVend} testid="er-kg-vendible" />
-        </div>
-        {kgCos <= 0 && (
-          <p style={{ color: "#b45309", background: "#fef3c7", borderRadius: 8, padding: "8px 12px", fontSize: 13 }} data-testid="er-costos-kg-vacio">
-            No hay cosecha registrada en este período. Registrá cosechas para ver los costos por kg.
-          </p>
-        )}
-        <CostoKgRow num={1} label="COSTO POR KG" hint="Costo total de ventas ÷ kg cosechados" value={costoPorKg} testid="er-costo-por-kg" />
-        <CostoKgRow num={2} label="COSTO TOTAL POR KG" hint="(Costo de ventas + gastos operativos) ÷ kg cosechados" value={costoTotalPorKg} testid="er-costo-total-por-kg" />
-        <CostoKgRow num={3} label="COSTO REAL VENDIBLE" hint="Costo total de ventas ÷ (kg cosechados − descarte − donaciones)" value={costoRealVendible} testid="er-costo-real-vendible" />
-        <CostoKgRow num={4} label="COSTO TOTAL REAL VENDIBLE" hint="(Costo de ventas + gastos operativos) ÷ (kg cosechados − descarte − donaciones)" value={costoTotalRealVendible} testid="er-costo-total-real-vendible" />
-      </div>
+      {/* Costos por kg (filtro propio: Todo/Semana/Mes/Año) */}
+      <CostosPorKg />
 
       {/* Precio promedio de venta (mismo ancho, debajo de Costos por kilogramo) */}
       <PrecioPromedioVenta />
@@ -291,33 +264,6 @@ function UtilidadRow({ label, hint, value, strong, testid }) {
       <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: strong ? 22 : 18, color: positive ? "#15803d" : "#dc2626" }} data-testid={testid}>
         {positive ? <TrendingUp size={strong ? 20 : 16} /> : <TrendingDown size={strong ? 20 : 16} />} {fmt(value)}
       </span>
-    </div>
-  );
-}
-
-const fmtKg = (n) => Number(n || 0).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " kg";
-const fmtCostoKg = (n) => "US$ " + Number(n || 0).toLocaleString("es-ES", { minimumFractionDigits: 4, maximumFractionDigits: 4 });
-
-function KgChip({ label, value, testid }) {
-  return (
-    <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", flex: "1 1 auto", minWidth: 100 }}>
-      <div style={{ color: "#94a3b8", fontSize: 11, fontWeight: 600 }}>{label}</div>
-      <div style={{ color: "#0f172a", fontWeight: 700, fontSize: 14 }} data-testid={testid}>{fmtKg(value)}</div>
-    </div>
-  );
-}
-
-function CostoKgRow({ num, label, hint, value, testid }) {
-  return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "11px 0", borderBottom: "1px solid #f1f5f9" }}>
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, borderRadius: 6, background: "#ede9fe", color: "#7c3aed", fontWeight: 800, fontSize: 12, flexShrink: 0 }}>{num}</span>
-        <div>
-          <div style={{ fontWeight: 700, color: "#0f172a", fontSize: 13.5 }}>{label}</div>
-          <div style={{ color: "#94a3b8", fontSize: 11.5 }}>{hint}</div>
-        </div>
-      </div>
-      <span style={{ fontWeight: 800, color: "#7c3aed", fontSize: 15, whiteSpace: "nowrap" }} data-testid={testid}>{fmtCostoKg(value)}<span style={{ color: "#94a3b8", fontSize: 11, fontWeight: 600 }}>/kg</span></span>
     </div>
   );
 }

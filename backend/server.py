@@ -2102,6 +2102,122 @@ async def costos_kg_tendencia(anio: int, _: dict = Depends(get_current_user)):
     return {"anio": anio, "meses": meses}
 
 
+def _costos_kg_window(gran: str, anchor: Optional[str]):
+    """Devuelve (desde, hasta) inclusivos en 'YYYY-MM-DD' segun granularidad. Para 'todo' devuelve (None, None)."""
+    from datetime import date as _date
+    today = datetime.now(VE_TZ).date()
+    try:
+        a = _date.fromisoformat(str(anchor)[:10]) if anchor else today
+    except Exception:
+        a = today
+    if gran == "semana":
+        monday = a - timedelta(days=a.weekday())
+        return monday.isoformat(), (monday + timedelta(days=6)).isoformat()
+    if gran == "mes":
+        first = a.replace(day=1)
+        nxt = first.replace(year=a.year + 1, month=1) if a.month == 12 else first.replace(month=a.month + 1)
+        return first.isoformat(), (nxt - timedelta(days=1)).isoformat()
+    if gran == "anio":
+        return _date(a.year, 1, 1).isoformat(), _date(a.year, 12, 31).isoformat()
+    return None, None  # todo
+
+
+def _in_win(s, desde: Optional[str], hasta: Optional[str]) -> bool:
+    if not s:
+        return False
+    d = str(s)[:10]
+    if len(d) < 10:
+        return False
+    if desde and d < desde:
+        return False
+    if hasta and d > hasta:
+        return False
+    return True
+
+
+@api.get("/analiticas/costos-kg")
+async def costos_kg_filtrado(gran: str = "todo", anchor: Optional[str] = None, _: dict = Depends(get_current_user)):
+    """Costos por kg para una ventana de tiempo (todo/semana/mes/anio). SOLO LECTURA.
+    Salarios prorrateados por dias: salario_diario_total x dias de la ventana."""
+    from datetime import date as _date
+    desde, hasta = _costos_kg_window(gran, anchor)
+
+    # COSTO DE VENTAS: fert/agro PEPS de aplicaciones confirmadas + mano de obra (actividades)
+    fifo = await _compute_fifo_costs_per_aplicacion()
+    fert_agro = 0.0
+    for a in await db.aplicaciones.find({"estado": "confirmada"}).to_list(20000):
+        if _in_win(a.get("fecha"), desde, hasta):
+            fert_agro += float(fifo.get(a.get("_id"), {}).get("total_costo", 0) or 0)
+    mano_obra = 0.0
+    for act in await db.actividades.find({}).to_list(20000):
+        if _in_win(act.get("fecha_actividad"), desde, hasta):
+            mano_obra += float(act.get("costo_total") or 0)
+
+    # GASTOS OPERATIVOS: gastos de vehiculo (filtrados) + salarios prorrateados
+    gastos_vehiculo = 0.0
+    for g in await db.gastos_vehiculos.find({}).to_list(20000):
+        if _in_win(g.get("fecha"), desde, hasta):
+            gastos_vehiculo += float(g.get("monto") or 0)
+
+    # COSECHA: kg cosechados/descarte + donaciones en la ventana
+    kg_cosechados = kg_descarte = 0.0
+    min_fecha = None
+    for c in await db.cosechas.find({}).to_list(20000):
+        fc = str(c.get("fecha_cosecha") or "")[:10]
+        if len(fc) == 10 and (min_fecha is None or fc < min_fecha):
+            min_fecha = fc
+        if not _in_win(c.get("fecha_cosecha"), desde, hasta):
+            continue
+        suma = (c.get("primera_calidad", 0) or 0) + (c.get("segunda_calidad", 0) or 0) + (c.get("tercera_calidad", 0) or 0) + (c.get("descarte", 0) or 0)
+        mult = 1 if c.get("unidad") == "kg" else KG_POR_CESTA
+        kg_cosechados += suma * mult
+        kg_descarte += (c.get("descarte", 0) or 0) * mult
+    kg_donaciones = 0.0
+    for d in await db.ventas_donaciones.find({}).to_list(20000):
+        if d.get("origen") in VENTA_SYSTEM_ORIGENES:
+            continue
+        if _in_win(d.get("fecha"), desde, hasta):
+            kg_donaciones += float(d.get("cantidad_kg") or (d.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
+    kg_cosechados = round(kg_cosechados, 2)
+    kg_descarte = round(kg_descarte, 2)
+    kg_donaciones = round(kg_donaciones, 2)
+    kg_vendible = round(kg_cosechados - kg_descarte - kg_donaciones, 2)
+
+    # SALARIOS prorrateados por dias de la ventana
+    today = datetime.now(VE_TZ).date()
+    if gran == "todo":
+        try:
+            ini = _date.fromisoformat(min_fecha) if min_fecha else today
+        except Exception:
+            ini = today
+        dias = max((today - ini).days + 1, 0)
+    else:
+        d0 = _date.fromisoformat(desde)
+        d1 = _date.fromisoformat(hasta)
+        dias = (d1 - d0).days + 1
+    salario_diario = sum(float(t.get("salario_diario") or 0) for t in await db.trabajadores.find({}).to_list(5000) if t.get("activo", True))
+    salarios = round(salario_diario * dias, 2)
+
+    total_costo = round(fert_agro + mano_obra, 2)
+    total_gastos_op = round(salarios + gastos_vehiculo, 2)
+    costo_con_op = total_costo + total_gastos_op
+
+    return {
+        "gran": gran,
+        "desde": desde,
+        "hasta": hasta,
+        "dias": dias,
+        "cosecha": {"kg_cosechados": kg_cosechados, "kg_descarte": kg_descarte, "kg_donaciones": kg_donaciones, "kg_vendible": kg_vendible},
+        "costo_ventas": round(total_costo, 2),
+        "gastos_operativos": {"salarios": salarios, "gastos_vehiculo": round(gastos_vehiculo, 2), "total": total_gastos_op},
+        "costo_por_kg": round(total_costo / kg_cosechados, 4) if kg_cosechados > 0 else 0,
+        "costo_total_por_kg": round(costo_con_op / kg_cosechados, 4) if kg_cosechados > 0 else 0,
+        "costo_real_vendible": round(total_costo / kg_vendible, 4) if kg_vendible > 0 else 0,
+        "costo_total_real_vendible": round(costo_con_op / kg_vendible, 4) if kg_vendible > 0 else 0,
+    }
+
+
+
 # ============================================================
 # SEED
 # ============================================================

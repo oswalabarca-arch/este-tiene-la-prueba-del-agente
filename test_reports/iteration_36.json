@@ -1,0 +1,26 @@
+{
+  "summary": "Iteración 36 (frontend only): se verificó el nuevo filtro Todo/Semana/Mes/Año en el recuadro 'Costos por kilogramo' (CostosPorKg.jsx) dentro de /dashboard/analiticas. Login admin OK. El card data-testid='er-costos-kg-card' renderiza correctamente con la barra de filtro ck-filtro y las 4 pills (ck-gran-todo, ck-gran-semana, ck-gran-mes, ck-gran-anio). Por defecto el filtro está en 'Todo' y NO muestra ck-fecha (esperado). Al hacer click en Semana/Mes/Año aparece el input ck-fecha (verificado True). Cada click en una pill dispara una llamada GET /api/analiticas/costos-kg con el param gran correcto (gran=semana&anchor=YYYY-MM-DD, gran=mes&..., gran=anio&..., gran=todo sin anchor). El subtítulo muestra el prorrateo de días ('Todos los registros · salarios prorrateados (1 día)'). Los 4 chips de kg (er-kg-cosechados/descarte/donaciones/vendible) y las 4 filas de costo (er-costo-por-kg, er-costo-total-por-kg, er-costo-real-vendible, er-costo-total-real-vendible) se renderizan con valores correctos (0,00 kg / US$ 0,0000 — esperado por falta de datos de cosecha en preview, como advirtió el main agent). Mensaje 'No hay cosecha registrada en este período' se muestra (er-costos-kg-vacio). Regresión OK: er-utilidad-bruta, er-utilidad-operativa, er-venta-promedio-card y er-tendencia-card siguen visibles y sin errores. Sin PAGEERROR ni errores JS críticos. Solo-lectura confirmado: el componente sólo hace GETs.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "CostosPorKg.jsx L19: anchor se inicializa con new Date().toISOString().slice(0,10) — funciona pero usa la zona horaria del navegador (UTC en toISOString). Si el usuario está en una zona horaria muy negativa, el anchor por defecto podría ser un día atrasado vs la fecha local. No bloqueante.",
+    "CostosPorKg.jsx L25: api.get(...).catch(() => setData(null)) — silencia errores del backend. Si el endpoint /analiticas/costos-kg empieza a fallar, el UI mostrará 0,00 sin feedback al usuario. Sería bueno setear un estado de error/toast. No bloqueante.",
+    "CostosPorKg.jsx L22-26: load() se reconstruye con useCallback dependiendo de gran/anchor y se llama desde useEffect — patrón correcto, dispara una request cada vez que el usuario cambia el filtro o la fecha. Sin debounce, así que tipear rápido en ck-fecha puede generar requests intermedias (minor; el input type='date' generalmente sólo dispara onChange al confirmar).",
+    "CostosPorKg.jsx L9-15: rangeLabel construye Date con sufijo 'T00:00:00' — bien, evita el bug clásico de UTC al parsear YYYY-MM-DD.",
+    "Solo-lectura confirmado: NINGÚN POST/PUT/DELETE en CostosPorKg.jsx. ✓",
+    "Analiticas.jsx L154: el inline anterior fue reemplazado limpiamente por <CostosPorKg/>. No quedan testids duplicados ni código muerto observable en el grep."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped per request)", "frontend": "100% (pills, ck-fecha condicional, llamadas GET /analiticas/costos-kg con gran correcto, chips/filas, subtítulo de prorrateo, regresión de utilidad/venta-promedio/tendencia — todo verificado)"},
+  "test_credentials": "Admin: oswaldabarca@gmail.com / 123456",
+  "seed_data_creation": "Ninguna - sólo lectura.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteración 36: el recuadro 'Costos por kilogramo' ahora es un componente independiente /app/frontend/src/components/CostosPorKg.jsx con filtro Todo/Semana/Mes/Año. Testids: er-costos-kg-card (wrapper), ck-filtro (barra), ck-gran-{todo|semana|mes|anio} (pills), ck-fecha (input date, sólo visible si gran!=='todo'), er-kg-{cosechados|descarte|donaciones|vendible}, er-costo-{por-kg|total-por-kg|real-vendible|total-real-vendible}, er-costos-kg-vacio (aviso si kg_cosechados<=0). Endpoint: GET /api/analiticas/costos-kg?gran=...&anchor=YYYY-MM-DD. En preview no hay datos de cosecha, así que todos los valores salen en 0 — eso es esperado y NO es bug. La 'todo' no envía anchor. El subtítulo muestra 'salarios prorrateados (N día(s))' cuando data.dias existe."
+}
