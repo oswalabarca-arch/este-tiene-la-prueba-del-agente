@@ -384,3 +384,8 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - Fechas almacenadas como ISO strings.
 - KG_POR_CESTA = 14 (convención observada en datos del original).
 - Catálogos (tipos_fruta, variedades_fruta) editables desde dentro del modal de Cosecha.
+
+## Fix (Equipos · Plantaciones · desfase de fecha -1 día — 30/06/2026)
+- **Bug:** "Fecha de adquisición" (Equipos) y "Fecha inicio / finalización" (Plantaciones) se enviaban como fecha cruda (YYYY-MM-DD), que MongoDB/JS interpretaba como medianoche UTC → en Venezuela (UTC-4) se mostraba el día anterior.
+- **Fix:** ambos formularios ahora envían `+ "T12:00:00.000Z"` (mediodía UTC), igual que Compras/Inventario. El prefill en edición usa `.slice(0,10)` que sigue dando la fecha correcta.
+- Verificado E2E por curl: crear equipo con fecha 2026-06-15 persiste como `2026-06-15T12:00:00.000Z` (día correcto en UTC-4). Cambio 100% frontend (`Equipos.jsx`, `Plantaciones.jsx`). Requiere re-deploy para producción.

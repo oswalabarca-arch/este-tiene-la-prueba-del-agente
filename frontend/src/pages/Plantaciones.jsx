@@ -201,8 +201,8 @@ function PlantacionModal({ initial, onClose, onSaved }) {
         plantas_por_variedad: form.plantas_por_variedad,
         total_plantas: totalPlantas,
         inventario_plantas: totalPlantas || Number(form.inventario_plantas || 0),
-        fecha_inicio: form.fecha_inicio || null,
-        fecha_finalizacion: form.fecha_finalizacion || null,
+        fecha_inicio: form.fecha_inicio ? form.fecha_inicio + "T12:00:00.000Z" : null,
+        fecha_finalizacion: form.fecha_finalizacion ? form.fecha_finalizacion + "T12:00:00.000Z" : null,
         superficie_geometrica: Number(form.superficie_geometrica || 0),
       };
       if (isNew) await api.post("/plantaciones", payload);

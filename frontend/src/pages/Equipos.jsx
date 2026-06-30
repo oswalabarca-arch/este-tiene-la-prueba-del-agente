@@ -127,7 +127,7 @@ function EquipoModal({ initial, filterCat, onClose, onSaved }) {
         año: form.año ? Number(form.año) : null,
         cantidad: Math.max(1, Number(form.cantidad || 1)),
         costo_adquisicion: Number(form.costo_adquisicion || 0),
-        fecha_adquisicion: form.fecha_adquisicion || null,
+        fecha_adquisicion: form.fecha_adquisicion ? form.fecha_adquisicion + "T12:00:00.000Z" : null,
       };
       if (isNew) await api.post("/equipos", payload);
       else await api.put(`/equipos/${initial._id}`, payload);
