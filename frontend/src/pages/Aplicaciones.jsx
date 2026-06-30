@@ -221,7 +221,9 @@ export default function Aplicaciones() {
                     <td>{new Date(a.fecha).toLocaleDateString()}</td>
                     <td><span className="badge" style={catBadge(a.tipo)}>{a.tipo}</span></td>
                     <td><span className="badge badge-primary">{a.lote}</span></td>
-                    <td style={{ fontSize: 13, color: "#64748b" }}>{a.insumos?.map((i) => (i.cantidad > 0 ? `${i.nombre_producto} (${i.cantidad}${i.unidad})` : i.nombre_producto)).join(", ") || "—"}</td>
+                    <td style={{ fontSize: 13, color: "#64748b" }}>{a.subtipo === "receta"
+                      ? <span className="badge" style={{ background: "#f3e8ff", color: "#7c3aed", fontSize: 11 }} data-testid="aplic-receta-badge">Receta</span>
+                      : (a.insumos?.map((i) => (i.cantidad > 0 ? `${i.nombre_producto} (${i.cantidad}${i.unidad})` : i.nombre_producto)).join(", ") || "—")}</td>
                     <td style={{ fontSize: 13, color: ing ? "#0f172a" : "#94a3b8" }} data-testid="aplic-ingrediente-activo">{ing || "—"}</td>
                     <td style={{ fontSize: 13, color: "#0f172a" }} data-testid="aplic-dosis">{getDosis(a) || "—"}</td>
                     <td style={{ fontSize: 13, color: a.observaciones ? "#475569" : "#94a3b8", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={a.observaciones || ""} data-testid="aplic-comentarios">{a.observaciones || "—"}</td>

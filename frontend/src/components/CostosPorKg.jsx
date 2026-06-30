@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
+import { ArrowUp, ArrowDown, Minus } from "lucide-react";
 
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const MESES_C = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
@@ -14,15 +15,47 @@ function rangeLabel(d) {
   return `Semana del ${s.getDate()} ${MESES_C[s.getMonth()]} al ${e.getDate()} ${MESES_C[e.getMonth()]} ${e.getFullYear()}`;
 }
 
+// Ancla del período ANTERIOR (semana pasada / mes pasado / año pasado)
+function prevAnchor(gran, anchor) {
+  const d = new Date(anchor + "T00:00:00");
+  if (gran === "semana") { const p = new Date(d); p.setDate(d.getDate() - 7); return p.toISOString().slice(0, 10); }
+  if (gran === "mes") return new Date(d.getFullYear(), d.getMonth() - 1, 1).toISOString().slice(0, 10);
+  if (gran === "anio") return new Date(d.getFullYear() - 1, 0, 1).toISOString().slice(0, 10);
+  return null;
+}
+
+// % de variación: en costos, subir es desfavorable (rojo ↑), bajar favorable (verde ↓)
+function deltaPct(cur, prev) {
+  if (!prev || prev <= 0 || !cur || cur <= 0) return null;
+  return ((cur - prev) / prev) * 100;
+}
+
+function Trend({ pct, testid }) {
+  if (pct === null || pct === undefined) return null;
+  const up = pct > 0.05, down = pct < -0.05;
+  const color = up ? "#dc2626" : down ? "#15803d" : "#64748b"; // costo: ↑ rojo (peor), ↓ verde (mejor)
+  const Icon = up ? ArrowUp : down ? ArrowDown : Minus;
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 2, fontSize: 11, fontWeight: 700, color }} data-testid={testid}>
+      <Icon size={12} />{Math.abs(pct).toFixed(1)}%
+    </span>
+  );
+}
+
 export default function CostosPorKg() {
   const [gran, setGran] = useState("todo");
   const [anchor, setAnchor] = useState(() => new Date().toISOString().slice(0, 10));
   const [data, setData] = useState(null);
+  const [prev, setPrev] = useState(null);
 
   const load = useCallback(() => {
     const params = { gran };
     if (gran !== "todo") params.anchor = anchor;
     api.get("/analiticas/costos-kg", { params }).then((r) => setData(r.data)).catch(() => setData(null));
+    // Período anterior para la tendencia (solo si no es "Todo")
+    const pa = gran !== "todo" ? prevAnchor(gran, anchor) : null;
+    if (pa) api.get("/analiticas/costos-kg", { params: { gran, anchor: pa } }).then((r) => setPrev(r.data)).catch(() => setPrev(null));
+    else setPrev(null);
   }, [gran, anchor]);
   useEffect(() => { load(); }, [load]);
 
@@ -39,7 +72,7 @@ export default function CostosPorKg() {
         <div>
           <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: 0.5, color: "#7c3aed" }}>COSTOS POR KILOGRAMO</div>
           <div style={{ color: "#94a3b8", fontSize: 12, marginTop: 2 }}>
-            {periodoLabel}{data?.dias ? ` · salarios prorrateados (${data.dias} día${data.dias === 1 ? "" : "s"})` : ""}
+            {periodoLabel}{data?.dias ? ` · salarios prorrateados (${data.dias} día${data.dias === 1 ? "" : "s"})` : ""}{gran !== "todo" ? " · tendencia vs período anterior" : ""}
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }} data-testid="ck-filtro">
@@ -69,10 +102,10 @@ export default function CostosPorKg() {
           No hay cosecha registrada en este período. Registrá cosechas para ver los costos por kg.
         </p>
       )}
-      <CostoKgRow num={1} label="COSTO POR KG" hint="Costo total de ventas ÷ kg cosechados" value={data?.costo_por_kg} testid="er-costo-por-kg" />
-      <CostoKgRow num={2} label="COSTO TOTAL POR KG" hint="(Costo de ventas + gastos operativos) ÷ kg cosechados" value={data?.costo_total_por_kg} testid="er-costo-total-por-kg" />
-      <CostoKgRow num={3} label="COSTO REAL VENDIBLE" hint="Costo total de ventas ÷ (kg cosechados − descarte − donaciones)" value={data?.costo_real_vendible} testid="er-costo-real-vendible" />
-      <CostoKgRow num={4} label="COSTO TOTAL REAL VENDIBLE" hint="(Costo de ventas + gastos operativos) ÷ (kg cosechados − descarte − donaciones)" value={data?.costo_total_real_vendible} testid="er-costo-total-real-vendible" />
+      <CostoKgRow num={1} label="COSTO POR KG" hint="Costo total de ventas ÷ kg cosechados" value={data?.costo_por_kg} trend={deltaPct(data?.costo_por_kg, prev?.costo_por_kg)} testid="er-costo-por-kg" />
+      <CostoKgRow num={2} label="COSTO TOTAL POR KG" hint="(Costo de ventas + gastos operativos) ÷ kg cosechados" value={data?.costo_total_por_kg} trend={deltaPct(data?.costo_total_por_kg, prev?.costo_total_por_kg)} testid="er-costo-total-por-kg" />
+      <CostoKgRow num={3} label="COSTO REAL VENDIBLE" hint="Costo total de ventas ÷ (kg cosechados − descarte − donaciones)" value={data?.costo_real_vendible} trend={deltaPct(data?.costo_real_vendible, prev?.costo_real_vendible)} testid="er-costo-real-vendible" />
+      <CostoKgRow num={4} label="COSTO TOTAL REAL VENDIBLE" hint="(Costo de ventas + gastos operativos) ÷ (kg cosechados − descarte − donaciones)" value={data?.costo_total_real_vendible} trend={deltaPct(data?.costo_total_real_vendible, prev?.costo_total_real_vendible)} testid="er-costo-total-real-vendible" />
     </div>
   );
 }
@@ -86,7 +119,7 @@ function KgChip({ label, value, testid }) {
   );
 }
 
-function CostoKgRow({ num, label, hint, value, testid }) {
+function CostoKgRow({ num, label, hint, value, trend, testid }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "11px 0", borderBottom: "1px solid #f1f5f9" }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
@@ -96,7 +129,10 @@ function CostoKgRow({ num, label, hint, value, testid }) {
           <div style={{ color: "#94a3b8", fontSize: 11.5 }}>{hint}</div>
         </div>
       </div>
-      <span style={{ fontWeight: 800, color: "#7c3aed", fontSize: 15, whiteSpace: "nowrap" }} data-testid={testid}>{fmtCostoKg(value)}<span style={{ color: "#94a3b8", fontSize: 11, fontWeight: 600 }}>/kg</span></span>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
+        <span style={{ fontWeight: 800, color: "#7c3aed", fontSize: 15, whiteSpace: "nowrap" }} data-testid={testid}>{fmtCostoKg(value)}<span style={{ color: "#94a3b8", fontSize: 11, fontWeight: 600 }}>/kg</span></span>
+        <Trend pct={trend} testid={`${testid}-trend`} />
+      </div>
     </div>
   );
 }
