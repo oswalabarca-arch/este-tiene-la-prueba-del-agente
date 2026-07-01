@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api, API } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
-import { FileText, Plus, Trash2, Pencil, Eye, Upload, ImageOff, Loader2 } from "lucide-react";
+import { FileText, Plus, Trash2, Pencil, Eye, Upload, ImageOff, Image as ImageIcon, Loader2 } from "lucide-react";
 
 const TIPOS = ["fertilizantes", "fungicidas", "plaguicida", "herbicidas", "tratamiento"];
 const TIPO_COLOR = {
@@ -91,9 +91,10 @@ export default function FichaTecnica() {
                   </div>
                   <span className="badge" style={{ background: c.bg, color: c.fg, fontSize: 11, textTransform: "capitalize", whiteSpace: "nowrap" }}>{f.tipo}</span>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                  <Thumb path={f.foto_frontal} label="Frontal" />
-                  <Thumb path={f.foto_trasera} label="Ficha técnica" />
+                <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "8px 10px", color: "#64748b", fontSize: 12 }} data-testid="ficha-fotos-info">
+                  <ImageIcon size={15} style={{ color: "#0ea5e9", flexShrink: 0 }} />
+                  <span>{[f.foto_frontal && "frontal", f.foto_trasera && "ficha técnica"].filter(Boolean).join(" · ") || "Sin fotos"}</span>
+                  <span style={{ marginLeft: "auto", fontSize: 11, color: "#94a3b8" }}>Ver fotos →</span>
                 </div>
                 <div style={{ display: "flex", gap: 6, marginTop: 2 }}>
                   <button className="btn btn-sm" onClick={() => setViewing(f)} data-testid={`ficha-view-${f._id}`}><Eye size={14} /> Ver</button>
@@ -108,22 +109,6 @@ export default function FichaTecnica() {
 
       {showForm && <FichaForm initial={editing} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load(); }} />}
       {viewing && <FichaView ficha={viewing} onClose={() => setViewing(null)} />}
-    </div>
-  );
-}
-
-function Thumb({ path, label }) {
-  const url = fileUrl(path);
-  return (
-    <div style={{ borderRadius: 8, overflow: "hidden", border: "1px solid #e2e8f0", background: "#f8fafc", aspectRatio: "1 / 1", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
-      {url ? (
-        <img src={url} alt={label} style={{ width: "100%", height: "100%", objectFit: "cover" }} loading="lazy" />
-      ) : (
-        <div style={{ color: "#94a3b8", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, fontSize: 11 }}>
-          <ImageOff size={20} /> Sin foto
-        </div>
-      )}
-      <span style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "rgba(15,23,42,0.6)", color: "#fff", fontSize: 10, padding: "2px 6px", textAlign: "center" }}>{label}</span>
     </div>
   );
 }
