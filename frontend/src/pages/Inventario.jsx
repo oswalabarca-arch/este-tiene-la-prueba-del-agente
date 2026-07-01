@@ -6,12 +6,14 @@ import { Boxes, Plus, Trash2, Pencil, PackagePlus } from "lucide-react";
 import { catBadge } from "../lib/categoryColors";
 import { todayLocal } from "../lib/dates";
 import { DecimalInput } from "../components/DecimalInput";
+import { useFichasTecnicas, VerFichaButton } from "../components/VerFichaTecnica";
 
 const CATEGORIAS = ["fertilizantes", "plaguicidas", "fungicidas", "herbicidas", "tratamiento", "semillas", "otros"];
 
 export default function Inventario() {
   const { canEdit, canDelete } = useAuth();
   const toast = useToast();
+  const { getFicha } = useFichasTecnicas();
   const [items, setItems] = useState([]);
   const [entradas, setEntradas] = useState([]);
   const [filterCat, setFilterCat] = useState("");
@@ -79,7 +81,7 @@ export default function Inventario() {
             <tr>
               <th>Categoría</th>
               <th>Producto</th>
-              <th>Ingrediente activo</th>
+              <th>Ficha técnica</th>
               <th>Estado</th>
               <th>Disponible</th>
               <th>Valor stock</th>
@@ -95,7 +97,7 @@ export default function Inventario() {
                   <tr data-testid={`inv-row-${idx}`}>
                     <td><span className="badge" style={catBadge(i.categoria)}>{i.categoria}</span></td>
                     <td style={{ fontWeight: 600 }}>{i.nombre_producto}</td>
-                    <td style={{ color: i.ingrediente_activo ? "#0f172a" : "#94a3b8" }} data-testid="inv-ingrediente-activo">{i.ingrediente_activo || "—"}</td>
+                    <td data-testid="inv-ingrediente-activo"><VerFichaButton productos={[i.nombre_producto]} getFicha={getFicha} testid={`inv-ver-ficha-${idx}`} /></td>
                     <td>{i.existencia ? <span className="badge badge-primary">Disponible</span> : <span className="badge badge-rose">Agotado</span>}</td>
                     <td style={{ color: "#16a34a", fontWeight: 700 }}>{i.total_disponible}</td>
                     <td style={{ color: "#16a34a", fontWeight: 600 }}>${Number(i.valor_remanente || 0).toFixed(2)}</td>

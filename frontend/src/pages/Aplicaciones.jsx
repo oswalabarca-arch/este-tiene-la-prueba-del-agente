@@ -7,6 +7,7 @@ import { catBadge, catPill } from "../lib/categoryColors";
 import { todayLocal, toLocalDateStr } from "../lib/dates";
 import { PeriodPicker, currentMonthStr, currentYearStr } from "../components/PeriodPicker";
 import { DecimalInput } from "../components/DecimalInput";
+import { useFichasTecnicas, VerFichaButton } from "../components/VerFichaTecnica";
 
 const TIPOS = ["fertilizacion", "fungicida", "plaguicida", "herbicida", "tratamiento"];
 const UNIDAD = "Unidades";
@@ -27,6 +28,7 @@ const TIPO_TO_CAT = {
 export default function Aplicaciones() {
   const toast = useToast();
   const { canEdit, canDelete } = useAuth();
+  const { getFicha } = useFichasTecnicas();
   const [tab, setTab] = useState("aplicaciones");
   const [items, setItems] = useState([]);
   const [recetas, setRecetas] = useState([]);
@@ -211,11 +213,10 @@ export default function Aplicaciones() {
             <h3 style={{ marginTop: 0 }}>Aplicaciones Registradas</h3>
             <table className="table">
               <thead>
-                <tr><th>Fecha</th><th>Tipo</th><th>Lote</th><th>Producto</th><th>Ingrediente activo</th><th>Dosis</th><th>Comentarios</th><th>Estado</th><th style={{ textAlign: "right" }}>Acciones</th></tr>
+                <tr><th>Fecha</th><th>Tipo</th><th>Lote</th><th>Producto</th><th>Ficha técnica</th><th>Dosis</th><th>Comentarios</th><th>Estado</th><th style={{ textAlign: "right" }}>Acciones</th></tr>
               </thead>
               <tbody>
                 {filtered.map((a) => {
-                  const ing = getIngredientes(a);
                   return (
                   <tr key={a._id}>
                     <td>{new Date(a.fecha).toLocaleDateString()}</td>
@@ -224,7 +225,7 @@ export default function Aplicaciones() {
                     <td style={{ fontSize: 13, color: "#64748b" }}>{a.subtipo === "receta"
                       ? <span className="badge" style={{ background: "#f3e8ff", color: "#7c3aed", fontSize: 11 }} data-testid="aplic-receta-badge">Receta</span>
                       : (a.insumos?.map((i) => (i.cantidad > 0 ? `${i.nombre_producto} (${i.cantidad}${i.unidad})` : i.nombre_producto)).join(", ") || "—")}</td>
-                    <td style={{ fontSize: 13, color: ing ? "#0f172a" : "#94a3b8" }} data-testid="aplic-ingrediente-activo">{ing || "—"}</td>
+                    <td data-testid="aplic-ingrediente-activo"><VerFichaButton productos={(a.insumos || []).map((i) => i.nombre_producto)} getFicha={getFicha} testid={`aplic-ver-ficha-${a._id}`} /></td>
                     <td style={{ fontSize: 13, color: "#0f172a" }} data-testid="aplic-dosis">{getDosis(a) || "—"}</td>
                     <td style={{ fontSize: 13, color: a.observaciones ? "#475569" : "#94a3b8", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={a.observaciones || ""} data-testid="aplic-comentarios">{a.observaciones || "—"}</td>
                     <td>{a.estado === "confirmada" ? <span className="badge badge-primary"><CheckCircle size={12} style={{ verticalAlign: "middle" }} /> Confirmada</span> : <span className="badge badge-warn"><Clock size={12} style={{ verticalAlign: "middle" }} /> Pendiente</span>}</td>

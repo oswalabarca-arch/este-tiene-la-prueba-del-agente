@@ -1,0 +1,24 @@
+{
+  "summary": "Iteración 38 (frontend only): verificación end-to-end del reemplazo de la columna 'Ingrediente activo' por botón 'Ver ficha' + modal en INVENTARIO y APLICACIONES. Todos los escenarios del review_request PASARON. Login admin OK. En /dashboard/inventario el header pasó de 'Ingrediente activo' a 'Ficha técnica' (verificado); cada fila de stock tiene un botón data-testid=inv-ver-ficha-<idx> dentro de la celda data-testid='inv-ingrediente-activo'. La fila de 'hierro' (fertilizantes) muestra el botón HABILITADO con texto 'Ver ficha'; las filas de 'zinc' y 'magnesio' muestran el botón DESHABILITADO con texto 'Sin ficha'. Al hacer clic en 'Ver ficha' de la fila de hierro abre el modal data-testid='ver-ficha-modal' con 1 <img> (foto trasera) y se disparó exactamente 1 request a /api/fichas-tecnicas/file/erp-agricola/fichas/ad69b79a-... — cero requests de imagen durante la carga del módulo (lazy on click confirmado). El botón 'Cerrar' cierra el modal correctamente. En /dashboard/aplicaciones (pestaña 'Aplicaciones registradas') el header también es 'Ficha técnica'; la aplicación existente (con insumos hierro+zinc+magnesio) muestra su botón data-testid=aplic-ver-ficha-<id> HABILITADO ('Ver ficha'); al hacer clic abre ver-ficha-modal con la imagen de hierro (1 request de imagen, cero durante la carga inicial). Regresión: la tabla de inventario mantiene stock/estado/valor/PEPS; la tabla de aplicaciones mantiene sus columnas y 4 botones de acción (Ver/Editar/Eliminar + otro) por fila. Sin PAGEERROR ni errores JS relevantes.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "VerFichaTecnica.jsx L10: el token JWT se pasa como query param ?auth={token} en la URL de la imagen. Queda expuesto en referer/logs de red del navegador. Mejora futura: proxy autenticado o cookie httpOnly. No bloqueante.",
+    "VerFichaTecnica.jsx L14-28: useFichasTecnicas() cachea las fichas en memoria del componente y hace UN solo GET /fichas-tecnicas al montar. Correcto para el requisito 'la foto solo se carga al hacer clic'. Sin embargo, si el usuario crea/edita/borra una ficha en /dashboard/ficha-tecnica y vuelve a Inventario/Aplicaciones sin recargar la SPA, el mapa quedará desactualizado. Considerar exponer un refetch o invalidar via evento.",
+    "VerFichaTecnica.jsx L23: el .catch(() => {}) silencioso oculta errores de red del GET inicial — al menos loguear a console.warn para depuración."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (no testeado — sólo frontend)", "frontend": "100% (5/5 escenarios del review_request)"},
+  "test_credentials": "Admin: oswaldabarca@gmail.com / 123456",
+  "seed_data_creation": "Ninguna. Se usó la ficha técnica existente de 'hierro' (fertilizantes) para probar el estado HABILITADO — no modificada ni eliminada.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Reemplazo columna 'Ingrediente activo' → 'Ficha técnica' completado y verificado en Inventario y Aplicaciones. Testids clave: inv-ingrediente-activo (celda), inv-ver-ficha-<idx> (botón); aplic-ingrediente-activo (celda), aplic-ver-ficha-<id> (botón); ver-ficha-modal (modal compartido). Producto con ficha para pruebas: 'hierro' (fertilizantes). Sin ficha: zinc, magnesio, plagi, hervi. La imagen se carga sólo al hacer click (verificado con page.on('request')). Componente compartido en /app/frontend/src/components/VerFichaTecnica.jsx.",
+  "rca of the issue": "N/A — no se encontraron issues."
+}
