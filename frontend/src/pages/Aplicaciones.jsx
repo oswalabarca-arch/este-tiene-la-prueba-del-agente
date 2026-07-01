@@ -225,7 +225,7 @@ export default function Aplicaciones() {
                     <td style={{ fontSize: 13, color: "#64748b" }}>{a.subtipo === "receta"
                       ? <span className="badge" style={{ background: "#f3e8ff", color: "#7c3aed", fontSize: 11 }} data-testid="aplic-receta-badge">Receta</span>
                       : (a.insumos?.map((i) => (i.cantidad > 0 ? `${i.nombre_producto} (${i.cantidad}${i.unidad})` : i.nombre_producto)).join(", ") || "—")}</td>
-                    <td data-testid="aplic-ingrediente-activo"><VerFichaButton productos={(a.insumos || []).map((i) => i.nombre_producto)} getFicha={getFicha} testid={`aplic-ver-ficha-${a._id}`} /></td>
+                    <td data-testid="aplic-ingrediente-activo"><VerFichaButton productos={a.subtipo === "receta" ? [] : (a.insumos || []).map((i) => i.nombre_producto)} getFicha={getFicha} testid={`aplic-ver-ficha-${a._id}`} /></td>
                     <td style={{ fontSize: 13, color: "#0f172a" }} data-testid="aplic-dosis">{getDosis(a) || "—"}</td>
                     <td style={{ fontSize: 13, color: a.observaciones ? "#475569" : "#94a3b8", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={a.observaciones || ""} data-testid="aplic-comentarios">{a.observaciones || "—"}</td>
                     <td>{a.estado === "confirmada" ? <span className="badge badge-primary"><CheckCircle size={12} style={{ verticalAlign: "middle" }} /> Confirmada</span> : <span className="badge badge-warn"><Clock size={12} style={{ verticalAlign: "middle" }} /> Pendiente</span>}</td>
