@@ -193,7 +193,7 @@ function PhotoUpload({ label, value, onChange, testid }) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024) { toast.show("La imagen supera 10 MB", "error"); return; }
+    if (file.size > 25 * 1024 * 1024) { toast.show("La imagen supera 25 MB", "error"); return; }
     setUploading(true);
     try {
       const fd = new FormData();

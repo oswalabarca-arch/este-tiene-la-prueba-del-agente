@@ -8,10 +8,12 @@ load_dotenv(ROOT_DIR / ".env")
 
 import os
 import uuid
+import io
 import bcrypt
 import jwt
 import logging
 import requests
+from PIL import Image, ImageOps
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Any, Dict
 
@@ -97,6 +99,31 @@ EMERGENT_KEY = os.environ.get("EMERGENT_LLM_KEY")
 APP_NAME = "erp-agricola"
 _storage_key = None
 MIME_TYPES = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "gif": "image/gif", "webp": "image/webp"}
+
+
+def _optimize_image(data: bytes) -> tuple[bytes, str, str]:
+    """Reduce el peso de la imagen conservando nitidez para leer fichas técnicas.
+    Redimensiona a máx 2000px por lado y recomprime como JPEG de alta calidad.
+    Devuelve (bytes_optimizados, content_type, ext). Si algo falla, devuelve el original."""
+    try:
+        img = Image.open(io.BytesIO(data))
+        img = ImageOps.exif_transpose(img)  # respeta orientación de fotos de celular
+        if img.mode in ("RGBA", "P", "LA"):
+            bg = Image.new("RGB", img.size, (255, 255, 255))
+            img_rgb = img.convert("RGBA")
+            bg.paste(img_rgb, mask=img_rgb.split()[-1])
+            img = bg
+        else:
+            img = img.convert("RGB")
+        max_side = 2000
+        if max(img.size) > max_side:
+            img.thumbnail((max_side, max_side), Image.LANCZOS)
+        out = io.BytesIO()
+        img.save(out, format="JPEG", quality=82, optimize=True, progressive=True)
+        return out.getvalue(), "image/jpeg", "jpg"
+    except Exception as e:
+        logging.warning(f"Image optimize skipped: {e}")
+        return data, "application/octet-stream", "bin"
 
 
 def init_storage():
@@ -2300,12 +2327,18 @@ async def upload_ficha_foto(file: UploadFile = File(...), user: dict = Depends(g
     if ext not in MIME_TYPES:
         raise HTTPException(400, "Formato no soportado. Usá JPG, PNG o WEBP.")
     data = await file.read()
-    if len(data) > 10 * 1024 * 1024:
-        raise HTTPException(400, "La imagen supera el límite de 10 MB.")
-    content_type = MIME_TYPES.get(ext, file.content_type or "application/octet-stream")
-    path = f"{APP_NAME}/fichas/{user['_id']}/{uuid.uuid4()}.{ext}"
+    if len(data) > 25 * 1024 * 1024:
+        raise HTTPException(400, "La imagen supera el límite de 25 MB.")
+    # Optimizar: redimensiona (máx 2000px) y recomprime a JPEG (b)
+    opt_data, content_type, opt_ext = _optimize_image(data)
+    if content_type == "application/octet-stream":
+        # No se pudo optimizar -> usar original con su tipo real
+        opt_data = data
+        content_type = MIME_TYPES.get(ext, file.content_type or "application/octet-stream")
+        opt_ext = ext
+    path = f"{APP_NAME}/fichas/{user['_id']}/{uuid.uuid4()}.{opt_ext}"
     try:
-        result = put_object(path, data, content_type)
+        result = put_object(path, opt_data, content_type)
     except Exception as e:
         logging.error(f"Storage upload failed: {e}")
         raise HTTPException(502, "No se pudo subir la imagen. Intentá de nuevo.")
@@ -2314,7 +2347,7 @@ async def upload_ficha_foto(file: UploadFile = File(...), user: dict = Depends(g
         "storage_path": result["path"],
         "original_filename": file.filename,
         "content_type": content_type,
-        "size": result.get("size", len(data)),
+        "size": result.get("size", len(opt_data)),
         "is_deleted": False,
         "createdAt": now_iso(),
     })
@@ -2344,7 +2377,11 @@ async def get_ficha_foto(path: str, request: Request, auth: Optional[str] = Quer
         data, content_type = get_object(path)
     except Exception:
         raise HTTPException(404, "Archivo no disponible")
-    return Response(content=data, media_type=record.get("content_type", content_type))
+    return Response(
+        content=data,
+        media_type=record.get("content_type", content_type),
+        headers={"Cache-Control": "private, max-age=604800, immutable"},
+    )
 
 
 @api.get("/fichas-tecnicas")
