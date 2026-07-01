@@ -5,7 +5,7 @@ import {
   DollarSign, Snowflake, Boxes, ShoppingCart, BarChart3, ChevronDown,
   ChevronUp, Briefcase, LogOut, Car, Cog, Wrench,
   Home, Building2, AlertCircle, Heart, Clock, PlusCircle,
-  UserCheck, Wallet, Menu, X,
+  UserCheck, Wallet, Menu, X, FileText,
 } from "lucide-react";
 import { Strawberry } from "./icons/Strawberry";
 import { useState } from "react";
@@ -52,6 +52,7 @@ const NAV = [
     ],
   },
   { to: "/dashboard/inventario", label: "Inventario", icon: Boxes, module: "inventario" },
+  { to: "/dashboard/ficha-tecnica", label: "Ficha técnica de productos", icon: FileText, module: "ficha_tecnica" },
   { to: "/dashboard/compras", label: "Compras", icon: ShoppingCart, module: "compras" },
   { to: "/dashboard/analiticas", label: "Analíticas", icon: BarChart3, module: "analiticas" },
 ];

@@ -11,6 +11,7 @@ import Cosecha from "./pages/Cosecha";
 import AsignacionDestino from "./pages/AsignacionDestino";
 import Compras from "./pages/Compras";
 import Inventario from "./pages/Inventario";
+import FichaTecnica from "./pages/FichaTecnica";
 import Aplicaciones from "./pages/Aplicaciones";
 import { ActividadesPendientes, ActividadesRegistrar } from "./pages/Actividades";
 import { VentasFinca, VentasCiudad, VentasRefrigerar, VentasCongelar, VentasDescarte, VentasDonaciones } from "./pages/Ventas";
@@ -50,6 +51,7 @@ function App() {
               <Route path="asignacion-destino" element={<AsignacionDestino />} />
               <Route path="compras" element={<Compras />} />
               <Route path="inventario" element={<Inventario />} />
+              <Route path="ficha-tecnica" element={<FichaTecnica />} />
               <Route path="aplicaciones" element={<Aplicaciones />} />
               <Route path="actividades" element={<Navigate to="/dashboard/actividades/pendientes" replace />} />
               <Route path="actividades/pendientes" element={<ActividadesPendientes />} />

@@ -1,0 +1,28 @@
+{
+  "summary": "Iteración 37 (frontend+backend end-to-end): módulo NUEVO 'Ficha técnica de productos' completamente verificado por UI. Login admin OK (oswaldabarca@gmail.com/123456). Sidebar muestra el link data-testid='sidebar-link-ficha-técnica-de-productos' (con tilde) justo debajo de 'Inventario' (screenshot confirma). Click navega a /dashboard/ficha-tecnica y renderiza data-testid='ficha-tecnica-page'. Filtros por tipo: los 6 botones (ficha-filtro-todos/fertilizantes/fungicidas/plaguicida/herbicidas/tratamiento) presentes y funcionales. Modal ficha-form-modal abre correctamente. Validaciones: intentar guardar sin nombre → toast '✕ Escribí el nombre del producto'; con nombre y sin tipo → toast '✕ Seleccioná el tipo'. Creación completa: nombre TEST_Urea granulada, tipo fertilizantes, presentación 'Saco 25 kg', subida REAL de foto frontal (PNG 50x50 rojo) vía set_input_files sobre ficha-upload-input-frontal → POST /api/fichas-tecnicas/upload devolvió path OK, preview mostrado; foto trasera (PNG verde) idem con ficha-upload-input-trasera. Save cierra modal y aparece card ficha-card-<id> con nombre, badge tipo y 2 miniaturas. Filtro por 'fungicidas' oculta la card (count=0); filtro por 'fertilizantes' la muestra (count=1). Ver: ficha-view-<id> abre ficha-view-modal con 2 imágenes en grande. Editar: ficha-edit-<id> reabre el form con valores precargados (nombre=TEST_Urea granulada, tipo=fertilizantes); cambiar a 'TEST_Urea granulada v2' + guardar persiste correctamente en la card. Eliminar: ficha-delete-<id> con confirm (accept dialog) borra la card (count=0). Datos de prueba LIMPIADOS. Permisos: en /dashboard/usuarios, al editar cualquiera de los 3 usuarios, el modal muestra la fila data-testid='user-form-modulo-ficha_tecnica' (count=1). Sin PAGEERROR ni errores JS. Object storage real funcionando (subida y servicio de imágenes vía ${API}/fichas-tecnicas/file/{path}?auth={token}).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "FichaTecnica.jsx L18-19: fileUrl() lee erp_token de localStorage y lo pega como query param ?auth={token}. Funciona (backend acepta ?auth=), pero el token queda expuesto en URLs de imágenes (logs de red del navegador, referer, historial). Considerar servir imágenes vía cookie httpOnly o proxy autenticado. No bloqueante para MVP.",
+    "FichaTecnica.jsx L31-33: load() no maneja errores del GET /fichas-tecnicas — si la API falla, fichas queda como [] sin toast. Menor.",
+    "FichaTecnica.jsx L149-150: el PUT/POST envían el objeto completo con foto_frontal/foto_trasera como strings de path — correcto, alineado con el backend.",
+    "FichaTecnica.jsx L211: valida tamaño >10MB con toast — bien. No valida el tipo MIME en el cliente (delega en el backend). accept del input está limitado a image/png,jpeg,webp, así que aceptable.",
+    "FichaTecnica.jsx L41-46: window.confirm() nativo para eliminar — funciona pero rompe con estilo del resto de la app (algunos modules usan modal custom). Consistencia estética, no funcional.",
+    "FichaTecnica.jsx: todos los data-testid solicitados están presentes y son estables. ✓",
+    "Layout.jsx L55: entrada 'Ficha técnica de productos' con módulo 'ficha_tecnica' está correctamente después de 'Inventario'. ✓",
+    "Usuarios.jsx L10: 'ficha_tecnica' incluido en MODULOS entre 'inventario' y 'compras'. ✓"
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (upload, CRUD, servicio de archivos, permisos ficha_tecnica — todo vía UI end-to-end)", "frontend": "100% (todos los 9 escenarios del review_request verificados: sidebar + navegación + filtros + crear con subida real + filtrado por tipo + ver + editar con persistencia + eliminar + validaciones + matriz de permisos)"},
+  "test_credentials": "Admin: oswaldabarca@gmail.com / 123456",
+  "seed_data_creation": "Ninguna persistente. Se creó una ficha TEST_Urea granulada (fertilizantes) con 2 PNG temporales de 50x50, se editó a v2, y luego se ELIMINÓ vía UI. Base limpia.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Módulo 'Ficha técnica de productos' completo y funcional. Testids: sidebar-link-ficha-técnica-de-productos (con tilde), ficha-tecnica-page, ficha-filtro-{todos|fertilizantes|fungicidas|plaguicida|herbicidas|tratamiento}, ficha-new-btn, ficha-form-modal, ficha-form-{nombre|tipo|presentacion|observaciones|save}, ficha-upload-{frontal|trasera} (div click), ficha-upload-input-{frontal|trasera} (input file real - usar set_input_files), ficha-upload-clear-{frontal|trasera}, ficha-card-<id>, ficha-view-<id>, ficha-edit-<id>, ficha-delete-<id>, ficha-view-modal. Endpoints: POST /api/fichas-tecnicas/upload (multipart→{path}), GET/POST/PUT/DELETE /api/fichas-tecnicas, GET /api/fichas-tecnicas/file/{path}?auth={token}. En Usuarios: user-form-modulo-ficha_tecnica presente. Delete usa window.confirm nativo — Playwright: page.on('dialog', accept). Object storage real (EMERGENT_LLM_KEY), no mocks."
+}

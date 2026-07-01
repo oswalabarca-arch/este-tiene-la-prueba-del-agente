@@ -7,7 +7,7 @@ import { DecimalInput } from "../components/DecimalInput";
 
 const MODULOS = [
   "usuarios", "plantaciones", "equipos", "actividades", "aplicaciones",
-  "cosecha", "ventas", "frio", "inventario", "compras", "analiticas", "recursos_humanos",
+  "cosecha", "ventas", "frio", "inventario", "ficha_tecnica", "compras", "analiticas", "recursos_humanos",
 ];
 const ROLES = ["administrador", "ingeniero", "encargado_campo", "operario"];
 

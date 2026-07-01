@@ -11,10 +11,11 @@ import uuid
 import bcrypt
 import jwt
 import logging
+import requests
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Any, Dict
 
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, UploadFile, File, Header, Query
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, EmailStr
@@ -89,6 +90,53 @@ def new_id() -> str:
 
 
 # ============================================================
+# OBJECT STORAGE (Emergent) - para fotos de fichas técnicas
+# ============================================================
+STORAGE_URL = "https://integrations.emergentagent.com/objstore/api/v1/storage"
+EMERGENT_KEY = os.environ.get("EMERGENT_LLM_KEY")
+APP_NAME = "erp-agricola"
+_storage_key = None
+MIME_TYPES = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "gif": "image/gif", "webp": "image/webp"}
+
+
+def init_storage():
+    global _storage_key
+    if _storage_key:
+        return _storage_key
+    resp = requests.post(f"{STORAGE_URL}/init", json={"emergent_key": EMERGENT_KEY}, timeout=30)
+    resp.raise_for_status()
+    _storage_key = resp.json()["storage_key"]
+    return _storage_key
+
+
+def put_object(path: str, data: bytes, content_type: str) -> dict:
+    key = init_storage()
+    resp = requests.put(
+        f"{STORAGE_URL}/objects/{path}",
+        headers={"X-Storage-Key": key, "Content-Type": content_type},
+        data=data, timeout=120,
+    )
+    if resp.status_code == 403:
+        # storage_key expirado -> re-init una vez
+        globals()["_storage_key"] = None
+        key = init_storage()
+        resp = requests.put(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key, "Content-Type": content_type}, data=data, timeout=120)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def get_object(path: str):
+    key = init_storage()
+    resp = requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key}, timeout=60)
+    if resp.status_code == 403:
+        globals()["_storage_key"] = None
+        key = init_storage()
+        resp = requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key}, timeout=60)
+    resp.raise_for_status()
+    return resp.content, resp.headers.get("Content-Type", "application/octet-stream")
+
+
+# ============================================================
 # AUTH
 # ============================================================
 class LoginIn(BaseModel):
@@ -151,7 +199,7 @@ async def create_admin_public(payload: CreateAdminIn):
 # ============================================================
 MODULOS_DISPONIBLES = [
     "usuarios", "plantaciones", "equipos", "actividades", "aplicaciones",
-    "cosecha", "ventas", "frio", "inventario", "compras", "analiticas",
+    "cosecha", "ventas", "frio", "inventario", "ficha_tecnica", "compras", "analiticas",
     "recursos_humanos",
 ]
 
@@ -2217,12 +2265,162 @@ async def costos_kg_filtrado(gran: str = "todo", anchor: Optional[str] = None, _
     }
 
 
+# ============================================================
+# FICHA TÉCNICA DE PRODUCTOS (catálogo con 2 fotos por producto)
+# ============================================================
+FICHA_TIPOS = ["fertilizantes", "fungicidas", "plaguicida", "herbicidas", "tratamiento"]
+
+
+class FichaTecnicaIn(BaseModel):
+    nombre_producto: str
+    tipo: str
+    presentacion: Optional[str] = ""
+    observaciones: Optional[str] = ""
+    foto_frontal: Optional[str] = None   # storage path
+    foto_trasera: Optional[str] = None   # storage path
+
+
+def _ficha_out(doc: dict) -> dict:
+    return {
+        "_id": doc["_id"],
+        "nombre_producto": doc.get("nombre_producto", ""),
+        "tipo": doc.get("tipo", ""),
+        "presentacion": doc.get("presentacion", ""),
+        "observaciones": doc.get("observaciones", ""),
+        "foto_frontal": doc.get("foto_frontal"),
+        "foto_trasera": doc.get("foto_trasera"),
+        "createdAt": doc.get("createdAt"),
+        "updatedAt": doc.get("updatedAt"),
+    }
+
+
+@api.post("/fichas-tecnicas/upload")
+async def upload_ficha_foto(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
+    ext = (file.filename.rsplit(".", 1)[-1].lower() if file.filename and "." in file.filename else "bin")
+    if ext not in MIME_TYPES:
+        raise HTTPException(400, "Formato no soportado. Usá JPG, PNG o WEBP.")
+    data = await file.read()
+    if len(data) > 10 * 1024 * 1024:
+        raise HTTPException(400, "La imagen supera el límite de 10 MB.")
+    content_type = MIME_TYPES.get(ext, file.content_type or "application/octet-stream")
+    path = f"{APP_NAME}/fichas/{user['_id']}/{uuid.uuid4()}.{ext}"
+    try:
+        result = put_object(path, data, content_type)
+    except Exception as e:
+        logging.error(f"Storage upload failed: {e}")
+        raise HTTPException(502, "No se pudo subir la imagen. Intentá de nuevo.")
+    await db.archivos.insert_one({
+        "_id": new_id(),
+        "storage_path": result["path"],
+        "original_filename": file.filename,
+        "content_type": content_type,
+        "size": result.get("size", len(data)),
+        "is_deleted": False,
+        "createdAt": now_iso(),
+    })
+    return {"path": result["path"]}
+
+
+@api.get("/fichas-tecnicas/file/{path:path}")
+async def get_ficha_foto(path: str, request: Request, auth: Optional[str] = Query(None)):
+    # Permitir auth por header o por query param (para usar en <img src=...?auth=token>)
+    token = request.cookies.get("access_token")
+    if not token:
+        h = request.headers.get("Authorization", "")
+        if h.startswith("Bearer "):
+            token = h[7:]
+    if not token and auth:
+        token = auth
+    if not token:
+        raise HTTPException(401, "No autenticado")
+    try:
+        jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
+    except Exception:
+        raise HTTPException(401, "Token inválido")
+    record = await db.archivos.find_one({"storage_path": path, "is_deleted": False})
+    if not record:
+        raise HTTPException(404, "Archivo no encontrado")
+    try:
+        data, content_type = get_object(path)
+    except Exception:
+        raise HTTPException(404, "Archivo no disponible")
+    return Response(content=data, media_type=record.get("content_type", content_type))
+
+
+@api.get("/fichas-tecnicas")
+async def list_fichas_tecnicas(tipo: Optional[str] = None, _: dict = Depends(get_current_user)):
+    filt = {}
+    if tipo and tipo in FICHA_TIPOS:
+        filt["tipo"] = tipo
+    docs = await db.fichas_tecnicas.find(filt).sort("nombre_producto", 1).to_list(2000)
+    return {"fichas": [_ficha_out(d) for d in docs], "tipos": FICHA_TIPOS}
+
+
+@api.post("/fichas-tecnicas")
+async def create_ficha_tecnica(payload: FichaTecnicaIn, user: dict = Depends(get_current_user)):
+    if payload.tipo not in FICHA_TIPOS:
+        raise HTTPException(400, "Tipo inválido")
+    doc = {
+        "_id": new_id(),
+        "nombre_producto": payload.nombre_producto.strip(),
+        "tipo": payload.tipo,
+        "presentacion": (payload.presentacion or "").strip(),
+        "observaciones": (payload.observaciones or "").strip(),
+        "foto_frontal": payload.foto_frontal,
+        "foto_trasera": payload.foto_trasera,
+        "createdAt": now_iso(),
+        "updatedAt": now_iso(),
+        "usuario_email": user.get("email"),
+    }
+    await db.fichas_tecnicas.insert_one(doc)
+    return _ficha_out(doc)
+
+
+@api.put("/fichas-tecnicas/{fid}")
+async def update_ficha_tecnica(fid: str, payload: FichaTecnicaIn, _: dict = Depends(get_current_user)):
+    if payload.tipo not in FICHA_TIPOS:
+        raise HTTPException(400, "Tipo inválido")
+    existing = await db.fichas_tecnicas.find_one({"_id": fid})
+    if not existing:
+        raise HTTPException(404, "Ficha no encontrada")
+    upd = {
+        "nombre_producto": payload.nombre_producto.strip(),
+        "tipo": payload.tipo,
+        "presentacion": (payload.presentacion or "").strip(),
+        "observaciones": (payload.observaciones or "").strip(),
+        "foto_frontal": payload.foto_frontal,
+        "foto_trasera": payload.foto_trasera,
+        "updatedAt": now_iso(),
+    }
+    await db.fichas_tecnicas.update_one({"_id": fid}, {"$set": upd})
+    return _ficha_out({**existing, **upd})
+
+
+@api.delete("/fichas-tecnicas/{fid}")
+async def delete_ficha_tecnica(fid: str, _: dict = Depends(get_current_user)):
+    ficha = await db.fichas_tecnicas.find_one({"_id": fid})
+    if not ficha:
+        raise HTTPException(404, "Ficha no encontrada")
+    # Soft-delete de los archivos asociados (storage no tiene delete API)
+    for p in (ficha.get("foto_frontal"), ficha.get("foto_trasera")):
+        if p:
+            await db.archivos.update_one({"storage_path": p}, {"$set": {"is_deleted": True}})
+    await db.fichas_tecnicas.delete_one({"_id": fid})
+    return {"success": True}
+
+
+
 
 # ============================================================
 # SEED
 # ============================================================
 @app.on_event("startup")
 async def on_start():
+    try:
+        init_storage()
+        logging.info("Object storage initialized")
+    except Exception as e:
+        logging.error(f"Storage init failed (se reintentará al usar): {e}")
     admin_email = os.environ.get("ADMIN_EMAIL", "admin@erp.com").lower().strip()
     admin_password = os.environ.get("ADMIN_PASSWORD", "admin123")
     await db.users.create_index("email", unique=True)

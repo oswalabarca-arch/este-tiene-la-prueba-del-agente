@@ -431,3 +431,6 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
   padding: 60px 20px;
   color: var(--text-muted);
 }
+
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
