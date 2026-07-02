@@ -986,6 +986,105 @@ async def get_inventario(_: dict = Depends(get_current_user)):
     return {"inventario": inventario}
 
 
+@api.get("/dashboard/alertas-reposicion")
+async def dashboard_alertas_reposicion(dias: int = 30, categoria: str = "fertilizantes", _: dict = Depends(get_current_user)):
+    """Alertas de reposición por CONSUMO CONTINUO (Tipo A). SOLO LECTURA.
+    Mide el consumo de los últimos `dias` (aplicaciones confirmadas), calcula el ritmo
+    diario, los días restantes y las aplicaciones restantes por producto de la categoría dada.
+    Semáforo por semanas hasta agotarse: 1/2/3/4 semanas."""
+    dias = max(int(dias or 30), 7)
+
+    # 1. Stock disponible por producto de la categoría (comprado - consumido histórico)
+    compras_agg = await db.compras.aggregate([
+        {"$match": {"es_equipo": {"$ne": True}, "categoria": categoria}},
+        {"$group": {"_id": {"nombre_producto": "$nombre_producto", "unidad": "$unidad"}, "total_comprado": {"$sum": "$cantidad"}}},
+    ]).to_list(5000)
+
+    apl_all = await db.aplicaciones.aggregate([
+        {"$match": {"estado": "confirmada"}},
+        {"$unwind": {"path": "$insumos", "preserveNullAndEmptyArrays": False}},
+        {"$group": {"_id": {"$toLower": "$insumos.nombre_producto"}, "total": {"$sum": "$insumos.cantidad"}}},
+    ]).to_list(5000)
+    enviado_map = {a["_id"]: a["total"] for a in apl_all}
+
+    # Nombres de producto de la categoría (para filtrar consumo)
+    nombres_cat = {(c["_id"]["nombre_producto"] or "").strip().lower() for c in compras_agg}
+
+    # 2. Consumo del período (últimos `dias`): total y nº de aplicaciones por producto
+    cutoff = (datetime.now(VE_TZ).date() - timedelta(days=dias)).isoformat()
+    consumo_periodo: Dict[str, float] = {}
+    apps_periodo: Dict[str, int] = {}
+    for a in await db.aplicaciones.find({"estado": "confirmada"}).to_list(20000):
+        if str(a.get("fecha") or "")[:10] < cutoff:
+            continue
+        vistos = set()
+        for ins in (a.get("insumos") or []):
+            nom = (ins.get("nombre_producto") or "").strip().lower()
+            if nom not in nombres_cat:
+                continue
+            consumo_periodo[nom] = consumo_periodo.get(nom, 0.0) + float(ins.get("cantidad") or 0)
+            if nom not in vistos:
+                apps_periodo[nom] = apps_periodo.get(nom, 0) + 1
+                vistos.add(nom)
+
+    def _nivel(dr):
+        if dr is None:
+            return ("sin_consumo", 5)
+        if dr <= 7:
+            return ("critico", 0)
+        if dr <= 14:
+            return ("dos_semanas", 1)
+        if dr <= 21:
+            return ("tres_semanas", 2)
+        if dr <= 28:
+            return ("cuatro_semanas", 3)
+        return ("sano", 4)
+
+    productos = []
+    for c in compras_agg:
+        nombre = c["_id"]["nombre_producto"]
+        unidad = c["_id"]["unidad"] or "u."
+        nl = (nombre or "").strip().lower()
+        stock = round(float(c["total_comprado"] or 0) - float(enviado_map.get(nl, 0) or 0), 2)
+        cons = consumo_periodo.get(nl, 0.0)
+        napps = apps_periodo.get(nl, 0)
+        consumo_diario = round(cons / dias, 4) if cons > 0 else 0
+        consumo_por_app = round(cons / napps, 4) if napps > 0 else 0
+        if consumo_diario > 0:
+            dias_restantes = max(round(stock / consumo_diario, 1), 0)
+        else:
+            dias_restantes = None
+        apps_restantes = (round(stock / consumo_por_app, 1) if consumo_por_app > 0 else None)
+        nivel, orden = _nivel(dias_restantes if stock > 0 else (0 if consumo_diario > 0 else None))
+        if stock <= 0 and consumo_diario > 0:
+            nivel, orden, dias_restantes, apps_restantes = "critico", 0, 0, 0
+        productos.append({
+            "nombre_producto": nombre,
+            "unidad": unidad,
+            "stock": stock,
+            "consumo_periodo": round(cons, 2),
+            "consumo_diario": consumo_diario,
+            "consumo_por_aplicacion": consumo_por_app,
+            "aplicaciones_periodo": napps,
+            "dias_restantes": dias_restantes,
+            "aplicaciones_restantes": apps_restantes,
+            "nivel": nivel,
+            "_orden": orden,
+        })
+    productos.sort(key=lambda p: (p["_orden"], p["dias_restantes"] if p["dias_restantes"] is not None else 1e9))
+    for p in productos:
+        p.pop("_orden", None)
+
+    resumen = {
+        "critico": sum(1 for p in productos if p["nivel"] == "critico"),
+        "alerta": sum(1 for p in productos if p["nivel"] in ("dos_semanas", "tres_semanas", "cuatro_semanas")),
+        "sano": sum(1 for p in productos if p["nivel"] == "sano"),
+        "sin_consumo": sum(1 for p in productos if p["nivel"] == "sin_consumo"),
+    }
+    return {"categoria": categoria, "dias_periodo": dias, "productos": productos, "resumen": resumen}
+
+
+
 # ============================================================
 # EQUIPOS
 # ============================================================

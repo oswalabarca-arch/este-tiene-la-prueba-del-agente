@@ -1,0 +1,20 @@
+{
+  "summary": "Iteración 39 (both): verificación end-to-end del nuevo panel 'Alertas de reposición · Fertilizantes' en el Dashboard. Backend GET /api/dashboard/alertas-reposicion probado por curl con dias=30/60/90 (todos 200, estructura correcta). Frontend probado con Playwright: login admin OK → /dashboard cargado (data-testid=dashboard-page). El panel data-testid='alertas-reposicion-card' aparece INMEDIATAMENTE DESPUÉS del panel 'Gastos de la semana' (verificado por DOM: gastos idx=4, alertas idx=5). El resumen (data-testid='alertas-resumen') muestra los 4 chips: '1 Crítico · 1 Por reponer · 0 Sano · 1 Sin consumo' (30d). Filas verificadas con datos exactos: hierro crítico (3,3 días / 0,2 restantes / '¡Reponé ya!'), zinc tres_semanas (20 días (~2,9 sem) / 1,3 restantes / 'Planificá compra'), magnesio sin_consumo (— / — / 'Sin datos recientes'). Orden por urgencia CONFIRMADO: hierro → zinc → magnesio (alerta-row-hierro, alerta-row-zinc, alerta-row-magnesio en ese orden). Filtro de período OK: click en '60 días' dispara GET ?dias=60 y actualiza (hierro 6,7 días crítico; zinc 40 días (~5,7 sem) OK/sano). Click en '90 días' dispara GET ?dias=90 y actualiza (hierro 10 días 'Reponé pronto'/dos_semanas; zinc 60 días OK/sano). Cada cambio de período dispara UNA sola request al backend. Regresión: DashboardTotales (Producción general), StockCanales (Stock por canal) y GastosSemana (US$ 50,00, categorías) siguen renderizando sin errores. Cero PAGEERROR.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "AlertasReposicion.jsx L28: el .catch(() => setData(null)) silencia errores del GET. Si el endpoint cae/devuelve 401 el UI queda perpetuamente en 'Cargando...' (data es null). Se debería mostrar estado de error explícito ('No se pudieron cargar las alertas') y log a console.warn para diagnóstico.",
+    "AlertasReposicion.jsx: no maneja loading vs error vs sin-fertilizantes de forma diferenciada (todos caen en 'Cargando...' cuando data es null). Considerar estado {loading, error, data} separado.",
+    "AlertasReposicion.jsx L20: uso de coma decimal español está OK (toLocaleString es-ES) pero '~2,9 sem' para 20 días se muestra sólo cuando d>=14; para 13 días caería a formato 'días' sin semanas. Está bien pero el corte 14 podría documentarse."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (3/3 curl con dias=30/60/90)", "frontend": "100% (6/6 escenarios del review_request)"},
+  "test_credentials": "Admin: oswaldabarca@gmail.com / 123456",
+  "seed_data_creation": "Ninguna adicional. Se reutilizaron las 4 aplicaciones sembradas por el main agent (__ALERTSEED_H1__, __ALERTSEED_H2__, __ALERTSEED_Z1__, __ALERTSEED_Z2__) para producir hierro crítico y zinc tres_semanas.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Panel AlertasReposicion completado y verificado. Testids: alertas-reposicion-card (card), alertas-resumen (chips), alertas-periodo con alertas-dias-30/60/90 (filtro), alerta-row-<producto>, alerta-dias-<producto>, alerta-apps-<producto>, alerta-nivel-<producto>, alertas-empty (cuando no hay fertilizantes). Endpoint backend GET /api/dashboard/alertas-reposicion?dias=30|60|90&categoria=fertilizantes (solo lectura, autenticado). Niveles: critico, dos_semanas, tres_semanas, cuatro_semanas, sano, sin_consumo. Panel ubicado en Dashboard.jsx justo después de GastosSemana. Recordar que los seed docs de alertas están vivos hasta que el main agent los limpie.",
+  "rca of the issue": "N/A — no se encontraron issues."
+}

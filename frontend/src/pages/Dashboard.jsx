@@ -1,6 +1,7 @@
 import GastosSemana from "../components/GastosSemana";
 import StockCanales from "../components/StockCanales";
 import DashboardTotales from "../components/DashboardTotales";
+import AlertasReposicion from "../components/AlertasReposicion";
 
 export default function Dashboard() {
   return (
@@ -13,6 +14,8 @@ export default function Dashboard() {
       <StockCanales />
 
       <GastosSemana />
+
+      <AlertasReposicion />
 
       <div className="card" style={{ background: "linear-gradient(135deg,#f0fdf4,#dcfce7)", borderColor: "#bbf7d0" }}>
         <h2 style={{ margin: "0 0 8px" }}>Sistema ERP Agrícola Premium</h2>
