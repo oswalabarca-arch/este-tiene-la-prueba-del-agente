@@ -417,3 +417,11 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - Enlace producto↔ficha por **nombre normalizado** (trim+minúsculas). Si el producto no tiene ficha técnica, el botón sale **deshabilitado ("Sin ficha")**. En Aplicaciones, el botón considera todos los insumos de la fila (útil para recetas con varios productos; el modal muestra cada ficha encontrada).
 - Componente compartido nuevo `components/VerFichaTecnica.jsx` (hook `useFichasTecnicas` + `VerFichaButton`). Cambio 100% frontend, aditivo y de solo lectura — no afecta stock/PEPS/costos ni la estructura de los módulos.
 - Verificado frontend 100% por testing agent (iteration_38.json): estados habilitado/deshabilitado, modal, lazy-load y regresión. Requiere re-deploy para producción.
+
+## Implementado (Dashboard · Alertas de reposición · Fertilizantes — Tipo A — 01/07/2026)
+- Nuevo panel **"Alertas de reposición · Fertilizantes"** en el Dashboard, justo **debajo de "Gastos de la semana"**. Solo consumo continuo (Tipo A, fertilizantes) — la lógica de rotación (fungicidas/plaguicidas) queda pendiente por decisión del usuario.
+- **Semáforo por semanas hasta agotarse:** crítico (≤1 sem / ≤7d), 2 semanas (≤14d), 3 semanas (≤21d), 4 semanas (≤28d), sano (>28d) y sin_consumo. Muestra por producto: **tiempo restante en días (y ~semanas)** y **aplicaciones restantes**. Resumen con contadores y filas ordenadas por urgencia. Filtro de período 30/60/90 días.
+- **Backend nuevo (SOLO LECTURA):** `GET /api/dashboard/alertas-reposicion?dias=30&categoria=fertilizantes`. stock = comprado − consumido confirmado (histórico); consumo del período = aplicaciones confirmadas en últimos N días; consumo_diario = consumo/dias; dias_restantes = stock/consumo_diario; consumo_por_aplicacion = consumo/nº aplicaciones; aplicaciones_restantes = stock/consumo_por_app. No modifica ningún módulo.
+- **Frontend nuevo:** `components/AlertasReposicion.jsx` montado en `Dashboard.jsx`.
+- Verificado: backend por curl (semáforo/orden correctos) + testing agent 100% (iteration_39.json): render, orden por urgencia, filtro de período y regresión del Dashboard. Datos de prueba sembrados y **limpiados** después. Requiere re-deploy para producción.
+- PENDIENTE (a definir con el usuario): Tipo B — alertas por rotación programada de fungicidas y plaguicidas.
