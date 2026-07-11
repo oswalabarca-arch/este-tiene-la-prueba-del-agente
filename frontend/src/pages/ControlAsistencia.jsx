@@ -86,8 +86,8 @@ function RegistroDiario({ editable }) {
 
   return (
     <div className="card" data-testid="asis-diario">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 14 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", flexWrap: "wrap", gap: 16, marginBottom: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button className="btn-icon" onClick={() => setFecha((f) => shiftDate(f, -1))} data-testid="asis-dia-prev"><ChevronLeft size={18} /></button>
           <input type="date" className="input" style={{ width: 170 }} value={fecha} onChange={(e) => setFecha(e.target.value)} data-testid="asis-dia-fecha" />
           <button className="btn-icon" onClick={() => setFecha((f) => shiftDate(f, 1))} data-testid="asis-dia-next"><ChevronRight size={18} /></button>
