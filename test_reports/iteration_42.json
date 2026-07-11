@@ -1,0 +1,28 @@
+{
+  "summary": "Iteración 42 (both): Verificación E2E de las nuevas casillas y columnas de Planilla Semanal en Control de asistencia. Playwright: login admin → creación de ZZTEST_Uno y ZZTEST_Dos → navegación a semana futura +3 (27 jul — 2 ago 2026) → marcas Presente x2 para Uno (jornales=2) y Presente+Medio_día para Dos (jornales=1,5) usando asis-dia-next/asis-mark. Verificación en Planilla: asis-salario-default y asis-tasa presentes; columnas asis-salario-<id>, asis-bcv-<id>, asis-bolivares-<id> presentes. Con salario_default=10 y tasa=40: Uno BCV=20,00 / Bs=800,00; Dos BCV=15,00 / Bs=600,00; TOT BCV=35,00 / Bs=1400,00 (formato es-ES sin separador de miles para 4 dígitos, comportamiento correcto del ICU). Override individual Uno=15 → BCV=30,00, Bs=1.200,00; Dos NO cambia (BCV=15,00). Borde ámbar rgb(245,158,11) sólo en input individualizado (Uno) vs gris slate (Dos). PERSISTENCIA: tras reload y volver a la misma semana, salario_default=10, tasa=40, sal_Uno=15, sal_Dos=10, cálculo Uno BCV=30,00 conservados. Toggle prev+next semana mantiene la config. Regresión: Registro diario carga OK. CLEANUP: ZZTEST_Uno y ZZTEST_Dos eliminados vía asis-obrero-delete-<id>; obreros reales (ana/oswald/superman) intactos verificado por GET /api/asistencia/obreros. Backend curl adicional: POST /api/asistencia/config/salario con salario:null limpia override correctamente (200 {success:true}).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Planilla semanal — Totales", "issues": ["El total Bolívares se muestra como '1400,00' sin separador de miles. La spec del review menciona '1.400,00', pero toLocaleString('es-ES') del navegador (ICU) NO añade punto de millar para 4 dígitos en es-ES; comportamiento del navegador, no bug del código. Los valores de 5 dígitos sí muestran separador (verificado: 1.234.567,89). Si se desea '1.400,00' siempre, forzar 'useGrouping:true' + locale 'es-VE'/'de-DE' o formato manual."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ControlAsistencia.jsx PlanillaSemanal L164: catch(() => setData(null)) sigue silenciando errores de red del GET /asistencia/semana sin distinguir sin-datos vs fallo. Mostrar toast/estado de error.",
+    "guardarConfig L182 y guardarSalarioInd L189: hacen load() inmediatamente tras el POST sin await coordinado ni manejo de fallo — si el POST devuelve 500 el estado local queda desincronizado con el backend.",
+    "L194 salarioDe: usa || 0 sobre parseFloat, así un salario individual = 0 legítimo se cae al default en la UI local (aunque backend lo trate como override). Inconsistencia menor: revisar semántica de 0 vs null en el input y el cálculo local vs backend.",
+    "L280 input type='number' sin step límite para negativos aparte de min='0'; considerar validación adicional/máximo razonable.",
+    "shiftDate (comentario previo iter 40/41) sigue usando toISOString UTC — riesgo de saltar día en TZ negativas. No verificado en esta iter pero pendiente."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100% (todos los escenarios del review_request)"},
+  "test_credentials": "Admin: oswaldabarca@gmail.com / 123456",
+  "seed_data_creation": "Creados y eliminados ZZTEST_Uno y ZZTEST_Dos. Marcas de asistencia realizadas SOLO en la semana futura 27 jul — 2 ago 2026 (Uno: Presente Mar 28 y Mié 29; Dos: Presente Mié 29 y Medio día Jue 30). Se dejó guardada en esa semana la config asistencia_config: salario_default=10, tasa=40, y salario_individual del obrero ZZTEST_Uno=15 (obrero ya eliminado, pero doc de config permanece — el main agent puede limpiar la doc _id=2026-07-27 de la colección asistencia_config si desea).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Nuevas testids Planilla Semanal: asis-salario-default (input default), asis-tasa (tasa cambio), asis-salario-<id> (por fila, con borde ámbar rgb(245,158,11) si es individual), asis-bcv-<id>, asis-bolivares-<id>, asis-total-bcv, asis-total-bolivares. Endpoints: POST /api/asistencia/config {desde, salario_default, tasa}; POST /api/asistencia/config/salario {desde, obrero_id, salario|null}; GET /api/asistencia/semana devuelve salario_default, tasa, filas con salario_diario/salario_individual/bcv/bolivares y total_bcv/total_bolivares. Nota: es-ES ICU no añade separador de miles a 4 dígitos (1400,00 correcto).",
+  "rca of the issue": "N/A"
+}

@@ -2655,6 +2655,12 @@ async def asistencia_semana(fecha: str, _: dict = Depends(get_current_user)):
         if f in set_dias:
             reg_map.setdefault(r["obrero_id"], {})[f] = r.get("estado")
 
+    # Configuración de pago de la semana (salario diario por defecto, tasa y salarios individuales)
+    cfg = await db.asistencia_config.find_one({"_id": dias_semana[0]}) or {}
+    salario_default = float(cfg.get("salario_default") or 0)
+    tasa = float(cfg.get("tasa") or 0)
+    salarios_ind = cfg.get("salarios") or {}
+
     filas = []
     for o in obreros:
         dias = reg_map.get(o["_id"], {})
@@ -2664,11 +2670,64 @@ async def asistencia_semana(fecha: str, _: dict = Depends(get_current_user)):
                 totales[est] += 1
         jornales = round(totales.get("presente", 0) * 1.0 + totales.get("medio_dia", 0) * 0.5, 1)
         dias_trabajados = totales.get("presente", 0) + totales.get("medio_dia", 0)
+        es_individual = o["_id"] in salarios_ind
+        salario = float(salarios_ind[o["_id"]]) if es_individual else salario_default
+        bcv = round(jornales * salario, 2)
+        bolivares = round(bcv * tasa, 2)
         filas.append({"obrero_id": o["_id"], "nombre": o.get("nombre", ""), "cargo": o.get("cargo", ""),
-                      "dias": dias, "totales": totales, "jornales": jornales, "dias_trabajados": dias_trabajados})
+                      "dias": dias, "totales": totales, "jornales": jornales, "dias_trabajados": dias_trabajados,
+                      "salario_diario": salario, "salario_individual": es_individual, "bcv": bcv, "bolivares": bolivares})
     filas.sort(key=lambda f: (-f["jornales"], -f["dias_trabajados"], f["nombre"].lower()))
+    total_bcv = round(sum(f["bcv"] for f in filas), 2)
+    total_bolivares = round(sum(f["bolivares"] for f in filas), 2)
     return {"desde": dias_semana[0], "hasta": dias_semana[6], "dias_semana": dias_semana,
-            "filas": filas, "estados": ASISTENCIA_ESTADOS}
+            "filas": filas, "estados": ASISTENCIA_ESTADOS,
+            "salario_default": salario_default, "tasa": tasa,
+            "total_bcv": total_bcv, "total_bolivares": total_bolivares}
+
+
+class SemanaConfigIn(BaseModel):
+    desde: str  # lunes de la semana (YYYY-MM-DD)
+    salario_default: Optional[float] = None
+    tasa: Optional[float] = None
+
+
+class SalarioIndividualIn(BaseModel):
+    desde: str
+    obrero_id: str
+    salario: Optional[float] = None  # null => quitar override (vuelve al default)
+
+
+@api.post("/asistencia/config")
+async def set_semana_config(payload: SemanaConfigIn, _: dict = Depends(get_current_user)):
+    upd = {}
+    if payload.salario_default is not None:
+        upd["salario_default"] = float(payload.salario_default)
+    if payload.tasa is not None:
+        upd["tasa"] = float(payload.tasa)
+    if upd:
+        await db.asistencia_config.update_one(
+            {"_id": payload.desde[:10]},
+            {"$set": upd, "$setOnInsert": {"salarios": {}}},
+            upsert=True,
+        )
+    return {"success": True}
+
+
+@api.post("/asistencia/config/salario")
+async def set_salario_individual(payload: SalarioIndividualIn, _: dict = Depends(get_current_user)):
+    desde = payload.desde[:10]
+    if payload.salario is None:
+        await db.asistencia_config.update_one({"_id": desde}, {"$unset": {f"salarios.{payload.obrero_id}": ""}})
+    else:
+        await db.asistencia_config.update_one(
+            {"_id": desde},
+            {"$set": {f"salarios.{payload.obrero_id}": float(payload.salario)},
+             "$setOnInsert": {"salario_default": 0, "tasa": 0}},
+            upsert=True,
+        )
+    return {"success": True}
+
 
 
 

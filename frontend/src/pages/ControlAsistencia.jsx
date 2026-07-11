@@ -146,15 +146,29 @@ function RegistroDiario({ editable }) {
 
 /* ---------------- Planilla semanal ---------------- */
 function PlanillaSemanal() {
+  const toast = useToast();
+  const { canEdit } = useAuth();
+  const editable = canEdit("control_asistencia");
   const [fecha, setFecha] = useState(todayStr());
   const [data, setData] = useState(null);
+  const [salarioDef, setSalarioDef] = useState("");
+  const [tasa, setTasa] = useState("");
+  const [salEdits, setSalEdits] = useState({}); // ediciones locales del salario por obrero
 
-  useEffect(() => {
-    api.get("/asistencia/semana", { params: { fecha } }).then((r) => setData(r.data)).catch(() => setData(null));
+  const load = useCallback(() => {
+    api.get("/asistencia/semana", { params: { fecha } }).then((r) => {
+      setData(r.data);
+      setSalarioDef(r.data.salario_default ? String(r.data.salario_default) : "");
+      setTasa(r.data.tasa ? String(r.data.tasa) : "");
+      setSalEdits({});
+    }).catch(() => setData(null));
   }, [fecha]);
+  useEffect(() => { load(); }, [load]);
 
+  const desde = data?.desde;
   const dias = data?.dias_semana || [];
   const filas = data?.filas || [];
+  const tasaNum = parseFloat(tasa) || 0;
 
   const rangoLabel = () => {
     if (!data) return "";
@@ -163,6 +177,27 @@ function PlanillaSemanal() {
     return `${s.getDate()} ${MC[s.getMonth()]} — ${e.getDate()} ${MC[e.getMonth()]} ${e.getFullYear()}`;
   };
 
+  const guardarConfig = async (campo, valor) => {
+    if (!desde) return;
+    try { await api.post("/asistencia/config", { desde, [campo]: valor === "" ? 0 : parseFloat(valor) }); load(); }
+    catch { toast.show("Error al guardar", "error"); }
+  };
+
+  const guardarSalarioInd = async (obrero_id, valor) => {
+    if (!desde) return;
+    const salario = valor === "" ? null : parseFloat(valor);
+    try { await api.post("/asistencia/config/salario", { desde, obrero_id, salario }); load(); }
+    catch { toast.show("Error al guardar", "error"); }
+  };
+
+  // salario efectivo por fila (usa edición local si existe, si no el del backend)
+  const salarioDe = (f) => (salEdits[f.obrero_id] !== undefined ? parseFloat(salEdits[f.obrero_id]) || 0 : f.salario_diario);
+  const bcvDe = (f) => Math.round(f.jornales * salarioDe(f) * 100) / 100;
+  const bsDe = (f) => Math.round(bcvDe(f) * tasaNum * 100) / 100;
+  const totalBcv = filas.reduce((a, f) => a + bcvDe(f), 0);
+  const totalBs = filas.reduce((a, f) => a + bsDe(f), 0);
+  const fmt = (n) => Number(n || 0).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
   return (
     <div className="card" data-testid="asis-mensual">
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
@@ -170,8 +205,24 @@ function PlanillaSemanal() {
         <div style={{ fontWeight: 700, fontSize: 15, minWidth: 180, textAlign: "center" }} data-testid="asis-mes-label">Semana: {rangoLabel()}</div>
         <button className="btn-icon" onClick={() => setFecha((f) => shiftDate(f, 7))} data-testid="asis-mes-next"><ChevronRight size={18} /></button>
         <button className="btn btn-sm" onClick={() => setFecha(todayStr())} data-testid="asis-semana-hoy">Semana actual</button>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 4 }}>
+          <label style={{ fontSize: 12, color: "#64748b" }}>Salario diario $</label>
+          <input type="number" step="0.01" min="0" className="input" style={{ width: 100 }} value={salarioDef} disabled={!editable}
+            onChange={(e) => setSalarioDef(e.target.value)} onBlur={(e) => guardarConfig("salario_default", e.target.value)}
+            placeholder="0" data-testid="asis-salario-default" />
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <label style={{ fontSize: 12, color: "#64748b" }}>Tasa de cambio</label>
+          <input type="number" step="0.01" min="0" className="input" style={{ width: 110 }} value={tasa} disabled={!editable}
+            onChange={(e) => setTasa(e.target.value)} onBlur={(e) => guardarConfig("tasa", e.target.value)}
+            placeholder="0" data-testid="asis-tasa" />
+        </div>
       </div>
-      <p style={{ color: "#64748b", fontSize: 12, margin: "0 0 14px" }}>Ordenado de mayor a menor jornales trabajados. Incluye sábado y domingo.</p>
+      <p style={{ color: "#64748b", fontSize: 12, margin: "0 0 14px" }}>
+        Ordenado de mayor a menor jornales. Incluye sábado y domingo. <b>BCV $</b> = jornales × salario diario · <b>Bolívares</b> = BCV $ × tasa.
+        El salario por defecto aplica a todos; podés cambiarlo por obrero en la columna "Salario diario".
+      </p>
 
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 14 }}>
         {ORDEN.map((e) => (
@@ -187,16 +238,19 @@ function PlanillaSemanal() {
         <div className="empty-state" data-testid="asis-mensual-empty">No hay obreros activos para mostrar.</div>
       ) : (
         <div style={{ overflowX: "auto" }}>
-          <table className="table" style={{ minWidth: 640 }} data-testid="asis-mensual-tabla">
+          <table className="table" style={{ minWidth: 900 }} data-testid="asis-mensual-tabla">
             <thead>
               <tr>
-                <th style={{ minWidth: 150 }}>Obrero</th>
+                <th style={{ minWidth: 140 }}>Obrero</th>
                 {dias.map((f, i) => {
                   const dd = new Date(f + "T00:00:00");
                   const finde = i >= 5;
                   return <th key={f} style={{ textAlign: "center", padding: "6px 4px", fontSize: 11, color: finde ? "#0ea5e9" : "#475569" }}>{DIAS_SEM[i]}<br />{dd.getDate()}</th>;
                 })}
                 <th style={{ textAlign: "center", fontSize: 12, background: "#f0fdf4" }}>Jornales</th>
+                <th style={{ textAlign: "center", fontSize: 12, minWidth: 110 }}>Salario diario $</th>
+                <th style={{ textAlign: "center", fontSize: 12, background: "#eff6ff", color: "#1d4ed8" }}>BCV $</th>
+                <th style={{ textAlign: "center", fontSize: 12, background: "#fef9c3", color: "#a16207" }}>Bolívares</th>
               </tr>
             </thead>
             <tbody>
@@ -222,8 +276,25 @@ function PlanillaSemanal() {
                   <td style={{ textAlign: "center", fontWeight: 800, color: "#15803d", background: "#f0fdf4", fontSize: 15 }} data-testid={`asis-jornales-${f.obrero_id}`}>
                     {String(f.jornales).replace(".", ",")}
                   </td>
+                  <td style={{ textAlign: "center", padding: 4 }}>
+                    <input type="number" step="0.01" min="0" className="input" style={{ width: 90, textAlign: "center", padding: "5px 6px",
+                      borderColor: f.salario_individual ? "#f59e0b" : undefined }}
+                      disabled={!editable}
+                      value={salEdits[f.obrero_id] !== undefined ? salEdits[f.obrero_id] : (f.salario_diario || "")}
+                      onChange={(e) => setSalEdits((s) => ({ ...s, [f.obrero_id]: e.target.value }))}
+                      onBlur={(e) => guardarSalarioInd(f.obrero_id, e.target.value)}
+                      title={f.salario_individual ? "Salario individual (distinto al general)" : ""}
+                      data-testid={`asis-salario-${f.obrero_id}`} />
+                  </td>
+                  <td style={{ textAlign: "center", fontWeight: 700, color: "#1d4ed8", background: "#eff6ff" }} data-testid={`asis-bcv-${f.obrero_id}`}>{fmt(bcvDe(f))}</td>
+                  <td style={{ textAlign: "center", fontWeight: 700, color: "#a16207", background: "#fef9c3" }} data-testid={`asis-bolivares-${f.obrero_id}`}>{fmt(bsDe(f))}</td>
                 </tr>
               ))}
+              <tr style={{ borderTop: "2px solid #e2e8f0" }}>
+                <td colSpan={dias.length + 2} style={{ textAlign: "right", fontWeight: 700, color: "#475569" }}>Totales de la semana →</td>
+                <td style={{ textAlign: "center", fontWeight: 800, color: "#1d4ed8", background: "#eff6ff" }} data-testid="asis-total-bcv">{fmt(totalBcv)}</td>
+                <td style={{ textAlign: "center", fontWeight: 800, color: "#a16207", background: "#fef9c3" }} data-testid="asis-total-bolivares">{fmt(totalBs)}</td>
+              </tr>
             </tbody>
           </table>
         </div>
