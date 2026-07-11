@@ -294,7 +294,7 @@ function PlanillaSemanal() {
                 </tr>
               ))}
               <tr style={{ borderTop: "2px solid #e2e8f0" }}>
-                <td colSpan={dias.length + 2} style={{ textAlign: "right", fontWeight: 700, color: "#475569" }}>Totales de la semana →</td>
+                <td colSpan={dias.length + 3} style={{ textAlign: "right", fontWeight: 700, color: "#475569" }}>Totales de la semana →</td>
                 <td style={{ textAlign: "center", fontWeight: 800, color: "#1d4ed8", background: "#eff6ff" }} data-testid="asis-total-bcv">{fmt(totalBcv)}</td>
                 <td style={{ textAlign: "center", fontWeight: 800, color: "#a16207", background: "#fef9c3" }} data-testid="asis-total-bolivares">{fmt(totalBs)}</td>
               </tr>
