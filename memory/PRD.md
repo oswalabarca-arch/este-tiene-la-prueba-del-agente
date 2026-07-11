@@ -425,3 +425,9 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - **Frontend nuevo:** `components/AlertasReposicion.jsx` montado en `Dashboard.jsx`.
 - Verificado: backend por curl (semáforo/orden correctos) + testing agent 100% (iteration_39.json): render, orden por urgencia, filtro de período y regresión del Dashboard. Datos de prueba sembrados y **limpiados** después. Requiere re-deploy para producción.
 - PENDIENTE (a definir con el usuario): Tipo B — alertas por rotación programada de fungicidas y plaguicidas.
+
+## Implementado (Módulo NUEVO · Control de asistencia — 01/07/2026)
+- Nuevo módulo principal **"Control de asistencia"** en el sidebar, **debajo de "Usuarios"** (ruta /dashboard/control-asistencia, permiso 'control_asistencia'). **COMPLETAMENTE INDEPENDIENTE** — no usa RRHH, pagos ni otros módulos. Colecciones propias: `asistencia_obreros`, `asistencia_registros`.
+- 3 pestañas: **Registro diario** (elegir fecha, marcar cada obrero con autosave; navegación prev/next/Hoy; marcar todos; resumen), **Planilla mensual** (grilla obreros × días del mes con totales por estado; navegación de mes), **Obreros** (CRUD: nombre, cargo, activo). Estados: presente, ausente, permiso, reposo, medio_día.
+- Backend endpoints (solo este módulo): GET/POST/PUT/DELETE /api/asistencia/obreros, GET /api/asistencia/dia?fecha, POST /api/asistencia/marcar (upsert por obrero+fecha; estado="" desmarca), GET /api/asistencia/mes?anio&mes. 'control_asistencia' agregado a MODULOS_DISPONIBLES (backend) y MODULOS (Usuarios).
+- Verificado: backend por curl + testing agent 100% (iteration_40.json) — CRUD, marcado/desmarcado, persistencia, planilla mensual con totales, permisos y ubicación en sidebar. Datos de prueba limpiados. Requiere re-deploy para producción.
