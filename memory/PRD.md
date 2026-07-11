@@ -437,3 +437,10 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - (2) "Planilla mensual" → **"Planilla semanal"** de 7 días (lunes a domingo, incluye sábado y domingo). Nuevo endpoint `GET /api/asistencia/semana?fecha=YYYY-MM-DD` (semana que contiene la fecha; navegación ±7 días). Reemplazó a /asistencia/mes.
 - (3) La planilla semanal ordena los obreros de **MAYOR a MENOR jornales** trabajados (Presente=1, Medio día=0,5), con columna "Jornales" por obrero (★ al primero). Pensado para jornaleros que no trabajan todos los días/semanas.
 - Verificado: backend curl (semana lun-dom, orden por jornales desc) + testing agent 100% (iteration_41.json). Obreros reales del usuario (oswald, ana, superman) preservados. Requiere re-deploy.
+
+## Ajuste (Control de asistencia · Planilla semanal con pago en $/Bs — 01/07/2026)
+- Planilla semanal: 3 columnas nuevas por obrero → **Salario diario $** (editable por obrero), **BCV $** (= jornales × salario diario) y **Bolívares** (= BCV $ × tasa). Fila de Totales (BCV $ y Bs).
+- 2 casillas junto a "Semana actual": **Salario diario $** (por defecto, aplica a todos) y **Tasa de cambio** (de la semana). El salario por defecto puede sobreescribirse por obrero en la columna (borde ámbar = individual). El usuario paga en referencia a dólar (BCV $) pero abona en bolívares (Bs).
+- Persistencia por semana: colección `asistencia_config` (_id = lunes) con {salario_default, tasa, salarios:{obrero_id:salario}}. Endpoints: GET /asistencia/semana (ahora devuelve salario_default, tasa, y por fila salario_diario/salario_individual/bcv/bolivares + total_bcv/total_bolivares); POST /asistencia/config {desde, salario_default?, tasa?}; POST /asistencia/config/salario {desde, obrero_id, salario|null}.
+- Formato de montos forzado a es-VE (punto de miles, coma decimal): 1.400,00.
+- Verificado: backend curl + testing agent 100% (iteration_42.json). Datos reales del usuario (obreros oswald/ana/superman y su config real de la semana con tasa 709,7) preservados. Requiere re-deploy.

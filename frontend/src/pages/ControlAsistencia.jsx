@@ -196,7 +196,10 @@ function PlanillaSemanal() {
   const bsDe = (f) => Math.round(bcvDe(f) * tasaNum * 100) / 100;
   const totalBcv = filas.reduce((a, f) => a + bcvDe(f), 0);
   const totalBs = filas.reduce((a, f) => a + bsDe(f), 0);
-  const fmt = (n) => Number(n || 0).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmt = (n) => {
+    const [ent, dec] = Number(n || 0).toFixed(2).split(".");
+    return ent.replace(/\B(?=(\d{3})+(?!\d))/g, ".") + "," + dec;
+  };
 
   return (
     <div className="card" data-testid="asis-mensual">
