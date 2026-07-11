@@ -336,6 +336,26 @@ function PlanillaSemanal() {
           </table>
         </div>
       )}
+
+      {filas.length > 0 && (
+        <div style={{ marginTop: 20 }} data-testid="asis-pago-resumen">
+          <div style={{ fontWeight: 700, fontSize: 14, color: "#334155", marginBottom: 4 }}>Resumen de pago (Bolívares)</div>
+          <p style={{ color: "#64748b", fontSize: 12, margin: "0 0 10px" }}>Nombre y pago en bolívares juntos, para evitar confusiones.</p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8, maxWidth: 420 }}>
+            {filas.map((f) => (
+              <div key={f.obrero_id} data-testid={`asis-pago-fila-${f.obrero_id}`}
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 12px", background: "#fefce8", border: "1px solid #fde68a", borderRadius: 8 }}>
+                <span style={{ fontWeight: 600, color: "#334155", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.nombre}</span>
+                <span style={{ fontWeight: 800, color: "#a16207", whiteSpace: "nowrap" }} data-testid={`asis-pago-bs-${f.obrero_id}`}>Bs {fmt(bsDe(f))}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "10px 12px", marginTop: 8, maxWidth: 420, background: "#fef3c7", border: "2px solid #f59e0b", borderRadius: 8, fontWeight: 800, color: "#92400e" }} data-testid="asis-pago-total">
+            <span>Total a pagar en bolívares</span>
+            <span>Bs {fmt(totalBs)}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
