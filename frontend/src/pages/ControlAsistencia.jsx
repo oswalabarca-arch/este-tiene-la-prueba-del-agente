@@ -119,7 +119,7 @@ function RegistroDiario({ editable }) {
           {filas.map((f) => (
             <div key={f.obrero_id} data-testid={`asis-fila-${f.obrero_id}`}
               style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", border: "1px solid #e2e8f0", borderRadius: 10, padding: "10px 14px" }}>
-              <div style={{ flex: "1 1 160px", minWidth: 140 }}>
+              <div style={{ flex: "0 0 auto", width: 200, minWidth: 140 }}>
                 <div style={{ fontWeight: 700, color: "#0f172a" }}>{f.nombre}</div>
                 {f.cargo && <div style={{ fontSize: 12, color: "#64748b" }}>{f.cargo}</div>}
               </div>
