@@ -11,6 +11,7 @@ const ESTADOS = {
 };
 const ORDEN = ["presente", "medio_dia"];
 const DIAS_SEM = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -30,11 +31,13 @@ export default function ControlAsistencia() {
       <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
         <TabBtn active={tab === "diario"} onClick={() => setTab("diario")} icon={CalendarDays} label="Registro diario" testid="asis-tab-diario" />
         <TabBtn active={tab === "mensual"} onClick={() => setTab("mensual")} icon={ClipboardList} label="Planilla semanal" testid="asis-tab-mensual" />
+        <TabBtn active={tab === "resumen"} onClick={() => setTab("resumen")} icon={CalendarCheck} label="Resumen mensual" testid="asis-tab-resumen" />
         <TabBtn active={tab === "obreros"} onClick={() => setTab("obreros")} icon={Users} label="Obreros" testid="asis-tab-obreros" />
       </div>
 
       {tab === "diario" && <RegistroDiario editable={editable} puedeDesbloquear={puedeDesbloquear} />}
       {tab === "mensual" && <PlanillaSemanal />}
+      {tab === "resumen" && <ResumenMensual />}
       {tab === "obreros" && <Obreros editable={editable} />}
     </div>
   );
@@ -328,6 +331,80 @@ function PlanillaSemanal() {
                 <td colSpan={dias.length + 3} style={{ textAlign: "right", fontWeight: 700, color: "#475569" }}>Totales de la semana →</td>
                 <td style={{ textAlign: "center", fontWeight: 800, color: "#1d4ed8", background: "#eff6ff" }} data-testid="asis-total-bcv">{fmt(totalBcv)}</td>
                 <td style={{ textAlign: "center", fontWeight: 800, color: "#a16207", background: "#fef9c3" }} data-testid="asis-total-bolivares">{fmt(totalBs)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- Resumen mensual ---------------- */
+function ResumenMensual() {
+  const now = new Date();
+  const [anio, setAnio] = useState(now.getFullYear());
+  const [mes, setMes] = useState(now.getMonth() + 1);
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
+    api.get("/asistencia/resumen-mensual", { params: { anio, mes } }).then((r) => setData(r.data)).catch(() => setData(null));
+  }, [anio, mes]);
+
+  const cambiarMes = (delta) => {
+    let m = mes + delta, a = anio;
+    if (m < 1) { m = 12; a -= 1; } if (m > 12) { m = 1; a += 1; }
+    setMes(m); setAnio(a);
+  };
+
+  const fmt = (n) => {
+    const [ent, dec] = Number(n || 0).toFixed(2).split(".");
+    return ent.replace(/\B(?=(\d{3})+(?!\d))/g, ".") + "," + dec;
+  };
+  const filas = data?.filas || [];
+
+  return (
+    <div className="card" data-testid="asis-resumen">
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
+        <button className="btn-icon" onClick={() => cambiarMes(-1)} data-testid="asis-resumen-prev"><ChevronLeft size={18} /></button>
+        <div style={{ fontWeight: 700, fontSize: 16, minWidth: 150, textAlign: "center" }} data-testid="asis-resumen-label">{MESES[mes - 1]} {anio}</div>
+        <button className="btn-icon" onClick={() => cambiarMes(1)} data-testid="asis-resumen-next"><ChevronRight size={18} /></button>
+      </div>
+      <p style={{ color: "#64748b", fontSize: 12, margin: "0 0 14px" }}>
+        Total del mes por obrero, sumando todas las semanas. Cada día usa la tasa y el salario de su semana respectiva.
+      </p>
+
+      {filas.length === 0 ? (
+        <div className="empty-state" data-testid="asis-resumen-empty">No hay asistencia registrada en este mes.</div>
+      ) : (
+        <div style={{ overflowX: "auto" }}>
+          <table className="table" data-testid="asis-resumen-tabla">
+            <thead>
+              <tr>
+                <th style={{ minWidth: 150 }}>Obrero</th>
+                <th style={{ textAlign: "center", background: "#f0fdf4" }}>Jornales</th>
+                <th style={{ textAlign: "center", background: "#eff6ff", color: "#1d4ed8" }}>BCV $</th>
+                <th style={{ textAlign: "center", background: "#fef9c3", color: "#a16207" }}>Bolívares</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filas.map((f, idx) => (
+                <tr key={f.obrero_id} data-testid={`asis-resumen-fila-${f.obrero_id}`}>
+                  <td style={{ fontWeight: 600 }}>
+                    {idx === 0 && f.jornales > 0 && <span style={{ color: "#ca8a04", marginRight: 4 }}>★</span>}
+                    {f.nombre}
+                    {f.cargo && <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 400 }}>{f.cargo}</div>}
+                  </td>
+                  <td style={{ textAlign: "center", fontWeight: 800, color: "#15803d", background: "#f0fdf4", fontSize: 15 }} data-testid={`asis-resumen-jornales-${f.obrero_id}`}>{String(f.jornales).replace(".", ",")}</td>
+                  <td style={{ textAlign: "center", fontWeight: 700, color: "#1d4ed8", background: "#eff6ff" }} data-testid={`asis-resumen-bcv-${f.obrero_id}`}>{fmt(f.bcv)}</td>
+                  <td style={{ textAlign: "center", fontWeight: 700, color: "#a16207", background: "#fef9c3" }} data-testid={`asis-resumen-bolivares-${f.obrero_id}`}>{fmt(f.bolivares)}</td>
+                </tr>
+              ))}
+              <tr style={{ borderTop: "2px solid #e2e8f0" }}>
+                <td style={{ textAlign: "right", fontWeight: 700, color: "#475569" }}>Totales del mes →</td>
+                <td style={{ textAlign: "center", fontWeight: 800, color: "#15803d", background: "#f0fdf4" }} data-testid="asis-resumen-total-jornales">{String(data.total_jornales).replace(".", ",")}</td>
+                <td style={{ textAlign: "center", fontWeight: 800, color: "#1d4ed8", background: "#eff6ff" }} data-testid="asis-resumen-total-bcv">{fmt(data.total_bcv)}</td>
+                <td style={{ textAlign: "center", fontWeight: 800, color: "#a16207", background: "#fef9c3" }} data-testid="asis-resumen-total-bolivares">{fmt(data.total_bolivares)}</td>
               </tr>
             </tbody>
           </table>

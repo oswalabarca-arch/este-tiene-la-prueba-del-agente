@@ -2770,6 +2770,60 @@ async def set_salario_individual(payload: SalarioIndividualIn, _: dict = Depends
     return {"success": True}
 
 
+@api.get("/asistencia/resumen-mensual")
+async def asistencia_resumen_mensual(anio: int, mes: int, _: dict = Depends(get_current_user)):
+    """Suma por obrero de jornales, BCV $ y Bolívares de todo el mes, usando la tasa y
+    salario de CADA semana respectivamente (día por día). SOLO LECTURA."""
+    import calendar as _cal
+    from datetime import date as _date
+    dias_mes = _cal.monthrange(anio, mes)[1]
+    fechas = [f"{anio:04d}-{mes:02d}-{d:02d}" for d in range(1, dias_mes + 1)]
+    set_fechas = set(fechas)
+
+    regs = await db.asistencia_registros.find({"fecha": {"$in": fechas}}).to_list(50000)
+    # Config por semana (lunes) que toca el mes
+    lunes_set = set()
+    for f in fechas:
+        d = _date.fromisoformat(f)
+        lunes_set.add((d - timedelta(days=d.weekday())).isoformat())
+    cfgs = {}
+    for lun in lunes_set:
+        cfgs[lun] = await db.asistencia_config.find_one({"_id": lun}) or {}
+
+    obreros = {o["_id"]: o for o in await db.asistencia_obreros.find({}).to_list(2000)}
+    acc: Dict[str, dict] = {}
+    for r in regs:
+        f = str(r.get("fecha"))[:10]
+        if f not in set_fechas:
+            continue
+        est = r.get("estado")
+        jornal = 1.0 if est == "presente" else (0.5 if est == "medio_dia" else 0.0)
+        if jornal == 0.0:
+            continue
+        oid = r["obrero_id"]
+        d = _date.fromisoformat(f)
+        lun = (d - timedelta(days=d.weekday())).isoformat()
+        cfg = cfgs.get(lun, {})
+        salario = float((cfg.get("salarios") or {}).get(oid, cfg.get("salario_default") or 0))
+        tasa = float(cfg.get("tasa") or 0)
+        a = acc.setdefault(oid, {"jornales": 0.0, "bcv": 0.0, "bolivares": 0.0})
+        a["jornales"] += jornal
+        a["bcv"] += jornal * salario
+        a["bolivares"] += jornal * salario * tasa
+
+    filas = []
+    for oid, a in acc.items():
+        o = obreros.get(oid, {})
+        filas.append({"obrero_id": oid, "nombre": o.get("nombre", "(eliminado)"), "cargo": o.get("cargo", ""),
+                      "jornales": round(a["jornales"], 1), "bcv": round(a["bcv"], 2), "bolivares": round(a["bolivares"], 2)})
+    filas.sort(key=lambda x: (-x["jornales"], -x["bolivares"], x["nombre"].lower()))
+    return {"anio": anio, "mes": mes, "filas": filas,
+            "total_jornales": round(sum(f["jornales"] for f in filas), 1),
+            "total_bcv": round(sum(f["bcv"] for f in filas), 2),
+            "total_bolivares": round(sum(f["bolivares"] for f in filas), 2)}
+
+
+
 
 
 
