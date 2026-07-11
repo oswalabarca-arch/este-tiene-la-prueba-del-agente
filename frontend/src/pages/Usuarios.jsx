@@ -6,7 +6,7 @@ import { UserPlus, Pencil, Key, Trash2, Search } from "lucide-react";
 import { DecimalInput } from "../components/DecimalInput";
 
 const MODULOS = [
-  "usuarios", "plantaciones", "equipos", "actividades", "aplicaciones",
+  "usuarios", "control_asistencia", "plantaciones", "equipos", "actividades", "aplicaciones",
   "cosecha", "ventas", "frio", "inventario", "ficha_tecnica", "compras", "analiticas", "recursos_humanos",
 ];
 const ROLES = ["administrador", "ingeniero", "encargado_campo", "operario"];

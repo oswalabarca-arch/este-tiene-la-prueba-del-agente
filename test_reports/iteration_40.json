@@ -1,0 +1,26 @@
+{
+  "summary": "Iteración 40 (both): verificación end-to-end del nuevo módulo 'Control de asistencia'. Backend curl OK (GET /api/asistencia/obreros, /api/asistencia/dia?fecha, /api/asistencia/mes?anio&mes → 200 con estructura {obreros|filas|estados}). Frontend Playwright: login admin OK. Sidebar muestra 'Control de asistencia' JUSTO DEBAJO de 'Usuarios' (verificado por screenshot). Navegación a /dashboard/control-asistencia carga la página data-testid='control-asistencia-page' con las 3 pestañas visibles (asis-tab-diario, asis-tab-mensual, asis-tab-obreros). OBREROS CRUD: creados 2 obreros de prueba (TEST_Juan Perez/Cosechador y TEST_Maria Lopez/Empacadora) via modal (asis-obrero-modal, campos nombre/cargo/activo); ambos aparecen en la tabla asis-obreros-tabla. Validación: guardar sin nombre NO cierra el modal (permanece abierto, no crea). Edición de Juan cambia cargo a 'Supervisor' y persiste tras reload (row text: 'TEST_Juan Perez\tSupervisor\tActivo'). REGISTRO DIARIO: date picker, prev/next/Hoy visibles; click en 'Presente' de Juan aplica estilo verde (bg rgb(220,252,231)); tras navegar a next day y volver con 'Hoy', la marca PERSISTE (bg sigue verde) → confirma reload desde backend. Click en el mismo botón lo DESMARCA (bg vuelve a blanco). Resumen (asis-diario-resumen) actualiza contadores correctamente: tras 'Marcar todos: Presentes' → '4 Presente · 0 Ausente · 0 Permiso · 0 Reposo · 0 Medio día · 0 Sin marcar'. MENSUAL: asis-mes-label='Julio 2026', tabla asis-mensual-tabla visible con filas asis-mes-fila-<id> para los 4 obreros, y la marca del día 11 aparece como 'P' en la celda correspondiente y el total P=1 en la columna de totales. PERMISOS: al editar un usuario, el checkbox data-testid='user-form-modulo-control_asistencia' está presente y visible. REGRESIÓN: sidebar completo (Dashboard, Usuarios, RRHH, Plantaciones, Equipos, Actividades, Aplicaciones, Cosecha, Asignación, Ventas, Inventario, Ficha, Compras, Analíticas) sigue funcionando. Cero PAGEERROR. CLEANUP: los 4 obreros de prueba fueron eliminados (asis-obreros-empty visible al final).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ControlAsistencia.jsx L63/159/234: los .catch(() => setData(null)) silencian errores del GET. Si el endpoint devuelve 401/500, el UI queda con 'No hay obreros activos' o tabla vacía sin distinguir error vs sin-datos. Añadir estado {loading, error} explícito y console.warn para diagnóstico.",
+    "ControlAsistencia.jsx L79 marcarTodos: dispara N requests POST /asistencia/marcar en paralelo (Promise.all) sin manejo de fallo parcial ni indicador visual de carga. Si uno falla el estado queda inconsistente hasta el reload. Considerar un endpoint batch /asistencia/marcar-todos o mostrar toast por fallos.",
+    "ControlAsistencia.jsx L322 shiftDate: construye fecha con 'T00:00:00' local y luego toISOString() usa UTC → en zonas GMT+ puede saltar a día siguiente. Usar formato local (getFullYear/getMonth/getDate) para evitar offset.",
+    "ControlAsistencia.jsx L67 marcar: hace optimistic update (setData) y en catch llama load() para revertir, pero NO muestra toast en éxito. UX podría beneficiarse de un feedback sutil (o al menos no revertir silenciosamente en error sin explicación).",
+    "El testid del item del sidebar 'Control de asistencia' generado desde el label ('nav-control-de-asistencia') no matchea al selector esperado; el item sí existe y funciona (visible en screenshot). Verificar convención de testid del sidebar en Layout.jsx (usa slug del label o el key del módulo)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (3/3 endpoints curl)", "frontend": "100% (7/7 escenarios del review_request)"},
+  "test_credentials": "Admin: oswaldabarca@gmail.com / 123456",
+  "seed_data_creation": "Ninguna. Se crearon 4 obreros de prueba con prefijo TEST_ y todos fueron eliminados al finalizar (asis-obreros-empty visible).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Módulo Control de asistencia completamente funcional. Endpoints: GET/POST/PUT/DELETE /api/asistencia/obreros (IDs son UUID v4, NO ObjectId), GET /api/asistencia/dia?fecha=YYYY-MM-DD, POST /api/asistencia/marcar {obrero_id,fecha,estado} (estado vacío desmarca), GET /api/asistencia/mes?anio&mes. Testids: control-asistencia-page, asis-tab-{diario|mensual|obreros}, asis-obrero-{new|modal|nombre|cargo|activo|save|edit-<id>|delete-<id>}, asis-obreros-tabla, asis-dia-{fecha|prev|next|hoy}, asis-fila-<id>, asis-mark-<id>-{presente|ausente|permiso|reposo|medio_dia}, asis-diario-resumen, asis-todos-{presente|ausente}, asis-mes-{label|prev|next}, asis-mensual-tabla, asis-mes-fila-<id>. Permiso en Usuarios: user-form-modulo-control_asistencia. La convención de testid del sidebar puede diferir del slug esperado ('nav-control-de-asistencia' no matchea) pero el item existe y funciona.",
+  "rca of the issue": "N/A — no se encontraron issues."
+}

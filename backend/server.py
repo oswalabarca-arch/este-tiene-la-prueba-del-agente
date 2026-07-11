@@ -225,7 +225,7 @@ async def create_admin_public(payload: CreateAdminIn):
 # USERS
 # ============================================================
 MODULOS_DISPONIBLES = [
-    "usuarios", "plantaciones", "equipos", "actividades", "aplicaciones",
+    "usuarios", "control_asistencia", "plantaciones", "equipos", "actividades", "aplicaciones",
     "cosecha", "ventas", "frio", "inventario", "ficha_tecnica", "compras", "analiticas",
     "recursos_humanos",
 ]
@@ -2543,6 +2543,123 @@ async def delete_ficha_tecnica(fid: str, _: dict = Depends(get_current_user)):
             await db.archivos.update_one({"storage_path": p}, {"$set": {"is_deleted": True}})
     await db.fichas_tecnicas.delete_one({"_id": fid})
     return {"success": True}
+
+
+# ============================================================
+# CONTROL DE ASISTENCIA (módulo independiente: obreros + asistencia diaria)
+# ============================================================
+ASISTENCIA_ESTADOS = ["presente", "ausente", "permiso", "reposo", "medio_dia"]
+
+
+class ObreroIn(BaseModel):
+    nombre: str
+    cargo: Optional[str] = ""
+    activo: Optional[bool] = True
+
+
+class MarcarAsistenciaIn(BaseModel):
+    obrero_id: str
+    fecha: str  # YYYY-MM-DD
+    estado: str
+
+
+def _obrero_out(d: dict) -> dict:
+    return {"_id": d["_id"], "nombre": d.get("nombre", ""), "cargo": d.get("cargo", ""), "activo": d.get("activo", True)}
+
+
+@api.get("/asistencia/obreros")
+async def list_obreros(_: dict = Depends(get_current_user)):
+    docs = await db.asistencia_obreros.find({}).sort("nombre", 1).to_list(2000)
+    return {"obreros": [_obrero_out(d) for d in docs], "estados": ASISTENCIA_ESTADOS}
+
+
+@api.post("/asistencia/obreros")
+async def create_obrero(payload: ObreroIn, _: dict = Depends(get_current_user)):
+    if not payload.nombre.strip():
+        raise HTTPException(400, "El nombre es obligatorio")
+    doc = {"_id": new_id(), "nombre": payload.nombre.strip(), "cargo": (payload.cargo or "").strip(),
+           "activo": payload.activo if payload.activo is not None else True, "createdAt": now_iso()}
+    await db.asistencia_obreros.insert_one(doc)
+    return _obrero_out(doc)
+
+
+@api.put("/asistencia/obreros/{oid}")
+async def update_obrero(oid: str, payload: ObreroIn, _: dict = Depends(get_current_user)):
+    existing = await db.asistencia_obreros.find_one({"_id": oid})
+    if not existing:
+        raise HTTPException(404, "Obrero no encontrado")
+    upd = {"nombre": payload.nombre.strip(), "cargo": (payload.cargo or "").strip(),
+           "activo": payload.activo if payload.activo is not None else True, "updatedAt": now_iso()}
+    await db.asistencia_obreros.update_one({"_id": oid}, {"$set": upd})
+    return _obrero_out({**existing, **upd})
+
+
+@api.delete("/asistencia/obreros/{oid}")
+async def delete_obrero(oid: str, _: dict = Depends(get_current_user)):
+    if not await db.asistencia_obreros.find_one({"_id": oid}):
+        raise HTTPException(404, "Obrero no encontrado")
+    await db.asistencia_obreros.delete_one({"_id": oid})
+    await db.asistencia_registros.delete_many({"obrero_id": oid})
+    return {"success": True}
+
+
+@api.get("/asistencia/dia")
+async def asistencia_dia(fecha: str, _: dict = Depends(get_current_user)):
+    """Asistencia de todos los obreros activos para una fecha (YYYY-MM-DD)."""
+    obreros = await db.asistencia_obreros.find({"activo": True}).sort("nombre", 1).to_list(2000)
+    regs = await db.asistencia_registros.find({"fecha": fecha[:10]}).to_list(5000)
+    estado_map = {r["obrero_id"]: r.get("estado") for r in regs}
+    filas = [{"obrero_id": o["_id"], "nombre": o.get("nombre", ""), "cargo": o.get("cargo", ""),
+              "estado": estado_map.get(o["_id"])} for o in obreros]
+    return {"fecha": fecha[:10], "filas": filas, "estados": ASISTENCIA_ESTADOS}
+
+
+@api.post("/asistencia/marcar")
+async def marcar_asistencia(payload: MarcarAsistenciaIn, _: dict = Depends(get_current_user)):
+    fecha = payload.fecha[:10]
+    if payload.estado not in ASISTENCIA_ESTADOS and payload.estado != "":
+        raise HTTPException(400, "Estado inválido")
+    if not await db.asistencia_obreros.find_one({"_id": payload.obrero_id}):
+        raise HTTPException(404, "Obrero no encontrado")
+    if payload.estado == "":
+        # Desmarcar
+        await db.asistencia_registros.delete_one({"obrero_id": payload.obrero_id, "fecha": fecha})
+        return {"success": True, "estado": None}
+    await db.asistencia_registros.update_one(
+        {"obrero_id": payload.obrero_id, "fecha": fecha},
+        {"$set": {"estado": payload.estado, "updatedAt": now_iso()},
+         "$setOnInsert": {"_id": new_id(), "obrero_id": payload.obrero_id, "fecha": fecha, "createdAt": now_iso()}},
+        upsert=True,
+    )
+    return {"success": True, "estado": payload.estado}
+
+
+@api.get("/asistencia/mes")
+async def asistencia_mes(anio: int, mes: int, _: dict = Depends(get_current_user)):
+    """Planilla mensual: obreros x días del mes, con estados y totales por estado."""
+    import calendar as _cal
+    dias_mes = _cal.monthrange(anio, mes)[1]
+    prefijo = f"{anio:04d}-{mes:02d}-"
+    obreros = await db.asistencia_obreros.find({"activo": True}).sort("nombre", 1).to_list(2000)
+    regs = await db.asistencia_registros.find({"fecha": {"$regex": f"^{prefijo}"}}).to_list(20000)
+    reg_map: Dict[str, Dict[int, str]] = {}
+    for r in regs:
+        try:
+            dia = int(str(r["fecha"])[8:10])
+        except Exception:
+            continue
+        reg_map.setdefault(r["obrero_id"], {})[dia] = r.get("estado")
+    filas = []
+    for o in obreros:
+        dias = reg_map.get(o["_id"], {})
+        totales = {e: 0 for e in ASISTENCIA_ESTADOS}
+        for est in dias.values():
+            if est in totales:
+                totales[est] += 1
+        filas.append({"obrero_id": o["_id"], "nombre": o.get("nombre", ""), "cargo": o.get("cargo", ""),
+                      "dias": {str(k): v for k, v in dias.items()}, "totales": totales})
+    return {"anio": anio, "mes": mes, "dias_mes": dias_mes, "filas": filas, "estados": ASISTENCIA_ESTADOS}
+
 
 
 
