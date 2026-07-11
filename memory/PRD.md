@@ -431,3 +431,9 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - 3 pestañas: **Registro diario** (elegir fecha, marcar cada obrero con autosave; navegación prev/next/Hoy; marcar todos; resumen), **Planilla mensual** (grilla obreros × días del mes con totales por estado; navegación de mes), **Obreros** (CRUD: nombre, cargo, activo). Estados: presente, ausente, permiso, reposo, medio_día.
 - Backend endpoints (solo este módulo): GET/POST/PUT/DELETE /api/asistencia/obreros, GET /api/asistencia/dia?fecha, POST /api/asistencia/marcar (upsert por obrero+fecha; estado="" desmarca), GET /api/asistencia/mes?anio&mes. 'control_asistencia' agregado a MODULOS_DISPONIBLES (backend) y MODULOS (Usuarios).
 - Verificado: backend por curl + testing agent 100% (iteration_40.json) — CRUD, marcado/desmarcado, persistencia, planilla mensual con totales, permisos y ubicación en sidebar. Datos de prueba limpiados. Requiere re-deploy para producción.
+
+## Ajuste (Control de asistencia · cambios solicitados — 01/07/2026)
+- (1) Registro diario ahora solo tiene 2 estados: **Presente** y **Medio día** (se quitaron ausente/permiso/reposo). ASISTENCIA_ESTADOS = ["presente","medio_dia"].
+- (2) "Planilla mensual" → **"Planilla semanal"** de 7 días (lunes a domingo, incluye sábado y domingo). Nuevo endpoint `GET /api/asistencia/semana?fecha=YYYY-MM-DD` (semana que contiene la fecha; navegación ±7 días). Reemplazó a /asistencia/mes.
+- (3) La planilla semanal ordena los obreros de **MAYOR a MENOR jornales** trabajados (Presente=1, Medio día=0,5), con columna "Jornales" por obrero (★ al primero). Pensado para jornaleros que no trabajan todos los días/semanas.
+- Verificado: backend curl (semana lun-dom, orden por jornales desc) + testing agent 100% (iteration_41.json). Obreros reales del usuario (oswald, ana, superman) preservados. Requiere re-deploy.
