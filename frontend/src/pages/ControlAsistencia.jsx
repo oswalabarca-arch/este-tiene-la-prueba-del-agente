@@ -1,19 +1,16 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
 import { CalendarCheck, Plus, Trash2, Pencil, Users, CalendarDays, ClipboardList, X, ChevronLeft, ChevronRight } from "lucide-react";
 
-const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
 const ESTADOS = {
   presente: { label: "Presente", corto: "P", color: "#15803d", bg: "#dcfce7", border: "#86efac" },
-  ausente: { label: "Ausente", corto: "A", color: "#b91c1c", bg: "#fee2e2", border: "#fca5a5" },
-  permiso: { label: "Permiso", corto: "Pe", color: "#1d4ed8", bg: "#dbeafe", border: "#93c5fd" },
-  reposo: { label: "Reposo", corto: "R", color: "#c2410c", bg: "#ffedd5", border: "#fdba74" },
   medio_dia: { label: "Medio día", corto: "½", color: "#7c3aed", bg: "#f3e8ff", border: "#d8b4fe" },
 };
-const ORDEN = ["presente", "ausente", "permiso", "reposo", "medio_dia"];
+const ORDEN = ["presente", "medio_dia"];
+const DIAS_SEM = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -31,12 +28,12 @@ export default function ControlAsistencia() {
 
       <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
         <TabBtn active={tab === "diario"} onClick={() => setTab("diario")} icon={CalendarDays} label="Registro diario" testid="asis-tab-diario" />
-        <TabBtn active={tab === "mensual"} onClick={() => setTab("mensual")} icon={ClipboardList} label="Planilla mensual" testid="asis-tab-mensual" />
+        <TabBtn active={tab === "mensual"} onClick={() => setTab("mensual")} icon={ClipboardList} label="Planilla semanal" testid="asis-tab-mensual" />
         <TabBtn active={tab === "obreros"} onClick={() => setTab("obreros")} icon={Users} label="Obreros" testid="asis-tab-obreros" />
       </div>
 
       {tab === "diario" && <RegistroDiario editable={editable} />}
-      {tab === "mensual" && <PlanillaMensual />}
+      {tab === "mensual" && <PlanillaSemanal />}
       {tab === "obreros" && <Obreros editable={editable} />}
     </div>
   );
@@ -100,7 +97,6 @@ function RegistroDiario({ editable }) {
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
             <span style={{ fontSize: 12, color: "#64748b" }}>Marcar todos:</span>
             <button className="btn btn-sm" style={{ color: ESTADOS.presente.color }} onClick={() => marcarTodos("presente")} data-testid="asis-todos-presente">Presentes</button>
-            <button className="btn btn-sm" style={{ color: ESTADOS.ausente.color }} onClick={() => marcarTodos("ausente")} data-testid="asis-todos-ausente">Ausentes</button>
           </div>
         )}
       </div>
@@ -148,72 +144,84 @@ function RegistroDiario({ editable }) {
   );
 }
 
-/* ---------------- Planilla mensual ---------------- */
-function PlanillaMensual() {
-  const now = new Date();
-  const [anio, setAnio] = useState(now.getFullYear());
-  const [mes, setMes] = useState(now.getMonth() + 1);
+/* ---------------- Planilla semanal ---------------- */
+function PlanillaSemanal() {
+  const [fecha, setFecha] = useState(todayStr());
   const [data, setData] = useState(null);
 
   useEffect(() => {
-    api.get("/asistencia/mes", { params: { anio, mes } }).then((r) => setData(r.data)).catch(() => setData(null));
-  }, [anio, mes]);
+    api.get("/asistencia/semana", { params: { fecha } }).then((r) => setData(r.data)).catch(() => setData(null));
+  }, [fecha]);
 
-  const dias = useMemo(() => Array.from({ length: data?.dias_mes || 0 }, (_, i) => i + 1), [data]);
+  const dias = data?.dias_semana || [];
   const filas = data?.filas || [];
 
-  const cambiarMes = (delta) => {
-    let m = mes + delta, a = anio;
-    if (m < 1) { m = 12; a -= 1; } if (m > 12) { m = 1; a += 1; }
-    setMes(m); setAnio(a);
+  const rangoLabel = () => {
+    if (!data) return "";
+    const s = new Date(data.desde + "T00:00:00"), e = new Date(data.hasta + "T00:00:00");
+    const MC = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+    return `${s.getDate()} ${MC[s.getMonth()]} — ${e.getDate()} ${MC[e.getMonth()]} ${e.getFullYear()}`;
   };
 
   return (
     <div className="card" data-testid="asis-mensual">
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-        <button className="btn-icon" onClick={() => cambiarMes(-1)} data-testid="asis-mes-prev"><ChevronLeft size={18} /></button>
-        <div style={{ fontWeight: 700, fontSize: 16, minWidth: 150, textAlign: "center" }} data-testid="asis-mes-label">{MESES[mes - 1]} {anio}</div>
-        <button className="btn-icon" onClick={() => cambiarMes(1)} data-testid="asis-mes-next"><ChevronRight size={18} /></button>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
+        <button className="btn-icon" onClick={() => setFecha((f) => shiftDate(f, -7))} data-testid="asis-mes-prev"><ChevronLeft size={18} /></button>
+        <div style={{ fontWeight: 700, fontSize: 15, minWidth: 180, textAlign: "center" }} data-testid="asis-mes-label">Semana: {rangoLabel()}</div>
+        <button className="btn-icon" onClick={() => setFecha((f) => shiftDate(f, 7))} data-testid="asis-mes-next"><ChevronRight size={18} /></button>
+        <button className="btn btn-sm" onClick={() => setFecha(todayStr())} data-testid="asis-semana-hoy">Semana actual</button>
       </div>
+      <p style={{ color: "#64748b", fontSize: 12, margin: "0 0 14px" }}>Ordenado de mayor a menor jornales trabajados. Incluye sábado y domingo.</p>
 
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+      <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 14 }}>
         {ORDEN.map((e) => (
           <span key={e} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "#475569" }}>
-            <span style={{ width: 16, height: 16, borderRadius: 4, background: ESTADOS[e].bg, border: `1px solid ${ESTADOS[e].border}`, color: ESTADOS[e].color, fontSize: 10, fontWeight: 800, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{ESTADOS[e].corto}</span>
+            <span style={{ width: 18, height: 18, borderRadius: 4, background: ESTADOS[e].bg, border: `1px solid ${ESTADOS[e].border}`, color: ESTADOS[e].color, fontSize: 10, fontWeight: 800, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{ESTADOS[e].corto}</span>
             {ESTADOS[e].label}
           </span>
         ))}
+        <span style={{ fontSize: 12, color: "#475569" }}>Jornales: Presente = 1 · Medio día = 0,5</span>
       </div>
 
       {filas.length === 0 ? (
         <div className="empty-state" data-testid="asis-mensual-empty">No hay obreros activos para mostrar.</div>
       ) : (
         <div style={{ overflowX: "auto" }}>
-          <table className="table" style={{ minWidth: 700 }} data-testid="asis-mensual-tabla">
+          <table className="table" style={{ minWidth: 640 }} data-testid="asis-mensual-tabla">
             <thead>
               <tr>
-                <th style={{ position: "sticky", left: 0, background: "#f8fafc", minWidth: 130, zIndex: 1 }}>Obrero</th>
-                {dias.map((d) => <th key={d} style={{ textAlign: "center", padding: "6px 4px", fontSize: 11 }}>{d}</th>)}
-                {ORDEN.map((e) => <th key={e} style={{ textAlign: "center", fontSize: 11, color: ESTADOS[e].color }}>{ESTADOS[e].corto}</th>)}
+                <th style={{ minWidth: 150 }}>Obrero</th>
+                {dias.map((f, i) => {
+                  const dd = new Date(f + "T00:00:00");
+                  const finde = i >= 5;
+                  return <th key={f} style={{ textAlign: "center", padding: "6px 4px", fontSize: 11, color: finde ? "#0ea5e9" : "#475569" }}>{DIAS_SEM[i]}<br />{dd.getDate()}</th>;
+                })}
+                <th style={{ textAlign: "center", fontSize: 12, background: "#f0fdf4" }}>Jornales</th>
               </tr>
             </thead>
             <tbody>
-              {filas.map((f) => (
+              {filas.map((f, idx) => (
                 <tr key={f.obrero_id} data-testid={`asis-mes-fila-${f.obrero_id}`}>
-                  <td style={{ position: "sticky", left: 0, background: "#fff", fontWeight: 600, zIndex: 1 }}>{f.nombre}</td>
-                  {dias.map((d) => {
-                    const est = f.dias[String(d)];
+                  <td style={{ fontWeight: 600 }}>
+                    {idx === 0 && f.jornales > 0 && <span style={{ color: "#ca8a04", marginRight: 4 }}>★</span>}
+                    {f.nombre}
+                    {f.cargo && <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 400 }}>{f.cargo}</div>}
+                  </td>
+                  {dias.map((day) => {
+                    const est = f.dias[day];
                     const c = est ? ESTADOS[est] : null;
                     return (
-                      <td key={d} style={{ textAlign: "center", padding: 2 }}>
-                        <span title={c ? c.label : ""} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, borderRadius: 5, fontSize: 11, fontWeight: 800,
+                      <td key={day} style={{ textAlign: "center", padding: 3 }}>
+                        <span title={c ? c.label : ""} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 6, fontSize: 12, fontWeight: 800,
                           background: c ? c.bg : "transparent", color: c ? c.color : "#cbd5e1", border: c ? `1px solid ${c.border}` : "1px solid #f1f5f9" }}>
                           {c ? c.corto : "·"}
                         </span>
                       </td>
                     );
                   })}
-                  {ORDEN.map((e) => <td key={e} style={{ textAlign: "center", fontWeight: 700, color: ESTADOS[e].color }}>{f.totales[e] || 0}</td>)}
+                  <td style={{ textAlign: "center", fontWeight: 800, color: "#15803d", background: "#f0fdf4", fontSize: 15 }} data-testid={`asis-jornales-${f.obrero_id}`}>
+                    {String(f.jornales).replace(".", ",")}
+                  </td>
                 </tr>
               ))}
             </tbody>

@@ -2548,7 +2548,7 @@ async def delete_ficha_tecnica(fid: str, _: dict = Depends(get_current_user)):
 # ============================================================
 # CONTROL DE ASISTENCIA (módulo independiente: obreros + asistencia diaria)
 # ============================================================
-ASISTENCIA_ESTADOS = ["presente", "ausente", "permiso", "reposo", "medio_dia"]
+ASISTENCIA_ESTADOS = ["presente", "medio_dia"]
 
 
 class ObreroIn(BaseModel):
@@ -2634,21 +2634,27 @@ async def marcar_asistencia(payload: MarcarAsistenciaIn, _: dict = Depends(get_c
     return {"success": True, "estado": payload.estado}
 
 
-@api.get("/asistencia/mes")
-async def asistencia_mes(anio: int, mes: int, _: dict = Depends(get_current_user)):
-    """Planilla mensual: obreros x días del mes, con estados y totales por estado."""
-    import calendar as _cal
-    dias_mes = _cal.monthrange(anio, mes)[1]
-    prefijo = f"{anio:04d}-{mes:02d}-"
-    obreros = await db.asistencia_obreros.find({"activo": True}).sort("nombre", 1).to_list(2000)
-    regs = await db.asistencia_registros.find({"fecha": {"$regex": f"^{prefijo}"}}).to_list(20000)
-    reg_map: Dict[str, Dict[int, str]] = {}
+@api.get("/asistencia/semana")
+async def asistencia_semana(fecha: str, _: dict = Depends(get_current_user)):
+    """Planilla semanal: 7 días (lunes a domingo) que contienen la fecha dada.
+    Ordena los obreros de MAYOR a MENOR jornales trabajados (presente=1, medio_día=0.5)."""
+    from datetime import date as _date
+    try:
+        d = _date.fromisoformat(str(fecha)[:10])
+    except Exception:
+        d = datetime.now(VE_TZ).date()
+    lunes = d - timedelta(days=d.weekday())
+    dias_semana = [(lunes + timedelta(days=i)).isoformat() for i in range(7)]
+    set_dias = set(dias_semana)
+
+    obreros = await db.asistencia_obreros.find({"activo": True}).to_list(2000)
+    regs = await db.asistencia_registros.find({"fecha": {"$in": dias_semana}}).to_list(20000)
+    reg_map: Dict[str, Dict[str, str]] = {}
     for r in regs:
-        try:
-            dia = int(str(r["fecha"])[8:10])
-        except Exception:
-            continue
-        reg_map.setdefault(r["obrero_id"], {})[dia] = r.get("estado")
+        f = str(r.get("fecha"))[:10]
+        if f in set_dias:
+            reg_map.setdefault(r["obrero_id"], {})[f] = r.get("estado")
+
     filas = []
     for o in obreros:
         dias = reg_map.get(o["_id"], {})
@@ -2656,9 +2662,14 @@ async def asistencia_mes(anio: int, mes: int, _: dict = Depends(get_current_user
         for est in dias.values():
             if est in totales:
                 totales[est] += 1
+        jornales = round(totales.get("presente", 0) * 1.0 + totales.get("medio_dia", 0) * 0.5, 1)
+        dias_trabajados = totales.get("presente", 0) + totales.get("medio_dia", 0)
         filas.append({"obrero_id": o["_id"], "nombre": o.get("nombre", ""), "cargo": o.get("cargo", ""),
-                      "dias": {str(k): v for k, v in dias.items()}, "totales": totales})
-    return {"anio": anio, "mes": mes, "dias_mes": dias_mes, "filas": filas, "estados": ASISTENCIA_ESTADOS}
+                      "dias": dias, "totales": totales, "jornales": jornales, "dias_trabajados": dias_trabajados})
+    filas.sort(key=lambda f: (-f["jornales"], -f["dias_trabajados"], f["nombre"].lower()))
+    return {"desde": dias_semana[0], "hasta": dias_semana[6], "dias_semana": dias_semana,
+            "filas": filas, "estados": ASISTENCIA_ESTADOS}
+
 
 
 

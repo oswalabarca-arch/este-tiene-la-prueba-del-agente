@@ -1,0 +1,20 @@
+{
+  "summary": "Iteración 41 (both): verificación de cambios en Control de asistencia. Backend curl OK: GET /api/asistencia/semana?fecha=YYYY-MM-DD devuelve {desde, hasta, dias_semana(7), filas, estados:['presente','medio_dia']} — semana lunes-domingo con sábado y domingo incluidos. Frontend Playwright E2E: login admin OK; navegación a /dashboard/control-asistencia carga control-asistencia-page. Pestaña Obreros: creados ZZTEST_Ana/Beto/Caro via asis-obrero-new/modal/save. REGISTRO DIARIO: para cada obrero se validó que existen SOLO los 2 botones asis-mark-<id>-presente y asis-mark-<id>-medio_dia; los testids asis-mark-<id>-{ausente,permiso,reposo} NO existen. El botón asis-todos-presente existe; asis-todos-ausente NO existe. Se marcó Beto=Presente, Caro=Medio día, Ana sin marcar. PLANILLA SEMANAL (asis-tab-mensual, label 'Planilla semanal'): asis-mes-label='Semana: 6 jul — 12 jul 2026' (formato rango correcto), botones asis-mes-prev/next/semana-hoy visibles, tabla con 9 columnas (Obrero + Lun/Mar/Mié/Jue/Vie/Sáb/Dom + Jornales), columnas Sáb/Dom presentes y resaltadas en azul. ORDEN POR JORNALES verificado: entre los ZZTEST_, ZZTEST_Beto(1) < ZZTEST_Caro(0,5) < ZZTEST_Ana(0) en posiciones consecutivas del ranking. asis-jornales-<id> muestra '1' para Beto y '0,5' para Caro y '0' para Ana. Marcas visualizadas correctamente como 'P' y '½' en la celda del día. CLEANUP: los 3 obreros ZZTEST_ fueron eliminados via asis-obrero-delete-<id>; los obreros originales del usuario (ana/oswald/superman) permanecen intactos. Sin PAGEERROR ni errores de consola.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ControlAsistencia.jsx shiftDate (L330): construye fecha con 'T00:00:00' local + toISOString() (UTC) → en zonas GMT+ puede saltar un día al navegar prev/next. Cambiar a formato local (getFullYear/Month/Date) sigue pendiente de iteraciones previas.",
+    "PlanillaSemanal (L152): el useEffect solo hace .catch(()=>setData(null)) — silencia errores del GET /asistencia/semana sin distinción entre 'sin datos' y fallo de red. Añadir estado de error visible.",
+    "marcarTodos (L76): Promise.all de N POSTs sin manejar fallo parcial ni indicador de carga; ya reportado en iter 40, sigue presente."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (1/1 endpoint nuevo verificado)", "frontend": "100% (7/7 escenarios del review_request)"},
+  "test_credentials": "Admin: oswaldabarca@gmail.com / 123456",
+  "seed_data_creation": "Creados y eliminados 3 obreros ZZTEST_Ana, ZZTEST_Beto, ZZTEST_Caro. Cero residuos. Obreros originales (ana/oswald/superman) intactos.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Cambios verificados: ESTADOS ahora {presente, medio_dia} solamente; pestaña 'Planilla semanal' consume GET /api/asistencia/semana?fecha= (retorna 7 días lun-dom + filas ordenadas por jornales desc con jornales=presente*1+medio_dia*0.5); testid de pestaña sigue siendo 'asis-tab-mensual' aunque label es 'Planilla semanal'; testid del label asis-mes-label muestra 'Semana: <rango>'; nueva columna asis-jornales-<id>; navegación semanal: asis-mes-prev/next (delta ±7), asis-semana-hoy. POST /asistencia/marcar acepta estado='presente'|'medio_dia'|'' (vacío desmarca).",
+  "rca of the issue": "N/A"
+}
