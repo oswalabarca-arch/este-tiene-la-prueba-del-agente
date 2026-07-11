@@ -1,0 +1,15 @@
+{
+  "summary": "Verified new 'Enviar asistencia' (bloquear) + 'Editar' (reabrir con permiso) feature end-to-end. Backend: 8/8 pytest tests passed covering marcar, dia, enviar (locks), 423 when locked, restricted user 403 on reabrir, restricted user sees enviado=true, admin reabrir, remark after reabrir. Frontend admin flow: marked ZZTEST obrero presente, clicked asis-enviar-btn (dialog accepted), banner asis-bloqueado-banner appeared, asis-editar-btn appeared, asis-enviar-btn disappeared, all mark buttons disabled. Clicked asis-editar-btn: banner disappeared, mark buttons re-enabled. Frontend restricted-user flow (zztest_campo@test.com with control_asistencia module and Eliminar=false): banner visible, asis-editar-btn HIDDEN (0 count), asis-enviar-btn hidden, all 6 mark buttons DISABLED. Feature works as specified. Used FECHA FUTURA 2026-08-15 only; real data untouched.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/test_asistencia_enviar_editar.py", "/app/test_reports/pytest/asistencia_enviar.xml"],
+  "action_items": ["Cleanup done: ZZTEST_Campo obrero deleted, zztest_campo@test.com user deleted, day 2026-08-15 reabierto (no queda bloqueado). No further action needed."],
+  "critical_code_review_comments": ["_puede_desbloquear checks p.get('eliminar') is not False, so absence of key defaults to True (allowed). Intended behavior since matrix explicitly sets false to deny. Frontend also uses canDelete('control_asistencia') consistently. Endpoints correctly return 423 for locked-day marcar and 403 for reabrir without permission."],
+  "updated_files": ["/app/backend/tests/test_asistencia_enviar_editar.py"],
+  "success_rate": {"backend": "100% (8/8)", "frontend": "100%"},
+  "test_credentials": "admin: oswaldabarca@gmail.com/123456; restricted user zztest_campo@test.com/Test1234 (created/deleted by tests)",
+  "seed_data_creation": "Ephemeral: ZZTEST_Campo obrero and zztest_campo@test.com user were created via API and cleaned up. Future date 2026-08-15 asistencia_dias document remains with enviado=false (harmless).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Feature completo y verificado. Backend pytest file at /app/backend/tests/test_asistencia_enviar_editar.py can be re-run for regression. Uses FUTURE_DATE=2026-08-15 to avoid touching real data."
+}

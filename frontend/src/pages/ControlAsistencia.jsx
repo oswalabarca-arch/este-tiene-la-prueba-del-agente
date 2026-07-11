@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
-import { CalendarCheck, Plus, Trash2, Pencil, Users, CalendarDays, ClipboardList, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarCheck, Plus, Trash2, Pencil, Users, CalendarDays, ClipboardList, X, ChevronLeft, ChevronRight, Send, Lock } from "lucide-react";
 
 
 const ESTADOS = {
@@ -15,9 +15,10 @@ const DIAS_SEM = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
 export default function ControlAsistencia() {
-  const { canEdit } = useAuth();
+  const { canEdit, canDelete } = useAuth();
   const [tab, setTab] = useState("diario");
   const editable = canEdit("control_asistencia");
+  const puedeDesbloquear = canDelete("control_asistencia");
 
   return (
     <div data-testid="control-asistencia-page">
@@ -32,7 +33,7 @@ export default function ControlAsistencia() {
         <TabBtn active={tab === "obreros"} onClick={() => setTab("obreros")} icon={Users} label="Obreros" testid="asis-tab-obreros" />
       </div>
 
-      {tab === "diario" && <RegistroDiario editable={editable} />}
+      {tab === "diario" && <RegistroDiario editable={editable} puedeDesbloquear={puedeDesbloquear} />}
       {tab === "mensual" && <PlanillaSemanal />}
       {tab === "obreros" && <Obreros editable={editable} />}
     </div>
@@ -51,7 +52,7 @@ function TabBtn({ active, onClick, icon: Icon, label, testid }) {
 }
 
 /* ---------------- Registro diario ---------------- */
-function RegistroDiario({ editable }) {
+function RegistroDiario({ editable, puedeDesbloquear }) {
   const toast = useToast();
   const [fecha, setFecha] = useState(todayStr());
   const [data, setData] = useState(null);
@@ -61,8 +62,11 @@ function RegistroDiario({ editable }) {
   }, [fecha]);
   useEffect(() => { load(); }, [load]);
 
+  const enviado = !!data?.enviado;
+  const puedeMarcar = editable && !enviado;
+
   const marcar = async (obrero_id, estado, actual) => {
-    if (!editable) return;
+    if (!puedeMarcar) return;
     const nuevo = actual === estado ? "" : estado; // click en el mismo => desmarca
     setData((d) => ({ ...d, filas: d.filas.map((f) => f.obrero_id === obrero_id ? { ...f, estado: nuevo || null } : f) }));
     try {
@@ -74,10 +78,21 @@ function RegistroDiario({ editable }) {
   };
 
   const marcarTodos = async (estado) => {
-    if (!editable || !data) return;
+    if (!puedeMarcar || !data) return;
     await Promise.all(data.filas.map((f) => api.post("/asistencia/marcar", { obrero_id: f.obrero_id, fecha, estado })));
     toast.show("Todos marcados como " + ESTADOS[estado].label);
     load();
+  };
+
+  const enviarAsistencia = async () => {
+    if (!window.confirm("¿Enviar la asistencia de este día? Quedará bloqueada y no se podrá modificar (salvo con permiso de edición).")) return;
+    try { await api.post("/asistencia/enviar", { fecha }); toast.show("Asistencia enviada y bloqueada"); load(); }
+    catch { toast.show("Error al enviar", "error"); }
+  };
+
+  const reabrir = async () => {
+    try { await api.post("/asistencia/reabrir", { fecha }); toast.show("Asistencia desbloqueada para editar"); load(); }
+    catch (e) { toast.show(e?.response?.data?.detail || "No tenés permiso para editar", "error"); }
   };
 
   const filas = data?.filas || [];
@@ -93,13 +108,29 @@ function RegistroDiario({ editable }) {
           <button className="btn-icon" onClick={() => setFecha((f) => shiftDate(f, 1))} data-testid="asis-dia-next"><ChevronRight size={18} /></button>
           <button className="btn btn-sm" onClick={() => setFecha(todayStr())} data-testid="asis-dia-hoy">Hoy</button>
         </div>
-        {editable && filas.length > 0 && (
+        {puedeMarcar && filas.length > 0 && (
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
             <span style={{ fontSize: 12, color: "#64748b" }}>Marcar todos:</span>
             <button className="btn btn-sm" style={{ color: ESTADOS.presente.color }} onClick={() => marcarTodos("presente")} data-testid="asis-todos-presente">Presentes</button>
           </div>
         )}
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
+          {editable && !enviado && filas.length > 0 && (
+            <button className="btn btn-primary btn-sm" onClick={enviarAsistencia} data-testid="asis-enviar-btn"><Send size={15} /> Enviar asistencia</button>
+          )}
+          {enviado && puedeDesbloquear && (
+            <button className="btn btn-sm" onClick={reabrir} data-testid="asis-editar-btn" style={{ borderColor: "#f59e0b", color: "#b45309" }}><Pencil size={15} /> Editar</button>
+          )}
+        </div>
       </div>
+
+      {enviado && (
+        <div data-testid="asis-bloqueado-banner" style={{ display: "flex", alignItems: "center", gap: 10, background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "10px 14px", marginBottom: 14, color: "#15803d" }}>
+          <Lock size={16} />
+          <span style={{ fontWeight: 600 }}>Asistencia enviada{data?.enviado_por ? ` por ${data.enviado_por}` : ""}. Bloqueada para edición.</span>
+          {!puedeDesbloquear && <span style={{ fontSize: 12, color: "#64748b" }}>Para modificarla necesitás el permiso de edición (Usuarios).</span>}
+        </div>
+      )}
 
       {filas.length > 0 && (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }} data-testid="asis-diario-resumen">
@@ -118,7 +149,7 @@ function RegistroDiario({ editable }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {filas.map((f) => (
             <div key={f.obrero_id} data-testid={`asis-fila-${f.obrero_id}`}
-              style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", border: "1px solid #e2e8f0", borderRadius: 10, padding: "10px 14px" }}>
+              style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", border: "1px solid #e2e8f0", borderRadius: 10, padding: "10px 14px", opacity: enviado ? 0.85 : 1 }}>
               <div style={{ flex: "0 0 auto", width: 200, minWidth: 140 }}>
                 <div style={{ fontWeight: 700, color: "#0f172a" }}>{f.nombre}</div>
                 {f.cargo && <div style={{ fontSize: 12, color: "#64748b" }}>{f.cargo}</div>}
@@ -128,8 +159,8 @@ function RegistroDiario({ editable }) {
                   const on = f.estado === e;
                   const c = ESTADOS[e];
                   return (
-                    <button key={e} disabled={!editable} onClick={() => marcar(f.obrero_id, e, f.estado)} data-testid={`asis-mark-${f.obrero_id}-${e}`}
-                      style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid", cursor: editable ? "pointer" : "default", fontWeight: 600, fontSize: 13,
+                    <button key={e} disabled={!puedeMarcar} onClick={() => marcar(f.obrero_id, e, f.estado)} data-testid={`asis-mark-${f.obrero_id}-${e}`}
+                      style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid", cursor: puedeMarcar ? "pointer" : "not-allowed", fontWeight: 600, fontSize: 13,
                         borderColor: on ? c.border : "#e2e8f0", background: on ? c.bg : "#fff", color: on ? c.color : "#94a3b8" }}>
                       {c.label}
                     </button>

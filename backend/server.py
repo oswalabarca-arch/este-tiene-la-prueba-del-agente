@@ -2606,12 +2606,50 @@ async def delete_obrero(oid: str, _: dict = Depends(get_current_user)):
 @api.get("/asistencia/dia")
 async def asistencia_dia(fecha: str, _: dict = Depends(get_current_user)):
     """Asistencia de todos los obreros activos para una fecha (YYYY-MM-DD)."""
+    f = fecha[:10]
     obreros = await db.asistencia_obreros.find({"activo": True}).sort("nombre", 1).to_list(2000)
-    regs = await db.asistencia_registros.find({"fecha": fecha[:10]}).to_list(5000)
+    regs = await db.asistencia_registros.find({"fecha": f}).to_list(5000)
     estado_map = {r["obrero_id"]: r.get("estado") for r in regs}
     filas = [{"obrero_id": o["_id"], "nombre": o.get("nombre", ""), "cargo": o.get("cargo", ""),
               "estado": estado_map.get(o["_id"])} for o in obreros]
-    return {"fecha": fecha[:10], "filas": filas, "estados": ASISTENCIA_ESTADOS}
+    dia_doc = await db.asistencia_dias.find_one({"_id": f}) or {}
+    return {"fecha": f, "filas": filas, "estados": ASISTENCIA_ESTADOS,
+            "enviado": bool(dia_doc.get("enviado")), "enviado_por": dia_doc.get("enviado_por")}
+
+
+def _puede_desbloquear(user: dict) -> bool:
+    if user.get("rol") == "administrador":
+        return True
+    if "control_asistencia" not in (user.get("modulos_asignados") or []):
+        return False
+    p = (user.get("permisos_modulos") or {}).get("control_asistencia") or {}
+    return p.get("eliminar") is not False
+
+
+class DiaFechaIn(BaseModel):
+    fecha: str
+
+
+@api.post("/asistencia/enviar")
+async def enviar_asistencia(payload: DiaFechaIn, user: dict = Depends(get_current_user)):
+    """Bloquea la asistencia del día: ya no se puede modificar hasta reabrir."""
+    f = payload.fecha[:10]
+    await db.asistencia_dias.update_one(
+        {"_id": f},
+        {"$set": {"enviado": True, "enviado_at": now_iso(), "enviado_por": user.get("nombre") or user.get("email")}},
+        upsert=True,
+    )
+    return {"success": True, "enviado": True}
+
+
+@api.post("/asistencia/reabrir")
+async def reabrir_asistencia(payload: DiaFechaIn, user: dict = Depends(get_current_user)):
+    """Desbloquea la asistencia del día para editar. Requiere permiso (Eliminar en Usuarios)."""
+    if not _puede_desbloquear(user):
+        raise HTTPException(403, "No tenés permiso para editar una asistencia enviada")
+    f = payload.fecha[:10]
+    await db.asistencia_dias.update_one({"_id": f}, {"$set": {"enviado": False, "reabierto_at": now_iso()}}, upsert=True)
+    return {"success": True, "enviado": False}
 
 
 @api.post("/asistencia/marcar")
@@ -2619,6 +2657,9 @@ async def marcar_asistencia(payload: MarcarAsistenciaIn, _: dict = Depends(get_c
     fecha = payload.fecha[:10]
     if payload.estado not in ASISTENCIA_ESTADOS and payload.estado != "":
         raise HTTPException(400, "Estado inválido")
+    dia_doc = await db.asistencia_dias.find_one({"_id": fecha}) or {}
+    if dia_doc.get("enviado"):
+        raise HTTPException(423, "La asistencia de este día fue enviada y está bloqueada. Usá 'Editar' para desbloquearla.")
     if not await db.asistencia_obreros.find_one({"_id": payload.obrero_id}):
         raise HTTPException(404, "Obrero no encontrado")
     if payload.estado == "":
