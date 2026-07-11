@@ -10,8 +10,8 @@ import { DecimalInput } from "../components/DecimalInput";
 const TIPO_META = {
   finca: { label: "Venta en finca", icon: Home, color: "#16a34a" },
   ciudad: { label: "Envío a ciudad", icon: Truck, color: "#3b82f6" },
-  refrigerar: { label: "Refrigerar", icon: Snowflake, color: "#0ea5e9" },
-  congelar: { label: "Congelar", icon: Snowflake, color: "#6366f1" },
+  refrigerar: { label: "Refrigerado", icon: Snowflake, color: "#0ea5e9" },
+  congelar: { label: "Congelado", icon: Snowflake, color: "#6366f1" },
   descarte: { label: "Descarte", icon: AlertCircle, color: "#dc2626" },
   donaciones: { label: "Donaciones", icon: Heart, color: "#ec4899" },
 };
@@ -22,7 +22,7 @@ const REASIGNAR_DESTINOS = {
   refrigerar: ["congelar", "donaciones", "descarte"],
   congelar: ["donaciones", "descarte"],
 };
-const DESTINO_LABEL = { descarte: "Descarte", donaciones: "Donaciones", refrigerar: "Refrigerar", congelar: "Congelar" };
+const DESTINO_LABEL = { descarte: "Descarte", donaciones: "Donaciones", refrigerar: "Refrigerado", congelar: "Congelado" };
 
 const fmtMoney = (n) => "US$ " + Number(n || 0).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 

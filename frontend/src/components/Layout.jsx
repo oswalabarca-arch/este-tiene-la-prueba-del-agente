@@ -46,8 +46,8 @@ const NAV = [
     sub: [
       { to: "/dashboard/ventas/finca", label: "Venta en finca", icon: Home },
       { to: "/dashboard/ventas/ciudad", label: "Envío a ciudad", icon: Building2 },
-      { to: "/dashboard/ventas/refrigerar", label: "Refrigerar", icon: Snowflake },
-      { to: "/dashboard/ventas/congelar", label: "Congelar", icon: Snowflake },
+      { to: "/dashboard/ventas/refrigerar", label: "Refrigerado", icon: Snowflake },
+      { to: "/dashboard/ventas/congelar", label: "Congelado", icon: Snowflake },
       { to: "/dashboard/ventas/descarte", label: "Descarte", icon: AlertCircle },
       { to: "/dashboard/ventas/donaciones", label: "Donaciones", icon: Heart },
     ],

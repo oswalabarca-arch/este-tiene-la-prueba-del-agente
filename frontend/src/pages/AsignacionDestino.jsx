@@ -15,8 +15,8 @@ const DESTINOS = [
   { key: "venta_finca", label: "Venta en finca", icon: Home, color: "#16a34a" },
   { key: "enviar_ciudad", label: "Enviar a ciudad", icon: Truck, color: "#3b82f6" },
   { key: "enviar_otra_ciudad", label: "Enviar a otra ciudad", icon: MapPin, color: "#7c3aed" },
-  { key: "refrigerar", label: "Refrigerar", icon: Thermometer, color: "#0ea5e9" },
-  { key: "congelar", label: "Congelar", icon: Snowflake, color: "#0284c7" },
+  { key: "refrigerar", label: "Refrigerado", icon: Thermometer, color: "#0ea5e9" },
+  { key: "congelar", label: "Congelado", icon: Snowflake, color: "#0284c7" },
   { key: "descarte", label: "Descarte", icon: Trash2, color: "#dc2626" },
   { key: "donaciones", label: "Donaciones", icon: Heart, color: "#db2777" },
 ];

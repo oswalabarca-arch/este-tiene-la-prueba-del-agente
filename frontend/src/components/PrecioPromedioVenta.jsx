@@ -7,8 +7,8 @@ const SYSTEM_ORIGENES = ["asignacion_destino", "ajuste_entrada", "ajuste_salida"
 const CANALES = [
   { tipo: "finca", label: "Venta en finca" },
   { tipo: "ciudad", label: "Envío a ciudad" },
-  { tipo: "refrigerar", label: "Refrigerar" },
-  { tipo: "congelar", label: "Congelar" },
+  { tipo: "refrigerar", label: "Refrigerado" },
+  { tipo: "congelar", label: "Congelado" },
 ];
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const MESES_C = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
