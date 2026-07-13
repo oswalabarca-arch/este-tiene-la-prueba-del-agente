@@ -8,6 +8,16 @@ const fmtMoney = (n) => {
 };
 const fmtNum = (n) => Number(n || 0).toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
+// Convierte a kilo/litro: cada 1000 unidades (gramos/cc/ml) = 1 kg / 1 L.
+function toKgLt(total, unidad) {
+  const u = (unidad || "").trim().toLowerCase();
+  if (["cc", "ml", "mililitro", "mililitros"].includes(u)) return { total: total / 1000, unidad: "L" };
+  if (["lt", "l", "litro", "litros", "lts"].includes(u)) return { total, unidad: "L" };
+  if (["kg", "kilo", "kilos", "kilogramo", "kilogramos", "kgs"].includes(u)) return { total, unidad: "kg" };
+  // gramos y cualquier otra unidad "por unidad" se tratan como 1000 = 1 kg
+  return { total: total / 1000, unidad: "kg" };
+}
+
 const MEDALS = ["#f59e0b", "#94a3b8", "#b45309", "#64748b", "#64748b"];
 
 function Ranking({ items, testid, color, bg, valueFmt, unitOf }) {
@@ -71,10 +81,10 @@ export default function TopProductosGasto() {
         </div>
         <div style={{ flex: "1 1 320px", minWidth: 280 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, color: "#0369a1", fontSize: 14, marginBottom: 10 }}>
-            <Package size={16} /> Top 5 · más gasto en unidades
+            <Package size={16} /> Top 5 · más gasto en kilo/litro
           </div>
           <Ranking items={data.top_unidades} testid="top-unidades" color="#0ea5e9"
-            valueFmt={(it) => `${fmtNum(it.total)} ${it.unidad || ""}`.trim()} />
+            valueFmt={(it) => { const c = toKgLt(it.total, it.unidad); return `${fmtNum(c.total)} ${c.unidad}`; }} />
         </div>
       </div>
     </div>
