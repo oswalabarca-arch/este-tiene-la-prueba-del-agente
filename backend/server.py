@@ -17,6 +17,9 @@ from PIL import Image, ImageOps
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Any, Dict
 
+# Zona horaria de Venezuela (UTC-4). Definida temprano para uso global.
+VE_TZ = timezone(timedelta(hours=-4))
+
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, UploadFile, File, Header, Query
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -2016,7 +2019,7 @@ async def analiticas_cxc_detalle(cliente: str, telefono: str = "", _: dict = Dep
 # Recopila: Compras (insumos) + Gastos de vehículo + Pago de trabajadores
 # (costo de actividades) + Equipos nuevos de tipo Herramienta y Motor.
 # ============================================================
-VE_TZ = timezone(timedelta(hours=-4))
+VE_TZ = timezone(timedelta(hours=-4))  # (definido también arriba, cerca de imports)
 
 
 def _parse_dt_ve(s) -> Optional[datetime]:
