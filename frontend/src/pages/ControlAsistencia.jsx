@@ -25,14 +25,14 @@ export default function ControlAsistencia() {
     <div data-testid="control-asistencia-page">
       <div style={{ marginBottom: 16 }}>
         <h1 className="page-title"><CalendarCheck size={24} style={{ verticalAlign: "middle", color: "#0ea5e9" }} /> Control de asistencia</h1>
-        <p className="page-subtitle">Asistencia diaria de los obreros. Módulo independiente.</p>
+        <p className="page-subtitle">Asistencia diaria de los trabajadores. Módulo independiente.</p>
       </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
         <TabBtn active={tab === "diario"} onClick={() => setTab("diario")} icon={CalendarDays} label="Registro diario" testid="asis-tab-diario" />
         <TabBtn active={tab === "mensual"} onClick={() => setTab("mensual")} icon={ClipboardList} label="Planilla semanal" testid="asis-tab-mensual" />
         <TabBtn active={tab === "resumen"} onClick={() => setTab("resumen")} icon={CalendarCheck} label="Resumen mensual" testid="asis-tab-resumen" />
-        <TabBtn active={tab === "obreros"} onClick={() => setTab("obreros")} icon={Users} label="Obreros" testid="asis-tab-obreros" />
+        <TabBtn active={tab === "obreros"} onClick={() => setTab("obreros")} icon={Users} label="Trabajadores" testid="asis-tab-obreros" />
       </div>
 
       {tab === "diario" && <RegistroDiario editable={editable} puedeDesbloquear={puedeDesbloquear} />}
@@ -118,11 +118,13 @@ function RegistroDiario({ editable, puedeDesbloquear }) {
           </div>
         )}
         <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
-          {editable && !enviado && filas.length > 0 && (
-            <button className="btn btn-primary btn-sm" onClick={enviarAsistencia} data-testid="asis-enviar-btn"><Send size={15} /> Enviar asistencia</button>
+          {editable && filas.length > 0 && (
+            <button className="btn btn-primary btn-sm" onClick={enviarAsistencia} disabled={enviado} data-testid="asis-enviar-btn"><Send size={15} /> Enviar asistencia</button>
           )}
-          {enviado && puedeDesbloquear && (
-            <button className="btn btn-sm" onClick={reabrir} data-testid="asis-editar-btn" style={{ borderColor: "#f59e0b", color: "#b45309" }}><Pencil size={15} /> Editar</button>
+          {editable && filas.length > 0 && puedeDesbloquear && (
+            <button className="btn btn-sm" onClick={reabrir} disabled={!enviado} data-testid="asis-editar-btn"
+              title={enviado ? "Editar la asistencia enviada" : "Solo se puede editar una asistencia ya enviada"}
+              style={{ borderColor: "#f59e0b", color: enviado ? "#b45309" : "#cbd5e1" }}><Pencil size={15} /> Editar</button>
           )}
         </div>
       </div>
@@ -147,7 +149,7 @@ function RegistroDiario({ editable, puedeDesbloquear }) {
       )}
 
       {filas.length === 0 ? (
-        <div className="empty-state" data-testid="asis-diario-empty">No hay obreros activos. Agregalos en la pestaña "Obreros".</div>
+        <div className="empty-state" data-testid="asis-diario-empty">No hay trabajadores activos. Agregalos en la pestaña "Trabajadores".</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {filas.map((f) => (
@@ -258,7 +260,7 @@ function PlanillaSemanal() {
       </div>
       <p style={{ color: "#64748b", fontSize: 12, margin: "0 0 14px" }}>
         Ordenado de mayor a menor jornales. Incluye sábado y domingo. <b>BCV $</b> = jornales × salario diario · <b>Bolívares</b> = BCV $ × tasa.
-        El salario por defecto aplica a todos; podés cambiarlo por obrero en la columna "Salario diario".
+        El salario por defecto aplica a todos; podés cambiarlo por trabajador en la columna "Salario diario".
       </p>
 
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 14 }}>
@@ -272,13 +274,13 @@ function PlanillaSemanal() {
       </div>
 
       {filas.length === 0 ? (
-        <div className="empty-state" data-testid="asis-mensual-empty">No hay obreros activos para mostrar.</div>
+        <div className="empty-state" data-testid="asis-mensual-empty">No hay trabajadores activos para mostrar.</div>
       ) : (
         <div style={{ overflowX: "auto" }}>
           <table className="table" style={{ minWidth: 900 }} data-testid="asis-mensual-tabla">
             <thead>
               <tr>
-                <th style={{ minWidth: 140 }}>Obrero</th>
+                <th style={{ minWidth: 140 }}>Trabajador</th>
                 {dias.map((f, i) => {
                   const dd = new Date(f + "T00:00:00");
                   const finde = i >= 5;
@@ -391,7 +393,7 @@ function ResumenMensual() {
         <button className="btn-icon" onClick={() => cambiarMes(1)} data-testid="asis-resumen-next"><ChevronRight size={18} /></button>
       </div>
       <p style={{ color: "#64748b", fontSize: 12, margin: "0 0 14px" }}>
-        Total del mes por obrero, sumando todas las semanas. Cada día usa la tasa y el salario de su semana respectiva.
+        Total del mes por trabajador, sumando todas las semanas. Cada día usa la tasa y el salario de su semana respectiva.
       </p>
 
       {filas.length === 0 ? (
@@ -401,7 +403,7 @@ function ResumenMensual() {
           <table className="table" data-testid="asis-resumen-tabla">
             <thead>
               <tr>
-                <th style={{ minWidth: 150 }}>Obrero</th>
+                <th style={{ minWidth: 150 }}>Trabajador</th>
                 <th style={{ textAlign: "center", background: "#f0fdf4" }}>Jornales</th>
                 <th style={{ textAlign: "center", background: "#eff6ff", color: "#1d4ed8" }}>BCV $</th>
                 <th style={{ textAlign: "center", background: "#fef9c3", color: "#a16207" }}>Bolívares</th>
@@ -447,18 +449,18 @@ function Obreros({ editable }) {
   const remove = async (o) => {
     if (!window.confirm(`¿Eliminar a "${o.nombre}"? Se borrará también su asistencia registrada.`)) return;
     await api.delete(`/asistencia/obreros/${o._id}`);
-    toast.show("Obrero eliminado");
+    toast.show("Trabajador eliminado");
     load();
   };
 
   return (
     <div className="card" data-testid="asis-obreros">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-        <h3 style={{ margin: 0 }}>Obreros ({obreros.length})</h3>
-        {editable && <button className="btn btn-primary btn-sm" onClick={() => { setEditing(null); setShowForm(true); }} data-testid="asis-obrero-new"><Plus size={15} /> Agregar obrero</button>}
+        <h3 style={{ margin: 0 }}>Trabajadores ({obreros.length})</h3>
+        {editable && <button className="btn btn-primary btn-sm" onClick={() => { setEditing(null); setShowForm(true); }} data-testid="asis-obrero-new"><Plus size={15} /> Agregar trabajador</button>}
       </div>
       {obreros.length === 0 ? (
-        <div className="empty-state" data-testid="asis-obreros-empty">No hay obreros registrados. Agregá el primero.</div>
+        <div className="empty-state" data-testid="asis-obreros-empty">No hay trabajadores registrados. Agregá el primero.</div>
       ) : (
         <table className="table" data-testid="asis-obreros-tabla">
           <thead><tr><th>Nombre</th><th>Cargo</th><th>Estado</th>{editable && <th style={{ textAlign: "right" }}>Acciones</th>}</tr></thead>
@@ -496,7 +498,7 @@ function ObreroForm({ initial, onClose, onSaved }) {
     try {
       if (initial) await api.put(`/asistencia/obreros/${initial._id}`, form);
       else await api.post("/asistencia/obreros", form);
-      toast.show(initial ? "Obrero actualizado" : "Obrero agregado");
+      toast.show(initial ? "Trabajador actualizado" : "Trabajador agregado");
       onSaved();
     } catch { toast.show("Error al guardar", "error"); } finally { setBusy(false); }
   };
@@ -504,7 +506,7 @@ function ObreroForm({ initial, onClose, onSaved }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={submit} data-testid="asis-obrero-modal">
-        <h2 className="modal-title">{initial ? "Editar obrero" : "Nuevo obrero"}</h2>
+        <h2 className="modal-title">{initial ? "Editar trabajador" : "Nuevo trabajador"}</h2>
         <button type="button" className="btn-icon" onClick={onClose} style={{ position: "absolute", top: 14, right: 14 }}><X size={20} /></button>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div className="field">
