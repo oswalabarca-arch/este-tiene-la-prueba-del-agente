@@ -27,7 +27,7 @@ function ActividadesBase({ filtro }) {
   const [plantaciones, setPlantaciones] = useState([]);
   const [viewing, setViewing] = useState(null);
   // Filtros del historial de actividades
-  const [period, setPeriod] = useState("todo");
+  const [period, setPeriod] = useState("mes");
   const [mesSel, setMesSel] = useState(currentMonthStr);
   const [anioSel, setAnioSel] = useState(currentYearStr);
   const [filtroTipo, setFiltroTipo] = useState("");

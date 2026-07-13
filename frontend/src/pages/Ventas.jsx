@@ -63,7 +63,7 @@ function Ventas({ tipo }) {
   const [editing, setEditing] = useState(null); // null=cerrado, {}=nuevo, {...}=editar
   const [unidad, setUnidad] = useState("cestas");
   // Filtros del registro
-  const [period, setPeriod] = useState("todo");
+  const [period, setPeriod] = useState("mes");
   const [mesSel, setMesSel] = useState(currentMonthStr);
   const [anioSel, setAnioSel] = useState(currentYearStr);
   const [search, setSearch] = useState("");

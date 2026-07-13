@@ -104,7 +104,7 @@ export function Nomina() {
   const [plantaciones, setPlantaciones] = useState([]);
   const [filtroTipo, setFiltroTipo] = useState("");
   const [filtroLote, setFiltroLote] = useState("");
-  const [filtroPeriodo, setFiltroPeriodo] = useState("todos");
+  const [filtroPeriodo, setFiltroPeriodo] = useState("mes");
   const [mesSel, setMesSel] = useState(currentMonthStr);
   const [anioSel, setAnioSel] = useState(currentYearStr);
 

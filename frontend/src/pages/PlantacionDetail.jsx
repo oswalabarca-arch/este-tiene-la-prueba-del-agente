@@ -335,7 +335,7 @@ function PhotoUpload({ value, label }) {
 
 function AplicacionesTab({ items }) {
   const [aplicMetric, setAplicMetric] = useState("cantidad"); // cantidad | costo | pct
-  const [period, setPeriod] = useState("todo"); // todo | semana | mes | año
+  const [period, setPeriod] = useState("mes"); // todo | semana | mes | año
   const [mesSel, setMesSel] = useState(currentMonthStr);
   const [anioSel, setAnioSel] = useState(currentYearStr);
   const [filtroTipo, setFiltroTipo] = useState("");
@@ -713,7 +713,7 @@ function LaboresTab({ items }) {
 
 function CosechasTab({ items, tipos, variedades, plantasPorVar = {} }) {
   const [unidadVista, setUnidadVista] = useState("cestas");
-  const [period, setPeriod] = useState("todo");
+  const [period, setPeriod] = useState("mes");
   const [mesSel, setMesSel] = useState(currentMonthStr);
   const [anioSel, setAnioSel] = useState(currentYearStr);
   const [filtroVariedad, setFiltroVariedad] = useState("");

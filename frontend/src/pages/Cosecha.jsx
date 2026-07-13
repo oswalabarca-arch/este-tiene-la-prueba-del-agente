@@ -17,7 +17,7 @@ export default function Cosecha() {
   const [variedades, setVariedades] = useState([]);
   const [plantaciones, setPlantaciones] = useState([]);
   const [editing, setEditing] = useState(null);
-  const [period, setPeriod] = useState("todo");  // hoy | semana | mes | año | todo
+  const [period, setPeriod] = useState("mes");  // hoy | semana | mes | año | todo
   const [mesSel, setMesSel] = useState(currentMonthStr);
   const [anioSel, setAnioSel] = useState(currentYearStr);
   const [unidadVista, setUnidadVista] = useState("cestas");

@@ -42,7 +42,7 @@ export default function Aplicaciones() {
   const [editAplic, setEditAplic] = useState(null);
   const [filtroTipo, setFiltroTipo] = useState("");
   const [busqueda, setBusqueda] = useState("");
-  const [filtroPeriodo, setFiltroPeriodo] = useState("todos");
+  const [filtroPeriodo, setFiltroPeriodo] = useState("mes");
   const [mesSel, setMesSel] = useState(currentMonthStr);
   const [anioSel, setAnioSel] = useState(currentYearStr);
 
