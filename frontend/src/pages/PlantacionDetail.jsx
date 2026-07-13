@@ -542,7 +542,9 @@ function AplicacionesTab({ items }) {
                 <td>{new Date(a.fecha).toLocaleDateString()}</td>
                 <td><span className="badge" style={catBadge(a.tipo)}>{a.tipo}</span></td>
                 <td style={{ fontSize: 12, color: "#475569" }}>
-                  {a.insumos_costo && a.insumos_costo.length > 0
+                  {a.subtipo === "receta"
+                    ? <span className="badge" style={{ background: "#f3e8ff", color: "#7c3aed", fontSize: 11 }} data-testid="aplic-receta-badge">Receta</span>
+                    : a.insumos_costo && a.insumos_costo.length > 0
                     ? a.insumos_costo.map((ic) => (
                         <div key={`${ic.nombre_producto}-${ic.cantidad}`}>
                           {ic.nombre_producto} <b>{Number(ic.cantidad).toFixed(2)}</b> {ic.unidad} · <span style={{ color: "#16a34a" }}>${ic.costo.toFixed(2)}</span>
