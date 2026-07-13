@@ -2,6 +2,7 @@ import GastosSemana from "../components/GastosSemana";
 import StockCanales from "../components/StockCanales";
 import DashboardTotales from "../components/DashboardTotales";
 import AlertasReposicion from "../components/AlertasReposicion";
+import TopProductosGasto from "../components/TopProductosGasto";
 
 export default function Dashboard() {
   return (
@@ -10,6 +11,8 @@ export default function Dashboard() {
       <p className="page-subtitle">Bienvenido al sistema de gestión agrícola premium</p>
 
       <DashboardTotales />
+
+      <TopProductosGasto />
 
       <StockCanales />
 

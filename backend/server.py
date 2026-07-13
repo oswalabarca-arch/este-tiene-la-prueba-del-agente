@@ -1084,6 +1084,38 @@ async def dashboard_alertas_reposicion(dias: int = 30, categoria: str = "fertili
     return {"categoria": categoria, "dias_periodo": dias, "productos": productos, "resumen": resumen}
 
 
+@api.get("/dashboard/top-productos")
+async def dashboard_top_productos(limit: int = 5, _: dict = Depends(get_current_user)):
+    """Top de productos con mayor gasto según las aplicaciones (solo lectura).
+    - top_dinero: productos con mayor costo real (PEPS/FIFO) en $.
+    - top_unidades: productos con mayor cantidad consumida (en su unidad).
+    No modifica ningún módulo."""
+    costos = await _compute_fifo_costs_per_aplicacion()
+    money: Dict[str, Dict[str, Any]] = {}
+    units: Dict[str, Dict[str, Any]] = {}
+    for _aid, c in costos.items():
+        for ic in c.get("insumos_costo", []):
+            nombre = (ic.get("nombre_producto") or "").strip()
+            if not nombre:
+                continue
+            key = nombre.lower()
+            unidad = ic.get("unidad") or "u."
+            m = money.setdefault(key, {"nombre_producto": nombre, "total": 0.0})
+            m["total"] += float(ic.get("costo") or 0)
+            u = units.setdefault(key, {"nombre_producto": nombre, "unidad": unidad, "total": 0.0})
+            u["total"] += float(ic.get("cantidad") or 0)
+            if not u.get("unidad"):
+                u["unidad"] = unidad
+    top_dinero = sorted(money.values(), key=lambda x: x["total"], reverse=True)[:limit]
+    top_unidades = sorted(units.values(), key=lambda x: x["total"], reverse=True)[:limit]
+    for t in top_dinero:
+        t["total"] = round(t["total"], 2)
+    for t in top_unidades:
+        t["total"] = round(t["total"], 2)
+    return {"top_dinero": top_dinero, "top_unidades": top_unidades}
+
+
+
 
 # ============================================================
 # EQUIPOS
