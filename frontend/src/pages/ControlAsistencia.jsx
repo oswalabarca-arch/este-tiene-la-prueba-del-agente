@@ -13,7 +13,8 @@ const ORDEN = ["presente", "medio_dia"];
 const DIAS_SEM = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
-const todayStr = () => new Date().toISOString().slice(0, 10);
+const fmtYMD = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const todayStr = () => fmtYMD(new Date());
 
 export default function ControlAsistencia() {
   const { canEdit, canDelete } = useAuth();
@@ -534,5 +535,5 @@ function ObreroForm({ initial, onClose, onSaved }) {
 function shiftDate(str, delta) {
   const d = new Date(str + "T00:00:00");
   d.setDate(d.getDate() + delta);
-  return d.toISOString().slice(0, 10);
+  return fmtYMD(d);
 }
