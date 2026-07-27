@@ -126,25 +126,6 @@ export default function CostosPorKg() {
       <CostoKgRow num={2} label="COSTO TOTAL POR KG" hint="(Costo de ventas + gastos operativos) ÷ kg cosechados" value={data?.costo_total_por_kg} trend={deltaPct(data?.costo_total_por_kg, prev?.costo_total_por_kg)} testid="er-costo-total-por-kg" />
       <CostoKgRow num={3} label="COSTO REAL VENDIBLE" hint="Costo total de ventas ÷ (cosechados − descarte − reasignado a descarte − donaciones)" value={data?.costo_real_vendible} trend={deltaPct(data?.costo_real_vendible, prev?.costo_real_vendible)} testid="er-costo-real-vendible" />
       <CostoKgRow num={4} label="COSTO TOTAL REAL VENDIBLE" hint="(Costo de ventas + gastos operativos) ÷ (cosechados − descarte − reasignado a descarte − donaciones)" value={data?.costo_total_real_vendible} trend={deltaPct(data?.costo_total_real_vendible, prev?.costo_total_real_vendible)} testid="er-costo-total-real-vendible" />
-
-      {/* GANANCIA REAL POR KG = precio promedio de venta − costo total real vendible */}
-      <div style={{ marginTop: 14, background: (data?.ganancia_real_kg ?? 0) >= 0 ? "linear-gradient(135deg,#f0fdf4,#dcfce7)" : "linear-gradient(135deg,#fef2f2,#fee2e2)", border: `2px solid ${(data?.ganancia_real_kg ?? 0) >= 0 ? "#86efac" : "#fca5a5"}`, borderRadius: 12, padding: "14px 16px" }} data-testid="er-ganancia-real-kg-card">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: 0.5, color: (data?.ganancia_real_kg ?? 0) >= 0 ? "#15803d" : "#b91c1c" }}>GANANCIA REAL POR KG</div>
-            <div style={{ color: "#64748b", fontSize: 11.5, marginTop: 2 }}>Precio promedio de venta − Costo total real vendible</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 28, fontWeight: 800, color: (data?.ganancia_real_kg ?? 0) >= 0 ? "#15803d" : "#dc2626", lineHeight: 1.1 }} data-testid="er-ganancia-real-kg">
-              {fmtCostoKg(data?.ganancia_real_kg)}<span style={{ fontSize: 13, color: "#94a3b8", fontWeight: 600 }}>/kg</span>
-            </div>
-          </div>
-        </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginTop: 8, fontSize: 12.5, color: "#475569", borderTop: "1px dashed rgba(0,0,0,0.08)", paddingTop: 8 }}>
-          <span>Precio promedio/kg: <b style={{ color: "#15803d" }}>{fmtCostoKg(data?.precio_promedio_kg)}</b></span>
-          <span>− Costo total real vendible/kg: <b style={{ color: "#7c3aed" }}>{fmtCostoKg(data?.costo_total_real_vendible)}</b></span>
-        </div>
-      </div>
     </div>
   );
 }

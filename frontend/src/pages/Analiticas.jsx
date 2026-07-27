@@ -5,6 +5,7 @@ import { FileBarChart, Save, Lock, TrendingUp, TrendingDown, LineChart as LineCh
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import PrecioPromedioVenta from "../components/PrecioPromedioVenta";
 import CostosPorKg from "../components/CostosPorKg";
+import GananciaRealPorKg from "../components/GananciaRealPorKg";
 
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const MESES_CORTO = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
@@ -152,6 +153,9 @@ export default function Analiticas() {
       <div style={{ flex: "1 1 360px", maxWidth: 480, minWidth: 0, display: "flex", flexDirection: "column", gap: 18 }}>
       {/* Costos por kg (filtro propio: Todo/Semana/Mes/Año) */}
       <CostosPorKg />
+
+      {/* Ganancia real por kg (filtro propio) */}
+      <GananciaRealPorKg />
 
       {/* Precio promedio de venta (mismo ancho, debajo de Costos por kilogramo) */}
       <PrecioPromedioVenta />
