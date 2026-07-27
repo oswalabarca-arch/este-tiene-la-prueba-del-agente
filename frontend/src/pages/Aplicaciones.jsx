@@ -292,8 +292,8 @@ export default function Aplicaciones() {
         </div>
       )}
 
-      {showForm && <AplicacionForm inventario={inventario} plantaciones={plantaciones} recetas={recetas} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load(); }} />}
-      {editAplic && <AplicacionForm initial={editAplic} inventario={inventario} plantaciones={plantaciones} recetas={recetas} onClose={() => setEditAplic(null)} onSaved={() => { setEditAplic(null); load(); }} />}
+      {showForm && <AplicacionForm inventario={inventario} plantaciones={plantaciones.filter((p) => !p.archivada)} recetas={recetas} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load(); }} />}
+      {editAplic && <AplicacionForm initial={editAplic} inventario={inventario} plantaciones={plantaciones.filter((p) => !p.archivada)} recetas={recetas} onClose={() => setEditAplic(null)} onSaved={() => { setEditAplic(null); load(); }} />}
       {viewAplic && <AplicacionDetail aplicacion={viewAplic} recetas={recetas} onClose={() => setViewAplic(null)} />}
       {showRecetaForm && <RecetaForm inventario={inventario} onClose={() => setShowRecetaForm(false)} onSaved={() => { setShowRecetaForm(false); load(); toast.show("Receta creada"); }} />}
       {editReceta && <RecetaForm initial={editReceta} inventario={inventario} onClose={() => setEditReceta(null)} onSaved={() => { setEditReceta(null); load(); toast.show("Receta actualizada"); }} />}

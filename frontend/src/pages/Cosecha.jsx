@@ -228,7 +228,7 @@ export default function Cosecha() {
           initial={editing}
           tipos={tipos}
           variedades={variedades}
-          plantaciones={plantaciones}
+          plantaciones={plantaciones.filter((p) => !p.archivada)}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); loadAll(); }}
         />

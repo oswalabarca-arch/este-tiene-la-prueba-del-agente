@@ -119,7 +119,7 @@ function ActividadesBase({ filtro }) {
         )
       ) : (
         <>
-          <RegistrarActividadForm plantaciones={plantaciones} onSaved={load} />
+          <RegistrarActividadForm plantaciones={plantaciones.filter((p) => !p.archivada)} onSaved={load} />
           <div className="card" style={{ marginTop: 18 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
               <h3 style={{ margin: 0 }}>Historial de actividades</h3>
