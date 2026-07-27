@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
-import { Plus, Pencil, Trash2, MapPin, ImageOff, Sprout, X, Upload } from "lucide-react";
+import { Plus, Pencil, Trash2, MapPin, ImageOff, Sprout, X, Upload, Archive, ArchiveRestore } from "lucide-react";
 import { DecimalInput } from "../components/DecimalInput";
 
 export default function Plantaciones() {
@@ -14,6 +14,7 @@ export default function Plantaciones() {
   const [items, setItems] = useState([]);
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState(null);
+  const [view, setView] = useState("activos"); // activos | archivados
 
   const load = useCallback(() => api.get("/plantaciones").then((r) => setItems(r.data.plantaciones)), []);
   useEffect(() => { load(); }, [load]);
@@ -36,8 +37,25 @@ export default function Plantaciones() {
     load();
   };
 
+  const archivar = async (p) => {
+    if (!window.confirm(`¿Archivar el lote "${p.nombre}"? Se guardará toda su información pero dejará de aparecer entre los activos.`)) return;
+    await api.post(`/plantaciones/${p._id}/archivar`);
+    toast.show("Lote archivado");
+    load();
+  };
+
+  const desarchivar = async (p) => {
+    await api.post(`/plantaciones/${p._id}/desarchivar`);
+    toast.show("Lote reactivado");
+    load();
+  };
+
+  const nActivos = items.filter((p) => !p.archivada).length;
+  const nArchivados = items.filter((p) => p.archivada).length;
+
   const filtered = items.filter(
-    (p) => !search || JSON.stringify(p).toLowerCase().includes(search.toLowerCase())
+    (p) => (view === "archivados" ? p.archivada : !p.archivada) &&
+      (!search || JSON.stringify(p).toLowerCase().includes(search.toLowerCase()))
   );
 
   const cultivosOf = (p) => p.cultivos?.length ? p.cultivos : (p.cultivo ? [p.cultivo] : []);
@@ -56,6 +74,16 @@ export default function Plantaciones() {
       </div>
 
       <div className="card" style={{ marginBottom: 18 }}>
+        <div style={{ display: "inline-flex", background: "#f1f5f9", borderRadius: 10, padding: 3, marginBottom: 14 }} data-testid="plantaciones-view-toggle">
+          <button type="button" onClick={() => setView("activos")} data-testid="plantaciones-view-activos"
+            style={{ padding: "7px 16px", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 14, background: view === "activos" ? "#16a34a" : "transparent", color: view === "activos" ? "#fff" : "#475569" }}>
+            Activos ({nActivos})
+          </button>
+          <button type="button" onClick={() => setView("archivados")} data-testid="plantaciones-view-archivados"
+            style={{ padding: "7px 16px", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 14, background: view === "archivados" ? "#64748b" : "transparent", color: view === "archivados" ? "#fff" : "#475569" }}>
+            <Archive size={14} style={{ verticalAlign: "middle", marginRight: 5 }} />Archivados ({nArchivados})
+          </button>
+        </div>
         <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 8 }}>Buscar</label>
         <input
           className="input"
@@ -74,7 +102,7 @@ export default function Plantaciones() {
           const totalPlantas = Number(p.total_plantas || p.inventario_plantas || 0);
           return (
             <div key={p._id} className="plant-card" data-testid={`plantacion-card-${p._id}`} onClick={() => navigate(`/dashboard/plantaciones/${p._id}`)}>
-              <div className="plant-card-lote">Lote {p.lote}</div>
+              <div className="plant-card-lote">Lote {p.lote}{p.archivada && <span className="badge" style={{ marginLeft: 6, background: "#e2e8f0", color: "#475569", fontSize: 10 }}>Archivado</span>}</div>
               <div className="plant-card-img">
                 {p.foto_principal ? <img src={p.foto_principal} alt={p.nombre} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <ImageOff size={40} />}
               </div>
@@ -99,16 +127,18 @@ export default function Plantaciones() {
                 )}
                 <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <span className="badge badge-primary" style={{ fontSize: 11 }}>{p.tipo_plantacion}</span>
-                  <div>
-                    {canEdit("plantaciones") && <button className="btn-icon" onClick={(e) => { e.stopPropagation(); setEditing(p); }}><Pencil size={14} /></button>}
-                    {canDelete("plantaciones") && <button className="btn-icon" style={{ color: "#dc2626" }} onClick={(e) => { e.stopPropagation(); remove(p); }}><Trash2 size={14} /></button>}
+                  <div style={{ display: "flex", gap: 2 }}>
+                    {canEdit("plantaciones") && !p.archivada && <button className="btn-icon" title="Editar" onClick={(e) => { e.stopPropagation(); setEditing(p); }}><Pencil size={14} /></button>}
+                    {canEdit("plantaciones") && !p.archivada && <button className="btn-icon" title="Archivar lote finalizado" onClick={(e) => { e.stopPropagation(); archivar(p); }} data-testid={`plantacion-archivar-${p._id}`}><Archive size={14} /></button>}
+                    {canEdit("plantaciones") && p.archivada && <button className="btn-icon" style={{ color: "#16a34a" }} title="Reactivar lote" onClick={(e) => { e.stopPropagation(); desarchivar(p); }} data-testid={`plantacion-desarchivar-${p._id}`}><ArchiveRestore size={14} /></button>}
+                    {canDelete("plantaciones") && <button className="btn-icon" style={{ color: "#dc2626" }} title="Eliminar" onClick={(e) => { e.stopPropagation(); remove(p); }}><Trash2 size={14} /></button>}
                   </div>
                 </div>
               </div>
             </div>
           );
         })}
-        {filtered.length === 0 && <div className="empty-state">Sin plantaciones</div>}
+        {filtered.length === 0 && <div className="empty-state">{view === "archivados" ? "No hay lotes archivados" : "Sin plantaciones activas"}</div>}
       </div>
 
       {editing && <PlantacionModal initial={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}

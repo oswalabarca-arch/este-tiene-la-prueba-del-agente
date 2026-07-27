@@ -451,6 +451,24 @@ async def delete_plantacion(pid: str, _: dict = Depends(get_current_user)):
     return await _delete("plantaciones", pid)
 
 
+@api.post("/plantaciones/{pid}/archivar")
+async def archivar_plantacion(pid: str, _: dict = Depends(get_current_user)):
+    """Archiva un lote finalizado: se conserva toda su info pero deja de aparecer entre los activos."""
+    res = await db.plantaciones.update_one({"_id": pid}, {"$set": {"archivada": True, "fecha_archivado": datetime.now(VE_TZ).isoformat()}})
+    if res.matched_count == 0:
+        raise HTTPException(404, "No encontrado")
+    return await db.plantaciones.find_one({"_id": pid}, {"_id": 0})
+
+
+@api.post("/plantaciones/{pid}/desarchivar")
+async def desarchivar_plantacion(pid: str, _: dict = Depends(get_current_user)):
+    """Reactiva un lote archivado (vuelve a los activos)."""
+    res = await db.plantaciones.update_one({"_id": pid}, {"$set": {"archivada": False}, "$unset": {"fecha_archivado": ""}})
+    if res.matched_count == 0:
+        raise HTTPException(404, "No encontrado")
+    return await db.plantaciones.find_one({"_id": pid}, {"_id": 0})
+
+
 # ============================================================
 # COSECHAS
 # ============================================================
