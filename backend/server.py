@@ -2410,14 +2410,16 @@ async def costos_kg_filtrado(gran: str = "todo", anchor: Optional[str] = None, _
             continue
         if _in_win(d.get("fecha"), desde, hasta):
             kg_descarte_reasignado += float(d.get("cantidad_kg") or (d.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
-    # KG VENDIDOS reales (para la conciliación)
+    # KG VENDIDOS reales (para la conciliación) + ingreso de ventas del período
     kg_vendidos = 0.0
+    ingreso_ventas = 0.0
     for tipo in ("finca", "ciudad", "refrigerar", "congelar"):
         for v in await db[f"ventas_{tipo}"].find({}).to_list(20000):
             if v.get("origen") in VENTA_SYSTEM_ORIGENES:
                 continue
             if _in_win(v.get("fecha"), desde, hasta):
                 kg_vendidos += float(v.get("cantidad_kg") or (v.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
+                ingreso_ventas += float(v.get("total") or 0)
     kg_cosechados = round(kg_cosechados, 2)
     kg_descarte = round(kg_descarte, 2)
     kg_donaciones = round(kg_donaciones, 2)
@@ -2457,6 +2459,9 @@ async def costos_kg_filtrado(gran: str = "todo", anchor: Optional[str] = None, _
         "costo_total_por_kg": round(costo_con_op / kg_cosechados, 4) if kg_cosechados > 0 else 0,
         "costo_real_vendible": round(total_costo / kg_vendible, 4) if kg_vendible > 0 else 0,
         "costo_total_real_vendible": round(costo_con_op / kg_vendible, 4) if kg_vendible > 0 else 0,
+        "ingreso_ventas": round(ingreso_ventas, 2),
+        "precio_promedio_kg": round(ingreso_ventas / kg_vendidos, 4) if kg_vendidos > 0 else 0,
+        "ganancia_real_kg": round((ingreso_ventas / kg_vendidos if kg_vendidos > 0 else 0) - (costo_con_op / kg_vendible if kg_vendible > 0 else 0), 4),
     }
 
 
