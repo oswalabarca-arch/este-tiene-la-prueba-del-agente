@@ -2196,10 +2196,19 @@ async def _build_estado_resultados(anio: int, mes: Optional[int]) -> dict:
             continue
         if _en_periodo(d.get("fecha"), anio, mes):
             kg_donaciones += float(d.get("cantidad_kg") or (d.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
+    # DESCARTE reasignado: fruta buena reenviada al canal Descarte (NO el descarte de calidad,
+    # que llega con origen=asignacion_destino y ya está contado en kg_descarte).
+    kg_descarte_reasignado = 0.0
+    for d in await db.ventas_descarte.find({}).to_list(20000):
+        if d.get("origen") == "asignacion_destino":
+            continue
+        if _en_periodo(d.get("fecha"), anio, mes):
+            kg_descarte_reasignado += float(d.get("cantidad_kg") or (d.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
     kg_cosechados = round(kg_cosechados, 2)
     kg_descarte = round(kg_descarte, 2)
     kg_donaciones = round(kg_donaciones, 2)
-    kg_vendible = round(kg_cosechados - kg_descarte - kg_donaciones, 2)
+    kg_descarte_reasignado = round(kg_descarte_reasignado, 2)
+    kg_vendible = round(kg_cosechados - kg_descarte - kg_donaciones - kg_descarte_reasignado, 2)
 
     # Valores guardados del periodo (manuales + snapshot de salarios congelado)
     doc = await db.estado_resultados.find_one({"anio": anio, "mes": mes})
@@ -2224,7 +2233,7 @@ async def _build_estado_resultados(anio: int, mes: Optional[int]) -> dict:
         "ingresos": {"ventas_fresa": round(ventas_fresa, 2), "otros_ingresos": round(otros_ingresos, 2), "total": total_ingresos},
         "costo_ventas": {"fertilizantes_agroquimicos": round(fert_agro, 2), "mano_obra": round(mano_obra, 2), "total": total_costo_ventas},
         "gastos_operativos": {"salarios": round(salarios, 2), "gastos_vehiculo": round(gastos_vehiculo, 2), "software_erp": round(software_erp, 2), "total": total_gastos_op},
-        "cosecha": {"kg_cosechados": kg_cosechados, "kg_descarte": kg_descarte, "kg_donaciones": kg_donaciones, "kg_vendible": kg_vendible},
+        "cosecha": {"kg_cosechados": kg_cosechados, "kg_descarte": kg_descarte, "kg_donaciones": kg_donaciones, "kg_descarte_reasignado": kg_descarte_reasignado, "kg_vendible": kg_vendible},
         "utilidad_bruta": utilidad_bruta,
         "utilidad_operativa": utilidad_operativa,
     }
@@ -2264,6 +2273,7 @@ async def costos_kg_tendencia(anio: int, _: dict = Depends(get_current_user)):
     gastos = await db.gastos_vehiculos.find({}).to_list(20000)
     cosechas = await db.cosechas.find({}).to_list(20000)
     donaciones = await db.ventas_donaciones.find({}).to_list(20000)
+    descartes_ch = await db.ventas_descarte.find({}).to_list(20000)
     docs_by_mes = {d.get("mes"): d for d in await db.estado_resultados.find({"anio": anio}).to_list(200)}
     base_salario = await _current_salarios_mensual()
 
@@ -2294,7 +2304,13 @@ async def costos_kg_tendencia(anio: int, _: dict = Depends(get_current_user)):
                 continue
             if _en_periodo(d.get("fecha"), anio, m):
                 kg_don += float(d.get("cantidad_kg") or (d.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
-        kg_vend = kg_cos - kg_desc - kg_don
+        kg_desc_re = 0.0
+        for d in descartes_ch:
+            if d.get("origen") == "asignacion_destino":
+                continue
+            if _en_periodo(d.get("fecha"), anio, m):
+                kg_desc_re += float(d.get("cantidad_kg") or (d.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
+        kg_vend = kg_cos - kg_desc - kg_don - kg_desc_re
         costo_ventas = fert + mano
         costo_con_op = costo_ventas + sal + gveh + soft
         meses.append({
@@ -2387,10 +2403,28 @@ async def costos_kg_filtrado(gran: str = "todo", anchor: Optional[str] = None, _
             continue
         if _in_win(d.get("fecha"), desde, hasta):
             kg_donaciones += float(d.get("cantidad_kg") or (d.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
+    # DESCARTE reasignado (fruta buena enviada al canal descarte; el automático ya va en kg_descarte)
+    kg_descarte_reasignado = 0.0
+    for d in await db.ventas_descarte.find({}).to_list(20000):
+        if d.get("origen") == "asignacion_destino":
+            continue
+        if _in_win(d.get("fecha"), desde, hasta):
+            kg_descarte_reasignado += float(d.get("cantidad_kg") or (d.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
+    # KG VENDIDOS reales (para la conciliación)
+    kg_vendidos = 0.0
+    for tipo in ("finca", "ciudad", "refrigerar", "congelar"):
+        for v in await db[f"ventas_{tipo}"].find({}).to_list(20000):
+            if v.get("origen") in VENTA_SYSTEM_ORIGENES:
+                continue
+            if _in_win(v.get("fecha"), desde, hasta):
+                kg_vendidos += float(v.get("cantidad_kg") or (v.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
     kg_cosechados = round(kg_cosechados, 2)
     kg_descarte = round(kg_descarte, 2)
     kg_donaciones = round(kg_donaciones, 2)
-    kg_vendible = round(kg_cosechados - kg_descarte - kg_donaciones, 2)
+    kg_descarte_reasignado = round(kg_descarte_reasignado, 2)
+    kg_vendible = round(kg_cosechados - kg_descarte - kg_donaciones - kg_descarte_reasignado, 2)
+    kg_vendidos = round(kg_vendidos, 2)
+    kg_disponible = round(kg_vendible - kg_vendidos, 2)
 
     # SALARIOS prorrateados por dias de la ventana
     today = datetime.now(VE_TZ).date()
@@ -2416,7 +2450,7 @@ async def costos_kg_filtrado(gran: str = "todo", anchor: Optional[str] = None, _
         "desde": desde,
         "hasta": hasta,
         "dias": dias,
-        "cosecha": {"kg_cosechados": kg_cosechados, "kg_descarte": kg_descarte, "kg_donaciones": kg_donaciones, "kg_vendible": kg_vendible},
+        "cosecha": {"kg_cosechados": kg_cosechados, "kg_descarte": kg_descarte, "kg_donaciones": kg_donaciones, "kg_descarte_reasignado": kg_descarte_reasignado, "kg_vendible": kg_vendible, "kg_vendidos": kg_vendidos, "kg_disponible": kg_disponible},
         "costo_ventas": round(total_costo, 2),
         "gastos_operativos": {"salarios": salarios, "gastos_vehiculo": round(gastos_vehiculo, 2), "total": total_gastos_op},
         "costo_por_kg": round(total_costo / kg_cosechados, 4) if kg_cosechados > 0 else 0,

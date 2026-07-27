@@ -64,7 +64,10 @@ export default function CostosPorKg() {
   const kgCos = data?.cosecha?.kg_cosechados || 0;
   const kgDesc = data?.cosecha?.kg_descarte || 0;
   const kgDon = data?.cosecha?.kg_donaciones || 0;
+  const kgDescRe = data?.cosecha?.kg_descarte_reasignado || 0;
   const kgVend = data?.cosecha?.kg_vendible || 0;
+  const kgVendidos = data?.cosecha?.kg_vendidos;
+  const kgDisponible = data?.cosecha?.kg_disponible;
 
   return (
     <div className="card" style={{ width: "100%", margin: 0 }} data-testid="er-costos-kg-card">
@@ -94,9 +97,26 @@ export default function CostosPorKg() {
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
         <KgChip label="Kg cosechados" value={kgCos} testid="er-kg-cosechados" />
         <KgChip label="Kg descarte" value={kgDesc} testid="er-kg-descarte" />
+        <KgChip label="Kg descarte reasig." value={kgDescRe} testid="er-kg-descarte-reasig" />
         <KgChip label="Kg donaciones" value={kgDon} testid="er-kg-donaciones" />
         <KgChip label="Kg vendible" value={kgVend} testid="er-kg-vendible" />
       </div>
+
+      {kgVendidos !== undefined && kgVendidos !== null && (
+        <div style={{ background: "#f5f3ff", border: "1px solid #ddd6fe", borderRadius: 8, padding: "10px 12px", marginBottom: 14 }} data-testid="er-conciliacion-kg">
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#7c3aed", marginBottom: 6 }}>Conciliación de kg del período</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 16, fontSize: 13, color: "#475569" }}>
+            <span>Vendible: <b style={{ color: "#0f172a" }}>{fmtKg(kgVend)}</b></span>
+            <span>= Vendidos: <b style={{ color: "#15803d" }}>{fmtKg(kgVendidos)}</b></span>
+            <span>+ Disponible sin colocar: <b style={{ color: kgDisponible > 0.01 ? "#b45309" : "#0f172a" }} data-testid="er-kg-disponible">{fmtKg(kgDisponible)}</b></span>
+          </div>
+          {kgDisponible > 0.01 && (
+            <div style={{ fontSize: 11.5, color: "#94a3b8", marginTop: 4 }}>
+              El "disponible" es fruta vendible que aún no vendiste ni reasignaste a descarte/donaciones. Colocala para que la utilidad por kg cierre exacto.
+            </div>
+          )}
+        </div>
+      )}
       {kgCos <= 0 && (
         <p style={{ color: "#b45309", background: "#fef3c7", borderRadius: 8, padding: "8px 12px", fontSize: 13 }} data-testid="er-costos-kg-vacio">
           No hay cosecha registrada en este período. Registrá cosechas para ver los costos por kg.
@@ -104,8 +124,8 @@ export default function CostosPorKg() {
       )}
       <CostoKgRow num={1} label="COSTO POR KG" hint="Costo total de ventas ÷ kg cosechados" value={data?.costo_por_kg} trend={deltaPct(data?.costo_por_kg, prev?.costo_por_kg)} testid="er-costo-por-kg" />
       <CostoKgRow num={2} label="COSTO TOTAL POR KG" hint="(Costo de ventas + gastos operativos) ÷ kg cosechados" value={data?.costo_total_por_kg} trend={deltaPct(data?.costo_total_por_kg, prev?.costo_total_por_kg)} testid="er-costo-total-por-kg" />
-      <CostoKgRow num={3} label="COSTO REAL VENDIBLE" hint="Costo total de ventas ÷ (kg cosechados − descarte − donaciones)" value={data?.costo_real_vendible} trend={deltaPct(data?.costo_real_vendible, prev?.costo_real_vendible)} testid="er-costo-real-vendible" />
-      <CostoKgRow num={4} label="COSTO TOTAL REAL VENDIBLE" hint="(Costo de ventas + gastos operativos) ÷ (kg cosechados − descarte − donaciones)" value={data?.costo_total_real_vendible} trend={deltaPct(data?.costo_total_real_vendible, prev?.costo_total_real_vendible)} testid="er-costo-total-real-vendible" />
+      <CostoKgRow num={3} label="COSTO REAL VENDIBLE" hint="Costo total de ventas ÷ (cosechados − descarte − reasignado a descarte − donaciones)" value={data?.costo_real_vendible} trend={deltaPct(data?.costo_real_vendible, prev?.costo_real_vendible)} testid="er-costo-real-vendible" />
+      <CostoKgRow num={4} label="COSTO TOTAL REAL VENDIBLE" hint="(Costo de ventas + gastos operativos) ÷ (cosechados − descarte − reasignado a descarte − donaciones)" value={data?.costo_total_real_vendible} trend={deltaPct(data?.costo_total_real_vendible, prev?.costo_total_real_vendible)} testid="er-costo-total-real-vendible" />
     </div>
   );
 }
