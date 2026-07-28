@@ -43,7 +43,7 @@ function Trend({ pct, testid }) {
 }
 
 export default function CostosPorKg() {
-  const [gran, setGran] = useState("todo");
+  const [gran, setGran] = useState("mes");
   const [anchor, setAnchor] = useState(() => new Date().toISOString().slice(0, 10));
   const [data, setData] = useState(null);
   const [prev, setPrev] = useState(null);

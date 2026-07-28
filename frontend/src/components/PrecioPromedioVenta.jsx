@@ -49,7 +49,7 @@ function Trend({ pct, testid }) {
 
 export default function PrecioPromedioVenta() {
   const [ventas, setVentas] = useState({}); // { tipo: [...] }
-  const [gran, setGran] = useState("todo"); // todo | semana | mes | anio
+  const [gran, setGran] = useState("mes"); // todo | semana | mes | anio
   const [anchor, setAnchor] = useState(() => new Date().toISOString().slice(0, 10));
 
   const load = useCallback(async () => {
