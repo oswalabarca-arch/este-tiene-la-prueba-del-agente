@@ -519,7 +519,28 @@ async def update_cosecha(cid: str, payload: CosechaIn, user: dict = Depends(get_
 @api.delete("/cosechas/{cid}")
 async def delete_cosecha(cid: str, user: dict = Depends(get_current_user)):
     doc = await db.cosechas.find_one({"_id": cid})
-    fecha = doc.get("fecha_cosecha") if doc else None
+    if not doc:
+        raise HTTPException(404, "No encontrado")
+    fecha = doc.get("fecha_cosecha")
+    fp = (fecha or "")[:10]
+    if fp:
+        def _cestas(c):
+            s = (c.get("primera_calidad", 0) or 0) + (c.get("segunda_calidad", 0) or 0) + (c.get("tercera_calidad", 0) or 0) + (c.get("descarte", 0) or 0)
+            return (s / KG_POR_CESTA) if c.get("unidad") == "kg" else s
+
+        def _descarte(c):
+            d = c.get("descarte", 0) or 0
+            return (d / KG_POR_CESTA) if c.get("unidad") == "kg" else d
+
+        cosecha_restante = await _cosecha_cestas_dia(fp) - _cestas(doc)
+        cos_dia = await db.cosechas.find({"fecha_cosecha": {"$regex": f"^{fp}"}}).to_list(5000)
+        descarte_restante = sum(_descarte(c) for c in cos_dia) - _descarte(doc)
+        asigs = await db.asignaciones_destino.find({"fecha": {"$regex": f"^{fp}"}}).to_list(5000)
+        manual_asignado = sum((a.get("cantidad_cestas", 0) or 0) for a in asigs if a.get("origen") != "cosecha_descarte_auto")
+        asignado_despues = manual_asignado + max(descarte_restante, 0)
+        disponible_despues = round(cosecha_restante - asignado_despues, 2)
+        if disponible_despues < -0.001:
+            raise HTTPException(400, f"No se puede borrar esta cosecha: ya asignaste {round(manual_asignado, 2)} cesta(s) de ese día a otros destinos (donaciones, ventas, refrigerar, etc.). Primero elimina o reduce esas asignaciones en 'Asignación de destino' y luego borra la cosecha.")
     res = await _delete("cosechas", cid)
     if fecha:
         await _sync_descarte_asignacion(fecha, user)

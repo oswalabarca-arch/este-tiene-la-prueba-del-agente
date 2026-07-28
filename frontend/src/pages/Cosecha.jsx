@@ -93,9 +93,13 @@ export default function Cosecha() {
 
   const remove = async (c) => {
     if (!window.confirm("¿Eliminar registro?")) return;
-    await api.delete(`/cosechas/${c._id}`);
-    toast.show("Eliminado");
-    loadAll();
+    try {
+      await api.delete(`/cosechas/${c._id}`);
+      toast.show("Eliminado");
+      loadAll();
+    } catch (err) {
+      toast.show(err?.response?.data?.detail || "No se pudo eliminar la cosecha", "error");
+    }
   };
 
   const cultivosDe = (p) => (p.cultivos?.length ? p.cultivos : (p.cultivo ? [p.cultivo] : []));
