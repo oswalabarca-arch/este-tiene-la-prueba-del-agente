@@ -2485,6 +2485,21 @@ async def costos_kg_filtrado(gran: str = "todo", anchor: Optional[str] = None, _
         disp_c = round(max(recibido_c - usado_c, 0) * KG_POR_CESTA, 2)
         if disp_c > 0.001:
             disponible_canales.append({"canal": tipo, "label": LABELS_CANAL[tipo], "kg": disp_c})
+    # DONACIONES: fruta reasignada al canal donaciones pero AÚN NO donada (disponible para donar).
+    # Sigue siendo vendible (no se resta hasta donarla de verdad), así que es fruta física sin colocar.
+    rec_don = 0.0
+    usa_don = 0.0
+    for v in await db.ventas_donaciones.find({}).to_list(20000):
+        if not _in_win(v.get("fecha"), desde, hasta):
+            continue
+        cest = float(v.get("cantidad_cestas", 0) or 0)
+        if v.get("origen") in RECIBIDO_ORIGINS:
+            rec_don += cest
+        else:
+            usa_don += cest
+    disp_don = round(max(rec_don - usa_don, 0) * KG_POR_CESTA, 2)
+    if disp_don > 0.001:
+        disponible_canales.append({"canal": "donaciones", "label": "Donaciones (disp. para donar)", "kg": disp_don})
     kg_cosechados = round(kg_cosechados, 2)
     kg_descarte = round(kg_descarte, 2)
     kg_donaciones = round(kg_donaciones, 2)
