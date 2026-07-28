@@ -115,6 +115,28 @@ export default function CostosPorKg() {
               El "disponible" es fruta vendible que aún no vendiste ni reasignaste a descarte/donaciones. Colocala para que la utilidad por kg cierre exacto.
             </div>
           )}
+          {kgDisponible > 0.01 && (
+            <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px dashed #ddd6fe" }} data-testid="er-disponible-desglose">
+              <div style={{ fontSize: 11.5, fontWeight: 700, color: "#7c3aed", marginBottom: 6 }}>¿Dónde están esos kg sin colocar?</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                {(data?.cosecha?.disponible_canales || []).map((c) => (
+                  <div key={c.canal} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: "#475569" }} data-testid={`er-disp-canal-${c.canal}`}>
+                    <span>📦 En <b>{c.label}</b> (asignado, sin vender)</span>
+                    <b style={{ color: "#b45309" }}>{fmtKg(c.kg)}</b>
+                  </div>
+                ))}
+                {(data?.cosecha?.kg_sin_asignar ?? 0) > 0.01 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: "#475569" }} data-testid="er-disp-sin-asignar">
+                    <span>🌾 Cosechado <b>sin asignar</b> a ningún destino</span>
+                    <b style={{ color: "#b45309" }}>{fmtKg(data.cosecha.kg_sin_asignar)}</b>
+                  </div>
+                )}
+                {(data?.cosecha?.disponible_canales || []).length === 0 && (data?.cosecha?.kg_sin_asignar ?? 0) <= 0.01 && (
+                  <div style={{ fontSize: 12, color: "#94a3b8" }}>Se registraron en otro período (fruta arrastrada de un mes anterior).</div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
       {kgCos <= 0 && (

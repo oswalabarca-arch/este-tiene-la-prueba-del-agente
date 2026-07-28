@@ -2450,22 +2450,39 @@ async def costos_kg_filtrado(gran: str = "todo", anchor: Optional[str] = None, _
         if _in_win(d.get("fecha"), desde, hasta):
             kg_descarte_reasignado += float(d.get("cantidad_kg") or (d.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
     # KG VENDIDOS reales (para la conciliación) + ingreso de ventas del período
+    # + disponible (sin colocar) por canal = recibido − usado, dentro de la ventana
     kg_vendidos = 0.0
     ingreso_ventas = 0.0
+    LABELS_CANAL = {"finca": "Venta en finca", "ciudad": "Envío a ciudad", "refrigerar": "Refrigerado", "congelar": "Congelado"}
+    disponible_canales = []
     for tipo in ("finca", "ciudad", "refrigerar", "congelar"):
+        recibido_c = 0.0
+        usado_c = 0.0
         for v in await db[f"ventas_{tipo}"].find({}).to_list(20000):
-            if v.get("origen") in VENTA_SYSTEM_ORIGENES:
+            if not _in_win(v.get("fecha"), desde, hasta):
                 continue
-            if _in_win(v.get("fecha"), desde, hasta):
-                kg_vendidos += float(v.get("cantidad_kg") or (v.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
-                ingreso_ventas += float(v.get("total") or 0)
+            cest = float(v.get("cantidad_cestas", 0) or 0)
+            origen = v.get("origen")
+            if origen in RECIBIDO_ORIGINS:
+                recibido_c += cest
+            else:
+                usado_c += cest
+                if origen not in VENTA_SYSTEM_ORIGENES:  # venta real
+                    kg_vendidos += float(v.get("cantidad_kg") or cest * KG_POR_CESTA)
+                    ingreso_ventas += float(v.get("total") or 0)
+        disp_c = round(max(recibido_c - usado_c, 0) * KG_POR_CESTA, 2)
+        if disp_c > 0.001:
+            disponible_canales.append({"canal": tipo, "label": LABELS_CANAL[tipo], "kg": disp_c})
     kg_cosechados = round(kg_cosechados, 2)
     kg_descarte = round(kg_descarte, 2)
     kg_donaciones = round(kg_donaciones, 2)
     kg_descarte_reasignado = round(kg_descarte_reasignado, 2)
-    kg_vendible = round(kg_cosechados - kg_descarte - kg_donaciones - kg_descarte_reasignado, 2)
+    kg_vendible = round(kg_cosechados - kg_donaciones - kg_descarte - kg_descarte_reasignado, 2)
     kg_vendidos = round(kg_vendidos, 2)
     kg_disponible = round(kg_vendible - kg_vendidos, 2)
+    # Lo que no está en ningún canal de venta = cosechado vendible aún sin asignar a un destino
+    kg_en_canales = round(sum(c["kg"] for c in disponible_canales), 2)
+    kg_sin_asignar = round(kg_disponible - kg_en_canales, 2)
 
     # SALARIOS prorrateados por dias de la ventana
     today = datetime.now(VE_TZ).date()
@@ -2491,7 +2508,7 @@ async def costos_kg_filtrado(gran: str = "todo", anchor: Optional[str] = None, _
         "desde": desde,
         "hasta": hasta,
         "dias": dias,
-        "cosecha": {"kg_cosechados": kg_cosechados, "kg_descarte": kg_descarte, "kg_donaciones": kg_donaciones, "kg_descarte_reasignado": kg_descarte_reasignado, "kg_vendible": kg_vendible, "kg_vendidos": kg_vendidos, "kg_disponible": kg_disponible},
+        "cosecha": {"kg_cosechados": kg_cosechados, "kg_descarte": kg_descarte, "kg_donaciones": kg_donaciones, "kg_descarte_reasignado": kg_descarte_reasignado, "kg_vendible": kg_vendible, "kg_vendidos": kg_vendidos, "kg_disponible": kg_disponible, "disponible_canales": disponible_canales, "kg_sin_asignar": kg_sin_asignar},
         "costo_ventas": round(total_costo, 2),
         "gastos_operativos": {"salarios": salarios, "gastos_vehiculo": round(gastos_vehiculo, 2), "total": total_gastos_op},
         "costo_por_kg": round(total_costo / kg_cosechados, 4) if kg_cosechados > 0 else 0,
