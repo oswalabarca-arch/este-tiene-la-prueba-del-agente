@@ -67,7 +67,9 @@ export default function CostosPorKg() {
   const kgDescRe = data?.cosecha?.kg_descarte_reasignado || 0;
   const kgVend = data?.cosecha?.kg_vendible || 0;
   const kgVendidos = data?.cosecha?.kg_vendidos;
-  const kgDisponible = data?.cosecha?.kg_disponible;
+  const kgDispFisico = data?.cosecha?.kg_disponible_fisico;
+  const kgAjuste = data?.cosecha?.kg_ajuste_saldo || 0;
+  const kgSinAsignar = data?.cosecha?.kg_sin_asignar || 0;
 
   return (
     <div className="card" style={{ width: "100%", margin: 0 }} data-testid="er-costos-kg-card">
@@ -108,14 +110,12 @@ export default function CostosPorKg() {
           <div style={{ display: "flex", flexWrap: "wrap", gap: 16, fontSize: 13, color: "#475569" }}>
             <span>Vendible: <b style={{ color: "#0f172a" }}>{fmtKg(kgVend)}</b></span>
             <span>= Vendidos: <b style={{ color: "#15803d" }}>{fmtKg(kgVendidos)}</b></span>
-            <span>+ Disponible sin colocar: <b style={{ color: kgDisponible > 0.01 ? "#b45309" : "#0f172a" }} data-testid="er-kg-disponible">{fmtKg(kgDisponible)}</b></span>
+            <span>+ Disponible sin colocar: <b style={{ color: kgDispFisico > 0.01 ? "#b45309" : "#0f172a" }} data-testid="er-kg-disponible">{fmtKg(kgDispFisico)}</b></span>
+            {Math.abs(kgAjuste) > 0.01 && (
+              <span>+ Ajustes de saldo: <b style={{ color: "#dc2626" }} data-testid="er-kg-ajuste">{fmtKg(kgAjuste)}</b></span>
+            )}
           </div>
-          {kgDisponible > 0.01 && (
-            <div style={{ fontSize: 11.5, color: "#94a3b8", marginTop: 4 }}>
-              El "disponible" es fruta vendible que aún no vendiste ni reasignaste a descarte/donaciones. Colocala para que la utilidad por kg cierre exacto.
-            </div>
-          )}
-          {kgDisponible > 0.01 && (
+          {kgDispFisico > 0.01 && (
             <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px dashed #ddd6fe" }} data-testid="er-disponible-desglose">
               <div style={{ fontSize: 11.5, fontWeight: 700, color: "#7c3aed", marginBottom: 6 }}>¿Dónde están esos kg sin colocar?</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
@@ -125,16 +125,18 @@ export default function CostosPorKg() {
                     <b style={{ color: "#b45309" }}>{fmtKg(c.kg)}</b>
                   </div>
                 ))}
-                {(data?.cosecha?.kg_sin_asignar ?? 0) > 0.01 && (
+                {kgSinAsignar > 0.01 && (
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: "#475569" }} data-testid="er-disp-sin-asignar">
                     <span>🌾 Cosechado <b>sin asignar</b> a ningún destino</span>
-                    <b style={{ color: "#b45309" }}>{fmtKg(data.cosecha.kg_sin_asignar)}</b>
+                    <b style={{ color: "#b45309" }}>{fmtKg(kgSinAsignar)}</b>
                   </div>
                 )}
-                {(data?.cosecha?.disponible_canales || []).length === 0 && (data?.cosecha?.kg_sin_asignar ?? 0) <= 0.01 && (
-                  <div style={{ fontSize: 12, color: "#94a3b8" }}>Se registraron en otro período (fruta arrastrada de un mes anterior).</div>
-                )}
               </div>
+            </div>
+          )}
+          {Math.abs(kgAjuste) > 0.01 && (
+            <div style={{ marginTop: 8, fontSize: 11.5, color: "#dc2626", background: "#fef2f2", borderRadius: 6, padding: "6px 8px" }} data-testid="er-ajuste-nota">
+              ⚠️ "Ajustes de saldo" ({fmtKg(kgAjuste)}) NO es fruta física: proviene de "Ajustar saldo disponible" o de haber vendido/reasignado más cestas de las asignadas en algún canal. No corresponde a cosecha real.
             </div>
           )}
         </div>

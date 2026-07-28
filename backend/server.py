@@ -1689,7 +1689,19 @@ def _ventas_router(tipo: str):
 
     @api.post(f"/ventas-{tipo}")
     async def _create_v(payload: VentaIn, user: dict = Depends(get_current_user)):
-        return await _create(f"ventas_{tipo}", _strip_money(payload.model_dump()), user)
+        data = _strip_money(payload.model_dump())
+        origen = data.get("origen") or ""
+        # (c) No permitir vender/donar más de lo disponible en el canal (solo ventas/donaciones reales)
+        if origen not in VENTA_SYSTEM_ORIGENES:
+            docs = await db[f"ventas_{tipo}"].find({}).to_list(50000)
+            recibido = sum((d.get("cantidad_cestas", 0) or 0) for d in docs if d.get("origen") in RECIBIDO_ORIGINS)
+            usado = sum((d.get("cantidad_cestas", 0) or 0) for d in docs if d.get("origen") not in RECIBIDO_ORIGINS)
+            disponible = recibido - usado
+            cestas_nueva = data.get("cantidad_cestas", 0) or 0
+            if cestas_nueva > disponible + 0.001:
+                verbo = "donar" if _es_donacion else "vender"
+                raise HTTPException(400, f"No podés {verbo} {round(cestas_nueva, 2)} cesta(s): solo hay {round(max(disponible, 0), 2)} disponible(s) en este canal. Asigná más cosecha a este destino primero.")
+        return await _create(f"ventas_{tipo}", data, user)
 
     @api.put(f"/ventas-{tipo}/{{vid}}")
     async def _update_v(vid: str, payload: VentaIn, _: dict = Depends(get_current_user)):
@@ -2482,7 +2494,20 @@ async def costos_kg_filtrado(gran: str = "todo", anchor: Optional[str] = None, _
     kg_disponible = round(kg_vendible - kg_vendidos, 2)
     # Lo que no está en ningún canal de venta = cosechado vendible aún sin asignar a un destino
     kg_en_canales = round(sum(c["kg"] for c in disponible_canales), 2)
-    kg_sin_asignar = round(kg_disponible - kg_en_canales, 2)
+    # SIN ASIGNAR real = cosecha buena (cosechado − descarte de calidad) − lo realmente asignado
+    # desde cosecha (asignaciones manuales del período, sin la auto-descarte).
+    cosecha_buena = round(kg_cosechados - kg_descarte, 2)
+    kg_asignado = 0.0
+    for a in await db.asignaciones_destino.find({}).to_list(20000):
+        if a.get("origen") == "cosecha_descarte_auto":
+            continue
+        if _in_win(a.get("fecha"), desde, hasta):
+            kg_asignado += float(a.get("cantidad_kg") or (a.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
+    kg_sin_asignar = round(max(cosecha_buena - kg_asignado, 0), 2)
+    # DISPONIBLE FÍSICO real = lo que queda en canales + lo cosechado sin asignar
+    kg_disponible_fisico = round(kg_en_canales + kg_sin_asignar, 2)
+    # DIFERENCIA POR AJUSTES DE SALDO = residuo (vendible−vendidos) que NO corresponde a fruta física
+    kg_ajuste_saldo = round(kg_disponible - kg_disponible_fisico, 2)
 
     # SALARIOS prorrateados por dias de la ventana
     today = datetime.now(VE_TZ).date()
@@ -2508,7 +2533,7 @@ async def costos_kg_filtrado(gran: str = "todo", anchor: Optional[str] = None, _
         "desde": desde,
         "hasta": hasta,
         "dias": dias,
-        "cosecha": {"kg_cosechados": kg_cosechados, "kg_descarte": kg_descarte, "kg_donaciones": kg_donaciones, "kg_descarte_reasignado": kg_descarte_reasignado, "kg_vendible": kg_vendible, "kg_vendidos": kg_vendidos, "kg_disponible": kg_disponible, "disponible_canales": disponible_canales, "kg_sin_asignar": kg_sin_asignar},
+        "cosecha": {"kg_cosechados": kg_cosechados, "kg_descarte": kg_descarte, "kg_donaciones": kg_donaciones, "kg_descarte_reasignado": kg_descarte_reasignado, "kg_vendible": kg_vendible, "kg_vendidos": kg_vendidos, "kg_disponible": kg_disponible, "disponible_canales": disponible_canales, "kg_sin_asignar": kg_sin_asignar, "kg_disponible_fisico": kg_disponible_fisico, "kg_ajuste_saldo": kg_ajuste_saldo},
         "costo_ventas": round(total_costo, 2),
         "gastos_operativos": {"salarios": salarios, "gastos_vehiculo": round(gastos_vehiculo, 2), "total": total_gastos_op},
         "costo_por_kg": round(total_costo / kg_cosechados, 4) if kg_cosechados > 0 else 0,

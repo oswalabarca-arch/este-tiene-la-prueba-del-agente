@@ -216,18 +216,23 @@ function Ventas({ tipo }) {
       );
       return;
     }
-    await api.post(`/ventas-${tipo}`, {
-      fecha: nv.fecha + "T12:00:00.000Z",
-      cantidad_cestas: cestasVenta,
-      cantidad_kg: modoKg ? Number(nv.cantidad_kg) : cestasVenta * 14,
-      precio_unitario: esDonacion ? 0 : (modoKg ? Number(nv.precio_kg) : Number(nv.precio_unitario)),
-      total: esDonacion ? 0 : nvTotal,
-      unidad_venta: modoKg ? "kg" : "cestas",
-      cliente: nv.cliente,
-      telefono: nv.telefono,
-      abono_inicial: esDonacion ? 0 : Number(nv.abono_inicial || 0),
-      observaciones: nv.observaciones,
-    });
+    try {
+      await api.post(`/ventas-${tipo}`, {
+        fecha: nv.fecha + "T12:00:00.000Z",
+        cantidad_cestas: cestasVenta,
+        cantidad_kg: modoKg ? Number(nv.cantidad_kg) : cestasVenta * 14,
+        precio_unitario: esDonacion ? 0 : (modoKg ? Number(nv.precio_kg) : Number(nv.precio_unitario)),
+        total: esDonacion ? 0 : nvTotal,
+        unidad_venta: modoKg ? "kg" : "cestas",
+        cliente: nv.cliente,
+        telefono: nv.telefono,
+        abono_inicial: esDonacion ? 0 : Number(nv.abono_inicial || 0),
+        observaciones: nv.observaciones,
+      });
+    } catch (err) {
+      toast.show(err?.response?.data?.detail || "Error al registrar", "error");
+      return;
+    }
     toast.show(esDonacion ? "Donación registrada" : "Venta registrada");
     setNv(emptyNv);
     load();
