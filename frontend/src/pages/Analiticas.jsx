@@ -6,6 +6,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import PrecioPromedioVenta from "../components/PrecioPromedioVenta";
 import CostosPorKg from "../components/CostosPorKg";
 import GananciaRealPorKg from "../components/GananciaRealPorKg";
+import AjustesSaldo from "../components/AjustesSaldo";
 
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const MESES_CORTO = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
@@ -210,6 +211,9 @@ export default function Analiticas() {
       <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 12, maxWidth: 720 }}>
         Salario mensual = salario diario × {30} (RRHH › Trabajadores activos). Los salarios se congelan al registrar el período, por lo que cambiarlos luego no afecta los períodos ya registrados.
       </p>
+
+      {/* Panel para revisar/eliminar ajustes de saldo (fantasmas) */}
+      <AjustesSaldo />
     </div>
   );
 }

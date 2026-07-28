@@ -2314,6 +2314,31 @@ async def guardar_estado_resultados(payload: EstadoResultadosIn, _: dict = Depen
     return await _build_estado_resultados(payload.anio, payload.mes)
 
 
+
+@api.get("/analiticas/ajustes-saldo")
+async def analiticas_ajustes_saldo(_: dict = Depends(get_current_user)):
+    """Lista todos los ajustes manuales de saldo (entrada/salida) de cada canal, para revisarlos/eliminarlos."""
+    LABELS = {"finca": "Venta en finca", "ciudad": "Envío a ciudad", "refrigerar": "Refrigerado", "congelar": "Congelado", "descarte": "Descarte", "donaciones": "Donaciones"}
+    out = []
+    for tipo in ("finca", "ciudad", "refrigerar", "congelar", "descarte", "donaciones"):
+        for v in await db[f"ventas_{tipo}"].find({}).to_list(50000):
+            o = v.get("origen") or ""
+            if o in ("ajuste_entrada", "ajuste_salida"):
+                cest = float(v.get("cantidad_cestas", 0) or 0)
+                out.append({
+                    "id": v.get("_id"),
+                    "canal": tipo,
+                    "canal_label": LABELS[tipo],
+                    "tipo": "entrada" if o == "ajuste_entrada" else "salida",
+                    "fecha": v.get("fecha"),
+                    "cantidad_cestas": round(cest, 2),
+                    "cantidad_kg": round(float(v.get("cantidad_kg") or cest * KG_POR_CESTA), 2),
+                    "observaciones": v.get("observaciones", ""),
+                })
+    out.sort(key=lambda x: (x.get("fecha") or ""), reverse=True)
+    return {"ajustes": out}
+
+
 @api.get("/analiticas/costos-kg-tendencia")
 async def costos_kg_tendencia(anio: int, _: dict = Depends(get_current_user)):
     """Tendencia mensual (12 meses) de los 4 costos por kg para el año dado.
