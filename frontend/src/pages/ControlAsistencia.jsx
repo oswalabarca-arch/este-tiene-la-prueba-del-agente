@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
-import { CalendarCheck, Plus, Trash2, Pencil, Users, CalendarDays, ClipboardList, X, ChevronLeft, ChevronRight, Send, Lock } from "lucide-react";
+import { CalendarCheck, Plus, Trash2, Pencil, Users, CalendarDays, ClipboardList, X, ChevronLeft, ChevronRight, Send, Lock, CheckCircle2, Circle } from "lucide-react";
 
 
 const ESTADOS = {
@@ -191,6 +191,7 @@ function PlanillaSemanal() {
   const [salarioDef, setSalarioDef] = useState("");
   const [tasa, setTasa] = useState("");
   const [salEdits, setSalEdits] = useState({}); // ediciones locales del salario por obrero
+  const [pagoEdits, setPagoEdits] = useState({}); // estado local de "pagado" por obrero
 
   const load = useCallback(() => {
     api.get("/asistencia/semana", { params: { fecha } }).then((r) => {
@@ -198,6 +199,7 @@ function PlanillaSemanal() {
       setSalarioDef(r.data.salario_default ? String(r.data.salario_default) : "");
       setTasa(r.data.tasa ? String(r.data.tasa) : "");
       setSalEdits({});
+      setPagoEdits({});
     }).catch(() => setData(null));
   }, [fecha]);
   useEffect(() => { load(); }, [load]);
@@ -225,6 +227,20 @@ function PlanillaSemanal() {
     const salario = valor === "" ? null : parseFloat(valor);
     try { await api.post("/asistencia/config/salario", { desde, obrero_id, salario }); load(); }
     catch { toast.show("Error al guardar", "error"); }
+  };
+
+  const pagadoDe = (f) => (pagoEdits[f.obrero_id] !== undefined ? pagoEdits[f.obrero_id] : !!f.pagado);
+  const togglePagado = async (f) => {
+    if (!desde || !editable) return;
+    const nuevo = !pagadoDe(f);
+    setPagoEdits((p) => ({ ...p, [f.obrero_id]: nuevo })); // optimista
+    try {
+      await api.post("/asistencia/config/pagado", { desde, obrero_id: f.obrero_id, pagado: nuevo });
+      toast.show(nuevo ? `${f.nombre} marcado como pagado` : `${f.nombre} marcado como pendiente`);
+    } catch {
+      setPagoEdits((p) => ({ ...p, [f.obrero_id]: !nuevo })); // revertir
+      toast.show("Error al guardar el pago", "error");
+    }
   };
 
   // salario efectivo por fila (usa edición local si existe, si no el del backend)
@@ -343,20 +359,47 @@ function PlanillaSemanal() {
       {filas.length > 0 && (
         <div style={{ marginTop: 20 }} data-testid="asis-pago-resumen">
           <div style={{ fontWeight: 700, fontSize: 14, color: "#334155", marginBottom: 4 }}>Resumen de pago (Bolívares)</div>
-          <p style={{ color: "#64748b", fontSize: 12, margin: "0 0 10px" }}>Nombre y pago en bolívares juntos, para evitar confusiones.</p>
+          <p style={{ color: "#64748b", fontSize: 12, margin: "0 0 10px" }}>
+            Toca el recuadro de cada trabajador cuando ya le hayas pagado: cambia de <b style={{ color: "#a16207" }}>amarillo (pendiente)</b> a <b style={{ color: "#15803d" }}>verde (pagado)</b>.
+          </p>
           <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8, maxWidth: 420 }}>
-            {filas.map((f) => (
-              <div key={f.obrero_id} data-testid={`asis-pago-fila-${f.obrero_id}`}
-                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 12px", background: "#fefce8", border: "1px solid #fde68a", borderRadius: 8 }}>
-                <span style={{ fontWeight: 600, color: "#334155", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.nombre}</span>
-                <span style={{ fontWeight: 800, color: "#a16207", whiteSpace: "nowrap" }} data-testid={`asis-pago-bs-${f.obrero_id}`}>Bs {fmt(bsDe(f))}</span>
+            {filas.map((f) => {
+              const pagado = pagadoDe(f);
+              return (
+              <button key={f.obrero_id} type="button" onClick={() => togglePagado(f)} disabled={!editable}
+                data-testid={`asis-pago-fila-${f.obrero_id}`}
+                title={editable ? (pagado ? "Pagado — toca para marcar como pendiente" : "Pendiente — toca para marcar como pagado") : ""}
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 12px", textAlign: "left", width: "100%",
+                  cursor: editable ? "pointer" : "default", transition: "background-color .15s, border-color .15s",
+                  background: pagado ? "#dcfce7" : "#fefce8", border: pagado ? "1px solid #86efac" : "1px solid #fde68a", borderRadius: 8 }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 8, overflow: "hidden" }}>
+                  {pagado
+                    ? <CheckCircle2 size={18} style={{ color: "#16a34a", flexShrink: 0 }} data-testid={`asis-pago-check-${f.obrero_id}`} />
+                    : <Circle size={18} style={{ color: "#d97706", flexShrink: 0 }} />}
+                  <span style={{ fontWeight: 600, color: "#334155", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.nombre}</span>
+                  {pagado && <span style={{ fontSize: 11, fontWeight: 700, color: "#15803d", background: "#bbf7d0", padding: "1px 6px", borderRadius: 6 }}>Pagado</span>}
+                </span>
+                <span style={{ fontWeight: 800, color: pagado ? "#15803d" : "#a16207", whiteSpace: "nowrap", textDecoration: pagado ? "line-through" : "none" }} data-testid={`asis-pago-bs-${f.obrero_id}`}>Bs {fmt(bsDe(f))}</span>
+              </button>
+              );
+            })}
+          </div>
+          {(() => {
+            const pendienteBs = filas.filter((f) => !pagadoDe(f)).reduce((a, f) => a + bsDe(f), 0);
+            const pagadoBs = totalBs - pendienteBs;
+            return (
+              <div style={{ maxWidth: 420, marginTop: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "8px 12px", background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 8, fontWeight: 700, color: "#15803d", fontSize: 13 }} data-testid="asis-pago-pagado">
+                  <span>Ya pagado</span>
+                  <span>Bs {fmt(pagadoBs)}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "10px 12px", marginTop: 6, background: "#fef3c7", border: "2px solid #f59e0b", borderRadius: 8, fontWeight: 800, color: "#92400e" }} data-testid="asis-pago-total">
+                  <span>Pendiente por pagar</span>
+                  <span>Bs {fmt(pendienteBs)}</span>
+                </div>
               </div>
-            ))}
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "10px 12px", marginTop: 8, maxWidth: 420, background: "#fef3c7", border: "2px solid #f59e0b", borderRadius: 8, fontWeight: 800, color: "#92400e" }} data-testid="asis-pago-total">
-            <span>Total a pagar en bolívares</span>
-            <span>Bs {fmt(totalBs)}</span>
-          </div>
+            );
+          })()}
         </div>
       )}
     </div>

@@ -2929,6 +2929,7 @@ async def asistencia_semana(fecha: str, _: dict = Depends(get_current_user)):
     salario_default = float(cfg.get("salario_default") or 0)
     tasa = float(cfg.get("tasa") or 0)
     salarios_ind = cfg.get("salarios") or {}
+    pagados = cfg.get("pagados") or {}
 
     filas = []
     for o in obreros:
@@ -2945,7 +2946,8 @@ async def asistencia_semana(fecha: str, _: dict = Depends(get_current_user)):
         bolivares = round(bcv * tasa, 2)
         filas.append({"obrero_id": o["_id"], "nombre": o.get("nombre", ""), "cargo": o.get("cargo", ""),
                       "dias": dias, "totales": totales, "jornales": jornales, "dias_trabajados": dias_trabajados,
-                      "salario_diario": salario, "salario_individual": es_individual, "bcv": bcv, "bolivares": bolivares})
+                      "salario_diario": salario, "salario_individual": es_individual, "bcv": bcv, "bolivares": bolivares,
+                      "pagado": bool(pagados.get(o["_id"]))})
     filas.sort(key=lambda f: (-f["jornales"], -f["dias_trabajados"], f["nombre"].lower()))
     total_bcv = round(sum(f["bcv"] for f in filas), 2)
     total_bolivares = round(sum(f["bolivares"] for f in filas), 2)
@@ -2996,6 +2998,28 @@ async def set_salario_individual(payload: SalarioIndividualIn, _: dict = Depends
             upsert=True,
         )
     return {"success": True}
+
+
+class PagoIn(BaseModel):
+    desde: str  # lunes de la semana (YYYY-MM-DD)
+    obrero_id: str
+    pagado: bool
+
+
+@api.post("/asistencia/config/pagado")
+async def set_pago_trabajador(payload: PagoIn, _: dict = Depends(get_current_user)):
+    """Marca/desmarca a un trabajador como PAGADO en la semana dada (para el Resumen de pago)."""
+    desde = payload.desde[:10]
+    if payload.pagado:
+        await db.asistencia_config.update_one(
+            {"_id": desde},
+            {"$set": {f"pagados.{payload.obrero_id}": True},
+             "$setOnInsert": {"salario_default": 0, "tasa": 0, "salarios": {}}},
+            upsert=True,
+        )
+    else:
+        await db.asistencia_config.update_one({"_id": desde}, {"$unset": {f"pagados.{payload.obrero_id}": ""}})
+    return {"success": True, "pagado": payload.pagado}
 
 
 @api.get("/asistencia/resumen-mensual")
