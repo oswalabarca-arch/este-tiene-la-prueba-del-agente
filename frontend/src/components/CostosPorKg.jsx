@@ -47,6 +47,9 @@ export default function CostosPorKg() {
   const [anchor, setAnchor] = useState(() => new Date().toISOString().slice(0, 10));
   const [data, setData] = useState(null);
   const [prev, setPrev] = useState(null);
+  const [diag, setDiag] = useState(null);
+  const [showDiag, setShowDiag] = useState(false);
+  const [loadingDiag, setLoadingDiag] = useState(false);
 
   const load = useCallback(() => {
     const params = { gran };
@@ -56,8 +59,23 @@ export default function CostosPorKg() {
     const pa = gran !== "todo" ? prevAnchor(gran, anchor) : null;
     if (pa) api.get("/analiticas/costos-kg", { params: { gran, anchor: pa } }).then((r) => setPrev(r.data)).catch(() => setPrev(null));
     else setPrev(null);
+    setShowDiag(false);
+    setDiag(null);
   }, [gran, anchor]);
   useEffect(() => { load(); }, [load]);
+
+  const abrirDiagnostico = async () => {
+    if (showDiag) { setShowDiag(false); return; }
+    setShowDiag(true);
+    setLoadingDiag(true);
+    try {
+      const params = { gran };
+      if (gran !== "todo") params.anchor = anchor;
+      const r = await api.get("/analiticas/conciliacion-diagnostico", { params });
+      setDiag(r.data);
+    } catch { setDiag(null); }
+    setLoadingDiag(false);
+  };
 
   const periodoLabel = useMemo(() => rangeLabel(data), [data]);
 
@@ -137,6 +155,77 @@ export default function CostosPorKg() {
           {Math.abs(kgAjuste) > 0.01 && (
             <div style={{ marginTop: 8, fontSize: 11.5, color: "#dc2626", background: "#fef2f2", borderRadius: 6, padding: "6px 8px" }} data-testid="er-ajuste-nota">
               ⚠️ "Ajustes de saldo" ({fmtKg(kgAjuste)}) NO es fruta física: proviene de "Ajustar saldo disponible" o de haber vendido/reasignado más cestas de las asignadas en algún canal. No corresponde a cosecha real.
+              <div style={{ marginTop: 6 }}>
+                <button type="button" onClick={abrirDiagnostico} data-testid="er-ajuste-diag-btn"
+                  style={{ border: "1px solid #dc2626", background: showDiag ? "#dc2626" : "#fff", color: showDiag ? "#fff" : "#dc2626", borderRadius: 6, padding: "4px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                  {showDiag ? "Ocultar diagnóstico" : "🔎 Ver de dónde sale este ajuste"}
+                </button>
+              </div>
+            </div>
+          )}
+          {showDiag && (
+            <div style={{ marginTop: 8, background: "#fff", border: "1px solid #fecaca", borderRadius: 8, padding: "10px 12px" }} data-testid="er-ajuste-diag-panel">
+              {loadingDiag && <div style={{ fontSize: 12, color: "#94a3b8" }}>Calculando…</div>}
+              {!loadingDiag && diag && (() => {
+                const canalesSobre = (diag.canales || []).filter((c) => c.sobrevendido_kg > 0.01);
+                const nada = canalesSobre.length === 0 && (diag.ajustes_manuales || []).length === 0;
+                return (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 12.5, color: "#334155" }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: "#7c3aed" }}>Diagnóstico del ajuste de saldo ({fmtKg(kgAjuste)})</div>
+
+                    {/* 1. Canales sobrevendidos */}
+                    <div>
+                      <div style={{ fontWeight: 700, marginBottom: 4, color: "#dc2626" }}>1. Canales donde vendiste MÁS de lo asignado</div>
+                      {canalesSobre.length === 0 ? (
+                        <div style={{ color: "#16a34a", fontSize: 12 }}>✓ Ningún canal está sobrevendido en este período.</div>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          {canalesSobre.map((c) => (
+                            <div key={c.canal} style={{ display: "flex", justifyContent: "space-between", gap: 8, background: "#fef2f2", borderRadius: 6, padding: "5px 8px" }} data-testid={`er-diag-canal-${c.canal}`}>
+                              <span><b>{c.label}</b>: asignaste {c.recibido_cestas} cestas, usaste {c.usado_cestas} → <b style={{ color: "#dc2626" }}>{c.sobrevendido_cestas} cestas de más</b></span>
+                              <b style={{ color: "#dc2626", whiteSpace: "nowrap" }}>{fmtKg(-c.sobrevendido_kg)}</b>
+                            </div>
+                          ))}
+                          <div style={{ fontSize: 11.5, color: "#64748b" }}>Corrige registrando la asignación de destino que falta a ese canal, o eliminando ventas duplicadas.</div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 2. Ajustes manuales */}
+                    <div>
+                      <div style={{ fontWeight: 700, marginBottom: 4, color: "#b45309" }}>2. Ajustes de saldo manuales en este período</div>
+                      {(diag.ajustes_manuales || []).length === 0 ? (
+                        <div style={{ color: "#16a34a", fontSize: 12 }}>✓ No hay ajustes manuales en este período.</div>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          {(diag.ajustes_manuales || []).map((a) => (
+                            <div key={a.id} style={{ display: "flex", justifyContent: "space-between", gap: 8, background: "#fffbeb", borderRadius: 6, padding: "5px 8px" }} data-testid={`er-diag-ajuste-${a.id}`}>
+                              <span>{a.fecha ? String(a.fecha).slice(0, 10) : ""} · <b>{a.canal_label}</b> · {a.tipo === "entrada" ? "entrada (+)" : "salida (−)"}{a.observaciones ? ` · ${a.observaciones}` : ""}</span>
+                              <b style={{ color: a.tipo === "entrada" ? "#b45309" : "#dc2626", whiteSpace: "nowrap" }}>{a.tipo === "entrada" ? "+" : "−"}{fmtKg(a.cantidad_kg).replace("-", "")}</b>
+                            </div>
+                          ))}
+                          <div style={{ fontSize: 11.5, color: "#64748b" }}>Puedes eliminarlos en Analíticas → “Revisar ajustes de saldo”.</div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 3. Diferencia por período */}
+                    {diag.diferencia_periodo > 0.01 && (
+                      <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 6, padding: "6px 8px", color: "#1d4ed8" }} data-testid="er-diag-periodo">
+                        <b>3. Diferencia por el filtro de fecha: {fmtKg(diag.diferencia_periodo)}</b>
+                        <div style={{ fontSize: 11.5, color: "#3b82f6", marginTop: 2 }}>
+                          Vendiste fruta que fue cosechada FUERA de este período. No es un fantasma real. Pon el filtro en <b>“Todo”</b> para verlo sin recorte de fecha.
+                        </div>
+                      </div>
+                    )}
+
+                    {nada && diag.diferencia_periodo <= 0.01 && (
+                      <div style={{ color: "#64748b", fontSize: 12 }}>No se detectó una causa clara; prueba a cambiar el filtro a “Todo”.</div>
+                    )}
+                  </div>
+                );
+              })()}
+              {!loadingDiag && !diag && <div style={{ fontSize: 12, color: "#dc2626" }}>No se pudo cargar el diagnóstico.</div>}
             </div>
           )}
         </div>

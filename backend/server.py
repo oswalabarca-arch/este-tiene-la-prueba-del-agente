@@ -2619,6 +2619,120 @@ async def costos_kg_filtrado(gran: str = "todo", anchor: Optional[str] = None, _
     }
 
 
+@api.get("/analiticas/conciliacion-diagnostico")
+async def conciliacion_diagnostico(gran: str = "todo", anchor: Optional[str] = None, _: dict = Depends(get_current_user)):
+    """Diagnóstico del 'Ajuste de saldo' de la conciliación de kg: explica de dónde sale el
+    residuo (fantasma) desglosándolo por canal sobrevendido, ajustes manuales y diferencia por
+    período (fruta vendida fuera de la ventana). SOLO LECTURA. Usa la misma lógica que /analiticas/costos-kg."""
+    desde, hasta = _costos_kg_window(gran, anchor)
+    LABELS_CANAL = {"finca": "Venta en finca", "ciudad": "Envío a ciudad", "refrigerar": "Refrigerado",
+                    "congelar": "Congelado", "donaciones": "Donaciones"}
+
+    # --- Reconstruir vendible / vendidos / ajuste (idéntico a costos-kg) ---
+    kg_cosechados = kg_descarte = 0.0
+    for c in await db.cosechas.find({}).to_list(20000):
+        if not _in_win(c.get("fecha_cosecha"), desde, hasta):
+            continue
+        suma = (c.get("primera_calidad", 0) or 0) + (c.get("segunda_calidad", 0) or 0) + (c.get("tercera_calidad", 0) or 0) + (c.get("descarte", 0) or 0)
+        mult = 1 if c.get("unidad") == "kg" else KG_POR_CESTA
+        kg_cosechados += suma * mult
+        kg_descarte += (c.get("descarte", 0) or 0) * mult
+    kg_donaciones = 0.0
+    for d in await db.ventas_donaciones.find({}).to_list(20000):
+        if d.get("origen") in VENTA_SYSTEM_ORIGENES:
+            continue
+        if _in_win(d.get("fecha"), desde, hasta):
+            kg_donaciones += float(d.get("cantidad_kg") or (d.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
+    kg_descarte_reasignado = 0.0
+    for d in await db.ventas_descarte.find({}).to_list(20000):
+        if d.get("origen") == "asignacion_destino":
+            continue
+        if _in_win(d.get("fecha"), desde, hasta):
+            kg_descarte_reasignado += float(d.get("cantidad_kg") or (d.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
+
+    kg_vendidos = 0.0
+    canales = []
+    sobrevendido_kg_total = 0.0
+    for tipo in ("finca", "ciudad", "refrigerar", "congelar"):
+        recibido_c = usado_c = ventas_reales_c = 0.0
+        aj_entrada_c = aj_salida_c = 0.0
+        for v in await db[f"ventas_{tipo}"].find({}).to_list(20000):
+            if not _in_win(v.get("fecha"), desde, hasta):
+                continue
+            cest = float(v.get("cantidad_cestas", 0) or 0)
+            origen = v.get("origen")
+            if origen in RECIBIDO_ORIGINS:
+                recibido_c += cest
+                if origen == "ajuste_entrada":
+                    aj_entrada_c += cest
+            else:
+                usado_c += cest
+                if origen == "ajuste_salida":
+                    aj_salida_c += cest
+                if origen not in VENTA_SYSTEM_ORIGENES:  # venta real
+                    ventas_reales_c += cest
+                    kg_vendidos += float(v.get("cantidad_kg") or cest * KG_POR_CESTA)
+        sobre_c = max(usado_c - recibido_c, 0.0)
+        sobre_kg = round(sobre_c * KG_POR_CESTA, 2)
+        sobrevendido_kg_total += sobre_kg
+        canales.append({
+            "canal": tipo, "label": LABELS_CANAL[tipo],
+            "recibido_cestas": round(recibido_c, 2), "usado_cestas": round(usado_c, 2),
+            "ventas_reales_cestas": round(ventas_reales_c, 2),
+            "ajuste_entrada_cestas": round(aj_entrada_c, 2), "ajuste_salida_cestas": round(aj_salida_c, 2),
+            "sobrevendido_cestas": round(sobre_c, 2), "sobrevendido_kg": sobre_kg,
+        })
+
+    # Ajustes manuales (entrada/salida) de TODOS los canales dentro de la ventana
+    ajustes = []
+    aj_entrada_kg = aj_salida_kg = 0.0
+    for tipo in ("finca", "ciudad", "refrigerar", "congelar", "descarte", "donaciones"):
+        for v in await db[f"ventas_{tipo}"].find({}).to_list(50000):
+            o = v.get("origen") or ""
+            if o not in ("ajuste_entrada", "ajuste_salida"):
+                continue
+            if not _in_win(v.get("fecha"), desde, hasta):
+                continue
+            cest = float(v.get("cantidad_cestas", 0) or 0)
+            kg = round(float(v.get("cantidad_kg") or cest * KG_POR_CESTA), 2)
+            if o == "ajuste_entrada":
+                aj_entrada_kg += kg
+            else:
+                aj_salida_kg += kg
+            ajustes.append({
+                "id": v.get("_id"), "canal": tipo,
+                "canal_label": LABELS_CANAL.get(tipo, tipo.capitalize()),
+                "tipo": "entrada" if o == "ajuste_entrada" else "salida",
+                "fecha": v.get("fecha"), "cantidad_cestas": round(cest, 2), "cantidad_kg": kg,
+                "observaciones": v.get("observaciones", ""),
+            })
+    ajustes.sort(key=lambda x: (x.get("fecha") or ""), reverse=True)
+
+    kg_cosechados = round(kg_cosechados, 2)
+    kg_descarte = round(kg_descarte, 2)
+    kg_vendible = round(kg_cosechados - round(kg_donaciones, 2) - kg_descarte - round(kg_descarte_reasignado, 2), 2)
+    kg_vendidos = round(kg_vendidos, 2)
+    kg_ajuste_saldo = round(kg_vendible - kg_vendidos, 2)  # residuo antes de disponible físico (negativo = fantasma)
+    sobrevendido_kg_total = round(sobrevendido_kg_total, 2)
+    # Diferencia por período: lo que NO se explica por canales sobrevendidos ni ajustes manuales.
+    # Suele ser fruta vendida en la ventana pero cosechada antes (no es fantasma real).
+    manual_neto_salida = max(round(aj_salida_kg - aj_entrada_kg, 2), 0.0)
+    explicado = sobrevendido_kg_total + manual_neto_salida
+    diferencia_periodo = round(max(abs(min(kg_ajuste_saldo, 0)) - explicado, 0.0), 2)
+
+    return {
+        "gran": gran, "desde": desde, "hasta": hasta,
+        "kg_vendible": kg_vendible, "kg_vendidos": kg_vendidos, "kg_ajuste_saldo": kg_ajuste_saldo,
+        "canales": canales,
+        "sobrevendido_kg_total": sobrevendido_kg_total,
+        "ajustes_manuales": ajustes,
+        "ajuste_entrada_kg": round(aj_entrada_kg, 2),
+        "ajuste_salida_kg": round(aj_salida_kg, 2),
+        "diferencia_periodo": max(diferencia_periodo, 0.0),
+    }
+
+
+
 # ============================================================
 # FICHA TÉCNICA DE PRODUCTOS (catálogo con 2 fotos por producto)
 # ============================================================
