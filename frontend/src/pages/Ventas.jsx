@@ -138,7 +138,18 @@ function Ventas({ tipo }) {
   const vendidoHoyCestas = ventasReales.filter(esHoy).reduce((s, v) => s + cestasDe(v), 0);
   const ventasHoyReales = ventasReales.filter(esHoy);
   const reasignadoHoy = items.filter((v) => esReasig(v) && esHoy(v)).reduce((s, v) => s + cestasDe(v), 0);
-  const disponibleHoy = asignadoHoy - vendidoHoyCestas - reasignadoHoy;
+  // Saldo que venía ARRASTRADO de días anteriores (recibido − salidas, con fecha < hoy).
+  const antesDeHoy = (v) => (v.fecha || "").slice(0, 10) < realToday;
+  const saldoArrastrado =
+    items.filter((v) => esRecibido(v) && antesDeHoy(v)).reduce((s, v) => s + cestasDe(v), 0)
+    - items.filter((v) => esVentaReal(v) && antesDeHoy(v)).reduce((s, v) => s + cestasDe(v), 0)
+    - items.filter((v) => esReasig(v) && antesDeHoy(v)).reduce((s, v) => s + cestasDe(v), 0)
+    - items.filter((v) => esAjusteSalida(v) && antesDeHoy(v)).reduce((s, v) => s + cestasDe(v), 0);
+  // "Disponible hoy" = lo que traías arrastrado + asignado hoy − salidas de hoy.
+  // Incluir el arrastre evita el falso negativo cuando sacás cestas de días anteriores.
+  const ajusteEntradaHoy = items.filter((v) => esAjusteEntrada(v) && esHoy(v)).reduce((s, v) => s + cestasDe(v), 0);
+  const ajusteSalidaHoy = items.filter((v) => esAjusteSalida(v) && esHoy(v)).reduce((s, v) => s + cestasDe(v), 0);
+  const disponibleHoy = saldoArrastrado + asignadoHoy + ajusteEntradaHoy - vendidoHoyCestas - reasignadoHoy - ajusteSalidaHoy;
 
   // El "disponible" que habilita vender/reasignar es el ACUMULADO (para poder
   // sacar las cestas que quedaron de días anteriores).
@@ -363,7 +374,7 @@ function Ventas({ tipo }) {
               {tieneReasignar && (
                 <SubCard label="Reasignado hoy" value={fc(reasignadoHoy)} sub={`Enviado a ${destinosReasignar.map((d) => DESTINO_LABEL[d]).join(" / ")}`} color="#ea580c" />
               )}
-              <SubCard label="Disponible hoy" value={fc(disponibleHoy)} sub="De lo asignado hoy" color={disponibleHoy < -0.001 ? "#dc2626" : disponibleHoy > 0.001 ? "#16a34a" : "#94a3b8"} />
+              <SubCard label="Disponible hoy" value={fc(disponibleHoy)} sub={saldoArrastrado > 0.001 ? `Incluye ${fc(saldoArrastrado)} arrastrado de días anteriores` : "Arrastrado + asignado hoy − salidas de hoy"} color={disponibleHoy < -0.001 ? "#dc2626" : disponibleHoy > 0.001 ? "#16a34a" : "#94a3b8"} />
             </div>
           </div>
 
