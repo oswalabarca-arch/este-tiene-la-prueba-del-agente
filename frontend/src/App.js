@@ -6,6 +6,7 @@ import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Usuarios from "./pages/Usuarios";
 import ControlAsistencia from "./pages/ControlAsistencia";
+import Deuda from "./pages/Deuda";
 import Plantaciones from "./pages/Plantaciones";
 import PlantacionDetail from "./pages/PlantacionDetail";
 import Cosecha from "./pages/Cosecha";
@@ -47,6 +48,7 @@ function App() {
               <Route index element={<Dashboard />} />
               <Route path="usuarios" element={<Usuarios />} />
               <Route path="control-asistencia" element={<ControlAsistencia />} />
+              <Route path="deuda" element={<Deuda />} />
               <Route path="plantaciones" element={<Plantaciones />} />
               <Route path="plantaciones/:id" element={<PlantacionDetail />} />
               <Route path="cosecha" element={<Cosecha />} />

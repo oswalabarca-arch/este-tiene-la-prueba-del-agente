@@ -470,3 +470,11 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - CAUSA (frontend `Ventas.jsx`, línea ~141): `disponibleHoy = asignadoHoy - vendidoHoyCestas - reasignadoHoy` NO sumaba el saldo arrastrado de días anteriores. Con asignadoHoy=0 y reasignadoHoy=4,52 → -4,52.
 - FIX: se agregó `saldoArrastrado` (recibido − salidas con fecha < hoy) y `disponibleHoy = saldoArrastrado + asignadoHoy + ajusteEntradaHoy − vendidoHoyCestas − reasignadoHoy − ajusteSalidaHoy` (== Disponible acumulado). Subtítulo actualizado a "Incluye X cestas arrastrado de días anteriores".
 - Verificado: reproducido en preview (asignar 4,52 a Refrigerado hace 2 días + reasignar hoy) → la tarjeta ahora muestra 0,00 (captura). Datos de prueba limpiados. Requiere RE-DEPLOY para producción.
+
+## Feature (Módulo "Deuda" — junio 2026)
+- Nuevo módulo en sidebar debajo de "Control de asistencia" (`/dashboard/deuda`, `pages/Deuda.jsx`), gated por permiso módulo "ventas".
+- Extrae TODOS los deudores de los 4 canales con dinero: finca, ciudad, refrigerado, congelado. Backend: se extendieron `GET /api/analiticas/cuentas-por-cobrar` y `.../detalle` de 2 a 4 canales.
+- Agrupado por cliente (nombre, teléfono, deuda total, días de atraso, badges de canales, nº ventas), expandible para ver cada venta pendiente.
+- Registrar abono (input + botón Abonar) y "Pagado" (marca abono=total) por venta, vía `PUT /ventas-{tipo}/{id}`. IMPORTANTE: el PUT debe enviar `cliente` y `telefono` (VentaIn los pone en "" por defecto y borraría el nombre). Verificado que se preserva.
+- Orden por mayor deuda o más días de atraso. Totales arriba (deuda total, vendido, cobrado). Solo edita quien tiene permiso de edición en "ventas".
+- Verificado: endpoint 4 canales por curl (aparece deudor en Congelado), página renderiza + expande (captura), flujo de abono probado (preserva cliente). Requiere RE-DEPLOY para producción.

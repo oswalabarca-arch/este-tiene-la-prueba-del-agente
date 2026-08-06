@@ -2000,7 +2000,7 @@ async def analiticas_resumen(_: dict = Depends(get_current_user)):
 async def analiticas_cuentas_por_cobrar(_: dict = Depends(get_current_user)):
     """Deuda agrupada por cliente, sumando ventas de finca + ciudad con saldo pendiente."""
     ventas = []
-    for coll, origen in (("ventas_finca", "Venta en finca"), ("ventas_ciudad", "Envío a ciudad")):
+    for coll, origen in (("ventas_finca", "Venta en finca"), ("ventas_ciudad", "Envío a ciudad"), ("ventas_refrigerar", "Refrigerado"), ("ventas_congelar", "Congelado")):
         docs = await db[coll].find({}).to_list(5000)
         for v in docs:
             ventas.append({**v, "_origen_modulo": origen})
@@ -2062,7 +2062,7 @@ async def analiticas_cxc_detalle(cliente: str, telefono: str = "", _: dict = Dep
     telefono_key = (telefono or "").strip()
     hoy = datetime.now(timezone.utc)
     ventas = []
-    for tipo, coll, label in (("finca", "ventas_finca", "Venta en finca"), ("ciudad", "ventas_ciudad", "Envío a ciudad")):
+    for tipo, coll, label in (("finca", "ventas_finca", "Venta en finca"), ("ciudad", "ventas_ciudad", "Envío a ciudad"), ("refrigerar", "ventas_refrigerar", "Refrigerado"), ("congelar", "ventas_congelar", "Congelado")):
         docs = await db[coll].find({}).to_list(5000)
         for v in docs:
             c = (v.get("cliente") or "").strip()
