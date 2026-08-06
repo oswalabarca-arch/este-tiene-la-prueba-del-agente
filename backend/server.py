@@ -1477,6 +1477,39 @@ async def create_aplicacion(payload: AplicacionIn, user: dict = Depends(get_curr
 @api.put("/aplicaciones/{aid}")
 async def update_aplicacion(aid: str, payload: AplicacionIn, _: dict = Depends(get_current_user)):
     data = payload.model_dump()
+    existing = await db.aplicaciones.find_one({"_id": aid})
+
+    # PROTECCIÓN DE INTEGRIDAD DE INVENTARIO:
+    # El formulario de planificación (módulo Aplicaciones) NO captura cantidades reales,
+    # agua ni mano de obra: al editar mandaría insumos con cantidad=0 y agua/trabajadores/horas
+    # en 0. Si eso se aplica a una aplicación YA CONFIRMADA, se revierte el descuento de
+    # inventario (el stock del sistema queda inflado) y se borran los datos de Nómina.
+    # Por eso, cuando se edita una aplicación confirmada con cantidades vacías, preservamos
+    # las cantidades ejecutadas y los datos de ejecución, y solo dejamos actualizar la dosis,
+    # los lotes, la fecha, el tipo y las observaciones.
+    if existing and existing.get("estado") == "confirmada":
+        incoming_total = sum(float(i.get("cantidad") or 0) for i in (data.get("insumos") or []))
+        if incoming_total <= 0:
+            # Mapa de dosis entrante por nombre de producto (para permitir corregir la dosis)
+            dosis_entrante = {
+                (i.get("nombre_producto") or "").strip().lower(): i.get("dosis")
+                for i in (data.get("insumos") or [])
+            }
+            insumos_preservados = []
+            for ins in (existing.get("insumos") or []):
+                merged = dict(ins)
+                key = (ins.get("nombre_producto") or "").strip().lower()
+                if key in dosis_entrante and dosis_entrante[key] is not None:
+                    merged["dosis"] = dosis_entrante[key]
+                insumos_preservados.append(merged)
+            data["insumos"] = insumos_preservados
+            # Preservar datos de ejecución si vienen vacíos/en cero
+            for f in ("cantidad_agua", "cantidad_trabajadores", "horas_trabajo", "precio_hora"):
+                if not data.get(f):
+                    data[f] = existing.get(f)
+            if not data.get("lotes_destino"):
+                data["lotes_destino"] = existing.get("lotes_destino")
+
     # Validar inventario tanto al editar pendientes como al confirmar.
     await _validate_inventory_for_aplicacion(aid, data.get("insumos") or [])
     return await _update("aplicaciones", aid, data)

@@ -424,6 +424,12 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
         <h2 className="modal-title">{isEdit ? "Editar Aplicación" : "Nueva Aplicación"}</h2>
         <div className="modal-sub">{isEdit ? "Modifica los datos de la aplicación" : "Registra una nueva aplicación de insumos agrícolas"}</div>
 
+        {isEdit && initial?.estado === "confirmada" && (
+          <div style={{ background: "#fef9c3", border: "1px solid #fde047", borderRadius: 8, padding: "10px 12px", marginTop: 8, fontSize: 13, color: "#854d0e" }} data-testid="aplic-edit-confirmada-warning">
+            <b>Aplicación confirmada.</b> Las cantidades usadas, el agua y la mano de obra ya ejecutadas <b>se conservan</b> para no alterar el inventario ni la nómina. Aquí solo puedes ajustar la dosis, los lotes, la fecha y los comentarios. Para corregir las cantidades consumidas, elimina la aplicación y vuelve a registrarla.
+          </div>
+        )}
+
         <div className="form-grid">
           <div className="field">
             <label>Tipo de Aplicación *</label>
