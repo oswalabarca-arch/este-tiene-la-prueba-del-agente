@@ -39,6 +39,15 @@ export default function AsignacionDestino() {
   const [busy, setBusy] = useState("");
   const isToday = selectedDate === realToday;
 
+  // Historial de asignaciones (consulta + borrado de cualquier fecha)
+  const monthStart = () => todayLocal().slice(0, 8) + "01";
+  const shiftDays = (ymd, n) => { const d = new Date(ymd + "T12:00:00"); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+  const weekStart = () => { const t = todayLocal(); const dow = (new Date(t + "T12:00:00").getDay() + 6) % 7; return shiftDays(t, -dow); };
+  const [histPreset, setHistPreset] = useState("mes");
+  const [histDesde, setHistDesde] = useState(monthStart());
+  const [histHasta, setHistHasta] = useState(todayLocal());
+  const [historial, setHistorial] = useState([]);
+
   const load = useCallback(async () => {
     const [a, c] = await Promise.all([
       api.get(`/asignaciones-destino?fecha=${selectedDate}`),
@@ -122,6 +131,37 @@ export default function AsignacionDestino() {
     await api.delete(`/asignaciones-destino/${a._id}`);
     toast.show("Eliminado");
     load();
+  };
+
+  const loadHistorial = useCallback(() => {
+    api.get(`/asignaciones-destino?fecha_desde=${histDesde}&fecha_hasta=${histHasta}`)
+      .then((r) => setHistorial(r.data.asignaciones || []))
+      .catch(() => setHistorial([]));
+  }, [histDesde, histHasta]);
+  useEffect(() => { loadHistorial(); }, [loadHistorial, asignaciones]);
+
+  const aplicarPreset = (p) => {
+    setHistPreset(p);
+    if (p === "mes") { setHistDesde(monthStart()); setHistHasta(todayLocal()); }
+    else if (p === "semana") { setHistDesde(weekStart()); setHistHasta(todayLocal()); }
+    else if (p === "hoy") { setHistDesde(todayLocal()); setHistHasta(todayLocal()); }
+  };
+
+  const removeHist = async (a) => {
+    if (a.origen === "cosecha_descarte_auto") {
+      toast.show("El descarte de cosecha es automático. Ajústalo desde el módulo Cosecha.", "error");
+      return;
+    }
+    const d = DESTINOS.find((x) => x.key === a.destino);
+    if (!window.confirm(`¿Eliminar esta asignación del ${(a.fecha || "").slice(0, 10)} → ${d?.label || a.destino} (${a.cantidad_cestas?.toFixed(2)} cestas)?\n\nOJO: también se quitarán esas cestas del canal de Ventas correspondiente. Úsalo para corregir stock fantasma de días pasados.`)) return;
+    try {
+      await api.delete(`/asignaciones-destino/${a._id}`);
+      toast.show("Asignación eliminada");
+      loadHistorial();
+      load();
+    } catch (err) {
+      toast.show(err?.response?.data?.detail || "No se pudo eliminar", "error");
+    }
   };
 
   return (
@@ -305,6 +345,64 @@ export default function AsignacionDestino() {
           </table>
         </div>
       )}
+      {/* Historial de asignaciones (consulta + borrado por fecha) */}
+      <div className="card" style={{ marginTop: 18 }} data-testid="asignacion-historial">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+          <h3 style={{ margin: 0 }}>📋 Historial de asignaciones</h3>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <div style={{ display: "inline-flex", background: "#f1f5f9", borderRadius: 10, padding: 3 }}>
+              {[["hoy", "Hoy"], ["semana", "Semana"], ["mes", "Mes"], ["rango", "Rango"]].map(([k, l]) => (
+                <button key={k} type="button" onClick={() => aplicarPreset(k)} data-testid={`hist-preset-${k}`}
+                  style={{ padding: "5px 12px", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 13,
+                    background: histPreset === k ? "#16a34a" : "transparent", color: histPreset === k ? "#fff" : "#475569" }}>{l}</button>
+              ))}
+            </div>
+            {histPreset === "rango" && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <input type="date" className="input" style={{ width: 150 }} value={histDesde} max={realToday} onChange={(e) => setHistDesde(e.target.value)} data-testid="hist-desde" />
+                <span style={{ color: "#94a3b8" }}>→</span>
+                <input type="date" className="input" style={{ width: 150 }} value={histHasta} max={realToday} onChange={(e) => setHistHasta(e.target.value)} data-testid="hist-hasta" />
+              </span>
+            )}
+          </div>
+        </div>
+        <div style={{ color: "#64748b", fontSize: 12.5, margin: "6px 0 10px" }}>
+          Consulta y elimina asignaciones de cualquier fecha. Borrar una asignación quita esas cestas también del canal de Ventas (útil para corregir stock fantasma de días pasados). El descarte automático de cosecha no se puede borrar aquí.
+        </div>
+        {historial.length === 0 ? (
+          <div className="empty-state" data-testid="hist-empty">No hay asignaciones en este período.</div>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table className="table" style={{ width: "100%" }} data-testid="hist-table">
+              <thead>
+                <tr><th>Fecha</th><th>Destino</th><th style={{ textAlign: "right" }}>Cestas</th><th style={{ textAlign: "right" }}>kg</th><th>Nota</th>{canDelete("cosecha") && <th style={{ textAlign: "center" }}>Acción</th>}</tr>
+              </thead>
+              <tbody>
+                {historial.map((a) => {
+                  const d = DESTINOS.find((x) => x.key === a.destino);
+                  const auto = a.origen === "cosecha_descarte_auto";
+                  return (
+                    <tr key={a._id} data-testid={`hist-row-${a._id}`}>
+                      <td style={{ whiteSpace: "nowrap" }}>{(a.fecha || "").slice(0, 10)}</td>
+                      <td><span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>{d && <d.icon size={15} style={{ color: d.color }} />} {d?.label || a.destino}</span></td>
+                      <td style={{ textAlign: "right", fontWeight: 600 }}>{a.cantidad_cestas?.toFixed(2)}</td>
+                      <td style={{ textAlign: "right" }}>{a.cantidad_kg?.toFixed(2)}</td>
+                      <td style={{ fontSize: 12.5, color: "#64748b" }}>{a.observaciones || (auto ? "Descarte automático" : "—")}</td>
+                      {canDelete("cosecha") && (
+                        <td style={{ textAlign: "center" }}>
+                          {auto
+                            ? <span className="badge" style={{ background: "#fee2e2", color: "#dc2626" }}>Auto</span>
+                            : <button className="btn-icon" style={{ color: "#dc2626" }} title="Eliminar asignación" onClick={() => removeHist(a)} data-testid={`hist-delete-${a._id}`}><Trash2 size={15} /></button>}
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -595,11 +595,19 @@ def _build_linked_doc(destino, cestas, kg, fecha, asignacion_id):
 
 
 @api.get("/asignaciones-destino")
-async def list_asignaciones(fecha: Optional[str] = None, _: dict = Depends(get_current_user)):
+async def list_asignaciones(fecha: Optional[str] = None, fecha_desde: Optional[str] = None, fecha_hasta: Optional[str] = None, _: dict = Depends(get_current_user)):
     filt = {}
     if fecha:
-        # Acepta fecha YYYY-MM-DD: match por prefijo
+        # Acepta fecha YYYY-MM-DD: match por prefijo (un solo día)
         filt["fecha"] = {"$regex": f"^{fecha}"}
+    elif fecha_desde or fecha_hasta:
+        # Rango de fechas (para el historial): compara por prefijo YYYY-MM-DD
+        rango = {}
+        if fecha_desde:
+            rango["$gte"] = fecha_desde[:10]
+        if fecha_hasta:
+            rango["$lte"] = fecha_hasta[:10] + "\uffff"
+        filt["fecha"] = rango
     return await _list("asignaciones_destino", "asignaciones", filt, sort_field="fecha")
 
 
