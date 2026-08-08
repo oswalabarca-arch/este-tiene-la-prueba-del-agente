@@ -21,6 +21,7 @@ const REASIGNAR_DESTINOS = {
   ciudad: ["descarte", "donaciones", "refrigerar", "congelar"],
   refrigerar: ["congelar", "donaciones", "descarte"],
   congelar: ["donaciones", "descarte"],
+  donaciones: ["descarte"],
 };
 const DESTINO_LABEL = { descarte: "Descarte", donaciones: "Donaciones", refrigerar: "Refrigerado", congelar: "Congelado" };
 
@@ -571,6 +572,31 @@ function Ventas({ tipo }) {
               {disponible <= 0.001 && <span style={{ color: "#dc2626", fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}><AlertCircle size={14} /> Sin cestas disponibles. Asigná desde "Asignación de destino".</span>}
             </div>
           </div>
+
+          {/* Reasignar a Descarte las cestas que no se donaron (se perdieron) */}
+          {tieneReasignar && disponible > 0.001 && (
+            <div className="card" style={{ background: "#fff7ed", borderColor: "#fed7aa", marginBottom: 16 }} data-testid="reasignar-card">
+              <h3 style={{ margin: 0, color: "#c2410c", display: "flex", alignItems: "center", gap: 8 }}><Truck size={18} /> Reasignar a descarte (cestas perdidas)</h3>
+              <div style={{ color: "#64748b", fontSize: 13, margin: "4px 0 16px" }}>
+                Quedan <b style={{ color: "#c2410c" }}>{fc(disponible)}</b> cesta(s) sin donar. Si no lograron donarse y se perdieron, envialas a <b>Descarte</b> para sacarlas del disponible.
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, alignItems: "end" }}>
+                <div className="field" style={{ margin: 0 }}>
+                  <label>Cantidad de cestas</label>
+                  <DecimalInput type="number" step="0.01" min="0" className="input" placeholder="0" value={reasign.cantidad} onChange={(e) => setReasign({ ...reasign, cantidad: e.target.value })} data-testid="reasign-cantidad" />
+                </div>
+                <div className="field" style={{ margin: 0 }}>
+                  <label>Destino</label>
+                  <select className="select" value={reasign.destino} onChange={(e) => setReasign({ ...reasign, destino: e.target.value })} data-testid="reasign-destino">
+                    {destinosReasignar.map((d) => <option key={d} value={d}>{DESTINO_LABEL[d]}</option>)}
+                  </select>
+                </div>
+                <button className="btn btn-primary" style={{ background: "#ea580c", borderColor: "#ea580c" }} onClick={reasignarSobrantes} disabled={reasignBusy} data-testid="reasign-btn">
+                  {reasignBusy ? "..." : "Reasignar"}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Filtros del registro */}
           <div className="card" style={{ marginBottom: 16 }}>

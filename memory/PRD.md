@@ -492,3 +492,11 @@ Backend: **21/21 tests pasaron** — auth, users, plantaciones, tipos/variedades
 - FIX (`components/AjustesSaldo.jsx`): los ajustes de SALIDA (−) ahora se marcan "Salida (−) · Limpieza" con fila verde y un candado "🔒 No borrar" (data-testid `ajuste-protegido-{id}`) en vez del botón eliminar. Solo los de ENTRADA (+) siguen siendo borrables (esos sí crean fantasmas). `eliminar()` mantiene doble confirmación fuerte por si en el futuro se habilita revertir. Header/footer actualizados explicando entrada vs salida.
 - Resultado: "Ajustar saldo → 0" es ahora un arreglo PERMANENTE y seguro para cualquier canal; el usuario no puede revertirlo por accidente.
 - Verificado: endpoint devuelve la salida de donaciones con tipo=salida; panel renderiza con candado "No borrar" (captura). Requiere RE-DEPLOY para producción.
+
+## Cambio (Revertido candado + Reasignar Donaciones→Descarte — junio 2026)
+- REVERTIDO: el candado "No borrar" en ajustes de salida (AjustesSaldo.jsx) — a pedido del usuario. Vuelve a ser borrable con confirmación simple como antes.
+- NUEVO: "Reasignar a descarte" en el módulo Donaciones (para cestas que no se donaron y se perdieron).
+  - Backend: nuevo endpoint `POST /api/ventas-donaciones/reasignar` con allowed=("descarte",); agregado "donaciones" a `_FUENTE_LABELS`. Reusa `_reasignar_ventas` (crea reasignacion_salida en donaciones + registro en descarte con origen reasignacion_ciudad).
+  - Frontend (Ventas.jsx): `REASIGNAR_DESTINOS.donaciones=["descarte"]` + tarjeta "Reasignar a descarte (cestas perdidas)" en el bloque esDonacion (visible cuando disponible>0). El subcard "Reasignado hoy · Enviado a Descarte" ya aparece en el panel de donaciones.
+- Flujo del usuario para sacar fantasmas de donaciones: en "Revisar ajustes de saldo" borrar el ajuste_salida (vuelve el disponible) → en Donaciones usar "Reasignar a descarte" → queda en 0 y la fruta perdida queda registrada en Descarte.
+- Verificado end-to-end por curl (donaciones 14→0, descarte recibe 14) + captura del panel. Requiere RE-DEPLOY.

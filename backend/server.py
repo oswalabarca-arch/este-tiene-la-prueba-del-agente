@@ -1798,7 +1798,7 @@ class ReasignarIn(BaseModel):
 
 
 _REASIGNAR_LABELS = {"descarte": "Descarte", "donaciones": "Donaciones", "refrigerar": "Refrigerar", "congelar": "Congelar"}
-_FUENTE_LABELS = {"ciudad": "Envío a ciudad", "refrigerar": "Refrigerar", "congelar": "Congelar"}
+_FUENTE_LABELS = {"ciudad": "Envío a ciudad", "refrigerar": "Refrigerar", "congelar": "Congelar", "donaciones": "Donaciones"}
 
 
 async def _reasignar_ventas(source_tipo: str, payload: ReasignarIn, allowed: tuple, user: dict):
@@ -1857,6 +1857,12 @@ async def reasignar_refrigerar(payload: ReasignarIn, user: dict = Depends(get_cu
 @api.post("/ventas-congelar/reasignar")
 async def reasignar_congelar(payload: ReasignarIn, user: dict = Depends(get_current_user)):
     return await _reasignar_ventas("congelar", payload, ("donaciones", "descarte"), user)
+
+
+@api.post("/ventas-donaciones/reasignar")
+async def reasignar_donaciones(payload: ReasignarIn, user: dict = Depends(get_current_user)):
+    # Para cestas que no lograron donarse y se perdieron -> a Descarte.
+    return await _reasignar_ventas("donaciones", payload, ("descarte",), user)
 
 
 @api.get("/dashboard/stock-canales")
