@@ -19,6 +19,13 @@ const fmt = (n) => {
   return e.replace(/\B(?=(\d{3})+(?!\d))/g, ".") + "," + d;
 };
 const hoyLocal = () => new Date().toLocaleDateString("en-CA");
+// Lunes de la semana actual (YYYY-MM-DD) en hora local
+const inicioSemana = () => {
+  const d = new Date();
+  const dia = (d.getDay() + 6) % 7; // 0 = lunes
+  d.setDate(d.getDate() - dia);
+  return d.toLocaleDateString("en-CA");
+};
 
 const emptyForm = { fecha: hoyLocal(), cantidad_cestas: "", precio_unitario: "", cliente: "", telefono: "", abono_inicial: "", observaciones: "" };
 
@@ -46,9 +53,10 @@ export default function VentaRapida() {
     Promise.all(CANALES.map((c) => api.get(`/ventas-${c.key}`).then((r) => [c.key, r.data.ventas || []])))
       .then((pairs) => {
         const dsp = {}, ult = {};
+        const desde = inicioSemana();
         for (const [k, docs] of pairs) {
           dsp[k] = calc(docs);
-          ult[k] = docs.filter(esVentaReal).sort((a, b) => (b.fecha || "").localeCompare(a.fecha || "")).slice(0, 5);
+          ult[k] = docs.filter(esVentaReal).filter((v) => (v.fecha || "").slice(0, 10) >= desde).sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
         }
         setDispon(dsp); setUltimas(ult);
       }).catch(() => {});
@@ -179,9 +187,9 @@ export default function VentaRapida() {
 
         {/* Últimas ventas del canal */}
         <div className="card">
-          <h3 style={{ margin: "0 0 12px" }}>Últimas ventas — {canalCfg?.label}</h3>
+          <h3 style={{ margin: "0 0 12px" }}>Ventas de esta semana — {canalCfg?.label}</h3>
           {(ultimas[canal] || []).length === 0 ? (
-            <div className="empty-state" data-testid="vr-sin-ventas"><CheckCircle2 size={26} style={{ color: "#94a3b8", marginBottom: 6 }} /><div>Aún no hay ventas registradas en este canal.</div></div>
+            <div className="empty-state" data-testid="vr-sin-ventas"><CheckCircle2 size={26} style={{ color: "#94a3b8", marginBottom: 6 }} /><div>No hay ventas registradas esta semana en este canal.</div><div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>Las ventas anteriores están en el módulo del canal.</div></div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {(ultimas[canal] || []).map((v) => (
