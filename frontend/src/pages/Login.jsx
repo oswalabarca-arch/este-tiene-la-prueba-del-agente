@@ -105,12 +105,6 @@ export default function Login() {
               {showCreate ? "Volver a iniciar sesión" : "Crear usuario administrador"}
             </button>
           </div>
-
-          <div style={{ marginTop: 16, background: "#f1f5f9", padding: 14, borderRadius: 8, textAlign: "center", fontSize: 13 }}>
-            <b>Credenciales por defecto:</b><br />
-            Email: oswaldabarca@gmail.com<br />
-            Contraseña: 123456
-          </div>
         </div>
 
         <div style={{ textAlign: "center", color: "#64748b", marginTop: 20, fontSize: 13 }}>
