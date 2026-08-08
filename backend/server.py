@@ -9,6 +9,7 @@ load_dotenv(ROOT_DIR / ".env")
 import os
 import uuid
 import io
+import hashlib
 import bcrypt
 import jwt
 import logging
@@ -3223,6 +3224,10 @@ async def on_start():
     admin_password = os.environ.get("ADMIN_PASSWORD", "admin123")
     await db.users.create_index("email", unique=True)
 
+    # Marcador de la contraseña del entorno: sirve para aplicar el valor de
+    # ADMIN_PASSWORD UNA sola vez cuando cambia. Así, si el usuario cambia su
+    # contraseña desde la interfaz, NO se revierte al reiniciar el servidor.
+    pw_marker = hashlib.sha256(("adminpw:" + admin_password).encode()).hexdigest()
     existing = await db.users.find_one({"email": admin_email})
     if not existing:
         await db.users.insert_one({
@@ -3236,13 +3241,19 @@ async def on_start():
             "createdAt": now_iso(),
             "updatedAt": now_iso(),
         })
+        await db.app_meta.update_one({"_id": "admin_seed"}, {"$set": {"admin_pw_marker": pw_marker}}, upsert=True)
         logging.info(f"Admin seeded: {admin_email}")
-    elif not verify_password(admin_password, existing.get("password_hash", "")):
-        await db.users.update_one(
-            {"email": admin_email},
-            {"$set": {"password_hash": hash_password(admin_password), "updatedAt": now_iso()}},
-        )
-        logging.info("Admin password updated from env")
+    else:
+        meta = await db.app_meta.find_one({"_id": "admin_seed"})
+        applied = (meta or {}).get("admin_pw_marker")
+        if applied != pw_marker:
+            # El valor de ADMIN_PASSWORD del entorno cambió -> aplicarlo una sola vez.
+            await db.users.update_one(
+                {"email": admin_email},
+                {"$set": {"password_hash": hash_password(admin_password), "updatedAt": now_iso()}},
+            )
+            await db.app_meta.update_one({"_id": "admin_seed"}, {"$set": {"admin_pw_marker": pw_marker}}, upsert=True)
+            logging.info("Admin password synced from env (one-time)")
 
 
 # Mount
