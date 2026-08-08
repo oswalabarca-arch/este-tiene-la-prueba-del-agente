@@ -32,7 +32,7 @@ const emptyForm = { fecha: hoyLocal(), cantidad_cestas: "", precio_unitario: "",
 export default function VentaRapida() {
   const toast = useToast();
   const { canEdit } = useAuth();
-  const editable = canEdit("ventas");
+  const editable = canEdit("venta_rapida");
   const [dispon, setDispon] = useState({}); // key -> disponible
   const [ultimas, setUltimas] = useState({}); // key -> [ventas]
   const [canal, setCanal] = useState("finca");

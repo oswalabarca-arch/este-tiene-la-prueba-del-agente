@@ -23,7 +23,7 @@ const tipoDeModulo = (label) => ({
 export default function Deuda() {
   const toast = useToast();
   const { canEdit } = useAuth();
-  const editable = canEdit("ventas");
+  const editable = canEdit("deuda");
   const [data, setData] = useState(null);
   const [orden, setOrden] = useState("deuda"); // deuda | dias
   const [abierto, setAbierto] = useState(null); // key cliente|telefono

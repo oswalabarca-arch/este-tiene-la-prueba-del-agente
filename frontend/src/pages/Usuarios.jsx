@@ -7,8 +7,28 @@ import { DecimalInput } from "../components/DecimalInput";
 
 const MODULOS = [
   "usuarios", "control_asistencia", "plantaciones", "equipos", "actividades", "aplicaciones",
-  "cosecha", "ventas", "frio", "inventario", "ficha_tecnica", "compras", "analiticas", "recursos_humanos",
+  "cosecha", "asignacion_destino", "ventas", "venta_rapida", "deuda", "frio", "inventario",
+  "ficha_tecnica", "compras", "analiticas", "recursos_humanos",
 ];
+const MODULO_LABELS = {
+  usuarios: "Usuarios",
+  control_asistencia: "Control de asistencia",
+  plantaciones: "Plantaciones",
+  equipos: "Equipos",
+  actividades: "Actividades",
+  aplicaciones: "Aplicaciones",
+  cosecha: "Cosecha",
+  asignacion_destino: "Asignación de destino",
+  ventas: "Ventas (canales)",
+  venta_rapida: "Venta rápida",
+  deuda: "Deuda",
+  frio: "Frío (refrigerado/congelado)",
+  inventario: "Inventario",
+  ficha_tecnica: "Ficha técnica de productos",
+  compras: "Compras",
+  analiticas: "Analíticas",
+  recursos_humanos: "Recursos Humanos",
+};
 const ROLES = ["administrador", "ingeniero", "encargado_campo", "operario"];
 
 export default function Usuarios() {
@@ -232,7 +252,7 @@ function UserModal({ initial, onClose, onSaved }) {
                       onChange={() => toggleMod(m)}
                       data-testid={`user-form-modulo-${m}`}
                     />
-                    <span style={{ textTransform: "capitalize" }}>{m.replace("_", " ")}</span>
+                    <span>{MODULO_LABELS[m] || m.replace(/_/g, " ")}</span>
                   </label>
                   <div style={{ textAlign: "center" }}>
                     <input

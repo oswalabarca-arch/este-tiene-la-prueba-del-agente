@@ -229,8 +229,8 @@ async def create_admin_public(payload: CreateAdminIn):
 # ============================================================
 MODULOS_DISPONIBLES = [
     "usuarios", "control_asistencia", "plantaciones", "equipos", "actividades", "aplicaciones",
-    "cosecha", "ventas", "frio", "inventario", "ficha_tecnica", "compras", "analiticas",
-    "recursos_humanos",
+    "cosecha", "asignacion_destino", "ventas", "venta_rapida", "deuda", "frio", "inventario",
+    "ficha_tecnica", "compras", "analiticas", "recursos_humanos",
 ]
 
 ROLES = ["administrador", "ingeniero", "encargado_campo", "operario"]

@@ -15,8 +15,8 @@ const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutGrid, module: null },
   { to: "/dashboard/usuarios", label: "Usuarios", icon: Users, module: "usuarios" },
   { to: "/dashboard/control-asistencia", label: "Control de asistencia", icon: CalendarCheck, module: "control_asistencia" },
-  { to: "/dashboard/deuda", label: "Deuda", icon: HandCoins, module: "ventas" },
-  { to: "/dashboard/venta-rapida", label: "Venta rápida", icon: Zap, module: "ventas" },
+  { to: "/dashboard/deuda", label: "Deuda", icon: HandCoins, module: "deuda" },
+  { to: "/dashboard/venta-rapida", label: "Venta rápida", icon: Zap, module: "venta_rapida" },
   {
     label: "Recursos Humanos", icon: Briefcase, module: "recursos_humanos",
     sub: [
@@ -42,7 +42,7 @@ const NAV = [
   },
   { to: "/dashboard/aplicaciones", label: "Aplicaciones", icon: Droplets, module: "aplicaciones" },
   { to: "/dashboard/cosecha", label: "Cosecha", icon: Strawberry, module: "cosecha" },
-  { to: "/dashboard/asignacion-destino", label: "Asignación de destino", icon: Send, module: "cosecha" },
+  { to: "/dashboard/asignacion-destino", label: "Asignación de destino", icon: Send, module: "asignacion_destino" },
   {
     label: "Ventas", icon: DollarSign, module: "ventas",
     sub: [

@@ -334,7 +334,7 @@ export default function AsignacionDestino() {
                     <td style={{ textAlign: "right" }}>
                       {a.origen === "cosecha_descarte_auto"
                         ? <span className="badge" style={{ background: "#fee2e2", color: "#dc2626" }}>Auto · descarte</span>
-                        : isToday && canDelete("cosecha")
+                        : isToday && canDelete("asignacion_destino")
                         ? <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(a)}><Trash2 size={16} /></button>
                         : <span style={{ color: "#94a3b8", fontSize: 12 }}>—</span>}
                     </td>
@@ -375,7 +375,7 @@ export default function AsignacionDestino() {
           <div style={{ overflowX: "auto" }}>
             <table className="table" style={{ width: "100%" }} data-testid="hist-table">
               <thead>
-                <tr><th>Fecha</th><th>Destino</th><th style={{ textAlign: "right" }}>Cestas</th><th style={{ textAlign: "right" }}>kg</th><th>Nota</th>{canDelete("cosecha") && <th style={{ textAlign: "center" }}>Acción</th>}</tr>
+                <tr><th>Fecha</th><th>Destino</th><th style={{ textAlign: "right" }}>Cestas</th><th style={{ textAlign: "right" }}>kg</th><th>Nota</th>{canDelete("asignacion_destino") && <th style={{ textAlign: "center" }}>Acción</th>}</tr>
               </thead>
               <tbody>
                 {historial.map((a) => {
@@ -388,7 +388,7 @@ export default function AsignacionDestino() {
                       <td style={{ textAlign: "right", fontWeight: 600 }}>{a.cantidad_cestas?.toFixed(2)}</td>
                       <td style={{ textAlign: "right" }}>{a.cantidad_kg?.toFixed(2)}</td>
                       <td style={{ fontSize: 12.5, color: "#64748b" }}>{a.observaciones || (auto ? "Descarte automático" : "—")}</td>
-                      {canDelete("cosecha") && (
+                      {canDelete("asignacion_destino") && (
                         <td style={{ textAlign: "center" }}>
                           {auto
                             ? <span className="badge" style={{ background: "#fee2e2", color: "#dc2626" }}>Auto</span>
