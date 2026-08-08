@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
-import { SlidersHorizontal, Trash2, ArrowDownCircle, ArrowUpCircle } from "lucide-react";
+import { SlidersHorizontal, Trash2, ArrowDownCircle, ArrowUpCircle, Lock } from "lucide-react";
 
 const MESES_C = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 const fmtFecha = (f) => {
@@ -23,7 +23,17 @@ export default function AjustesSaldo() {
   useEffect(() => { load(); }, [load]);
 
   const eliminar = async (a) => {
-    if (!window.confirm(`¿Eliminar este ajuste de ${a.tipo} de ${fmtKg(a.cantidad_kg)} en "${a.canal_label}"? Si el canal queda en negativo, revisa las ventas registradas sobre esa fruta.`)) return;
+    if (a.tipo === "salida") {
+      // Las salidas son LIMPIEZAS de stock. Borrarlas DEVUELVE las cestas (regresa el fantasma).
+      const ok = window.confirm(
+        `⚠️ ATENCIÓN: este es un ajuste de LIMPIEZA (Salida −${fmtKg(a.cantidad_kg)}) en "${a.canal_label}".\n\n` +
+        `Fue lo que usaste para dejar ese canal en 0. Si lo borras, esas ${a.cantidad_cestas} cestas VOLVERÁN a aparecer como disponibles (regresa el fantasma).\n\n` +
+        `Normalmente NO debes borrar esto. ¿Estás totalmente seguro de que fue un error y quieres devolver las cestas al canal?`
+      );
+      if (!ok) return;
+    } else {
+      if (!window.confirm(`¿Eliminar este ajuste de Entrada (+${fmtKg(a.cantidad_kg)}) en "${a.canal_label}"? Esto quitará esas cestas que se habían agregado manualmente.`)) return;
+    }
     try {
       await api.delete(`/ventas-${a.canal}/${a.id}`);
       toast.show("Ajuste eliminado");
@@ -40,7 +50,7 @@ export default function AjustesSaldo() {
         <div>
           <h2 style={{ margin: 0, color: "#0f172a" }}>Revisar ajustes de saldo</h2>
           <div style={{ color: "#64748b", fontSize: 13, marginTop: 2 }}>
-            Ajustes manuales que hiciste con "Ajustar saldo disponible". Si un canal tiene fantasmas, elimina el ajuste incorrecto aquí.
+            Ajustes manuales que hiciste con "Ajustar saldo disponible". Los de <b style={{ color: "#dc2626" }}>Entrada (+)</b> agregan cestas (pueden crear fantasmas). Los de <b style={{ color: "#16a34a" }}>Salida (−)</b> son <b>limpiezas</b> que dejaron un canal en 0: <b>NO los borres</b> o el fantasma regresa.
           </div>
         </div>
       </div>
@@ -62,21 +72,28 @@ export default function AjustesSaldo() {
             </thead>
             <tbody>
               {ajustes.map((a) => (
-                <tr key={a.id} data-testid={`ajuste-row-${a.id}`}>
+                <tr key={a.id} data-testid={`ajuste-row-${a.id}`} style={a.tipo === "salida" ? { background: "#f0fdf4" } : undefined}>
                   <td style={{ whiteSpace: "nowrap" }}>{fmtFecha(a.fecha)}</td>
                   <td><b>{a.canal_label}</b></td>
                   <td>
                     {a.tipo === "entrada" ? (
                       <span style={{ color: "#dc2626", display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600 }}><ArrowUpCircle size={14} /> Entrada (+)</span>
                     ) : (
-                      <span style={{ color: "#0891b2", display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600 }}><ArrowDownCircle size={14} /> Salida (−)</span>
+                      <span style={{ color: "#16a34a", display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600 }}><ArrowDownCircle size={14} /> Salida (−) · Limpieza</span>
                     )}
                   </td>
                   <td style={{ textAlign: "right", fontWeight: 700 }}>{a.cantidad_cestas} cestas · {fmtKg(a.cantidad_kg)}</td>
                   <td style={{ fontSize: 12.5, color: "#64748b" }}>{a.observaciones || "—"}</td>
                   {canDelete("ventas") && (
                     <td style={{ textAlign: "center" }}>
-                      <button className="btn-icon" style={{ color: "#dc2626" }} title="Eliminar ajuste" onClick={() => eliminar(a)} data-testid={`ajuste-delete-${a.id}`}><Trash2 size={15} /></button>
+                      {a.tipo === "salida" ? (
+                        <span title="Limpieza de stock — no la borres o el fantasma regresa" data-testid={`ajuste-protegido-${a.id}`}
+                          style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5, fontWeight: 700, color: "#15803d", background: "#dcfce7", padding: "3px 8px", borderRadius: 6, cursor: "help" }}>
+                          <Lock size={12} /> No borrar
+                        </span>
+                      ) : (
+                        <button className="btn-icon" style={{ color: "#dc2626" }} title="Eliminar ajuste" onClick={() => eliminar(a)} data-testid={`ajuste-delete-${a.id}`}><Trash2 size={15} /></button>
+                      )}
                     </td>
                   )}
                 </tr>
@@ -84,7 +101,7 @@ export default function AjustesSaldo() {
             </tbody>
           </table>
           <div style={{ fontSize: 11.5, color: "#94a3b8", marginTop: 8 }}>
-            💡 Los ajustes de <b>Entrada (+)</b> son los que suelen crear fantasmas (agregan cestas que no vienen de una cosecha). Elimina los que registraste por error.
+            💡 <b>Entrada (+)</b>: agregan cestas que no vienen de una cosecha (borra las que registraste por error). <b style={{ color: "#15803d" }}>Salida (−) 🔒</b>: son limpiezas que dejaron un canal en 0 y quedan protegidas — si necesitas revertir una, contáctame.
           </div>
         </div>
       )}
