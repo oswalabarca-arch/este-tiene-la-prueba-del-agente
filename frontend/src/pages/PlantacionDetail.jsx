@@ -339,6 +339,10 @@ function AplicacionesTab({ items }) {
   const [mesSel, setMesSel] = useState(currentMonthStr);
   const [anioSel, setAnioSel] = useState(currentYearStr);
   const [filtroTipo, setFiltroTipo] = useState("");
+  // Filtro propio del panel "Totales por tipo" (mes/año/todo)
+  const [totPeriod, setTotPeriod] = useState("mes"); // mes | año | todo
+  const [totMes, setTotMes] = useState(currentMonthStr);
+  const [totAnio, setTotAnio] = useState(currentYearStr);
 
   if (items.length === 0) return <div className="card empty-state">Sin aplicaciones registradas en este lote</div>;
 
@@ -392,8 +396,25 @@ function AplicacionesTab({ items }) {
   const itemsF = items.filter((a) => inPeriodo(a.fecha) && (filtroTipo ? (a.tipo || "otros") === filtroTipo : true));
   const totalCostoF = itemsF.reduce((s, a) => s + (a.costo_insumos || 0), 0);
   const limpiarFiltros = () => { setPeriod("todo"); setFiltroTipo(""); };
-  // Totales por tipo (solo Tipo + Costo real), ordenado por costo desc
-  const costoRows = Object.values(porTipo).slice().sort((a, b) => b.costo - a.costo);
+  // Totales por tipo — filtrable por mes/año, independiente de la tabla de abajo
+  const inTotPeriodo = (fechaStr) => {
+    if (totPeriod === "todo") return true;
+    const f = new Date(fechaStr);
+    if (isNaN(f.getTime())) return false;
+    if (totPeriod === "mes") return f.getFullYear() === Number(totMes.slice(0, 4)) && (f.getMonth() + 1) === Number(totMes.slice(5, 7));
+    if (totPeriod === "año") return f.getFullYear() === Number(totAnio);
+    return true;
+  };
+  const itemsTot = items.filter((a) => inTotPeriodo(a.fecha));
+  const porTipoTot = {};
+  itemsTot.forEach((a) => {
+    const tipo = a.tipo || "otros";
+    if (!porTipoTot[tipo]) porTipoTot[tipo] = { tipo, count: 0, costo: 0 };
+    porTipoTot[tipo].count += 1;
+    porTipoTot[tipo].costo += (a.costo_insumos || 0);
+  });
+  const costoRows = Object.values(porTipoTot).slice().sort((a, b) => b.costo - a.costo);
+  const totalCostoTot = itemsTot.reduce((s, a) => s + (a.costo_insumos || 0), 0);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
@@ -402,9 +423,16 @@ function AplicacionesTab({ items }) {
         {/* Totales por tipo — solo Tipo y Costo real (lado izquierdo) */}
         <div className="card" style={{ flex: "1 1 300px", minWidth: 0 }} data-testid="plant-aplicaciones-totales-tipo">
           <h3 style={{ marginTop: 0, marginBottom: 2 }}>Totales por tipo</h3>
-          <p style={{ color: "#64748b", marginTop: 0, marginBottom: 14, fontSize: 12 }}>
-            Costo real (PEPS) acumulado por tipo de aplicación.
+          <p style={{ color: "#64748b", marginTop: 0, marginBottom: 12, fontSize: 12 }}>
+            Costo real (PEPS) por tipo de aplicación según el periodo seleccionado.
           </p>
+          {/* Filtro propio: Mes / Año / Todo (con selector de mes o año) */}
+          <div className="pill-group" style={{ display: "inline-flex", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 14 }} data-testid="plant-totales-filtro-periodo">
+            {[["mes", "Mes"], ["año", "Año"], ["todo", "Todo"]].map(([k, l]) => (
+              <button key={k} type="button" className={`pill ${totPeriod === k ? "active" : ""}`} onClick={() => setTotPeriod(k)} data-testid={`plant-totales-filtro-periodo-${k}`}>{l}</button>
+            ))}
+            <PeriodPicker isMonth={totPeriod === "mes"} isYear={totPeriod === "año"} mes={totMes} setMes={setTotMes} anio={totAnio} setAnio={setTotAnio} years={years} testidPrefix="plant-totales-filtro" />
+          </div>
           <table className="table">
             <thead>
               <tr>
@@ -413,7 +441,9 @@ function AplicacionesTab({ items }) {
               </tr>
             </thead>
             <tbody>
-              {costoRows.map((r) => (
+              {costoRows.length === 0 ? (
+                <tr><td colSpan={2} style={{ color: "#94a3b8", textAlign: "center", padding: "14px 0" }} data-testid="plant-totales-vacio">Sin aplicaciones en el periodo seleccionado</td></tr>
+              ) : costoRows.map((r) => (
                 <tr key={r.tipo} data-testid="plant-aplicaciones-totales-row">
                   <td><span className="badge" style={catBadge(r.tipo)}>{r.tipo}</span></td>
                   <td style={{ textAlign: "right", fontWeight: 700, color: "#16a34a" }}>${r.costo.toFixed(2)}</td>
@@ -423,7 +453,7 @@ function AplicacionesTab({ items }) {
             <tfoot>
               <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 800 }}>
                 <td>Total general</td>
-                <td style={{ textAlign: "right", color: "#16a34a" }}>${totalCosto.toFixed(2)}</td>
+                <td style={{ textAlign: "right", color: "#16a34a" }} data-testid="plant-totales-total">${totalCostoTot.toFixed(2)}</td>
               </tr>
             </tfoot>
           </table>
