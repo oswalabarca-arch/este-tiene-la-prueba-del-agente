@@ -24,7 +24,7 @@ export default function Plantaciones() {
   const [editing, setEditing] = useState(null);
   const [view, setView] = useState("activos"); // activos | archivados
   // Filtro global del gasto por lote (mes/año/todo)
-  const [gastoPeriod, setGastoPeriod] = useState("todo"); // mes | año | todo
+  const [gastoPeriod, setGastoPeriod] = useState("mes"); // mes | año | todo
   const [gastoMes, setGastoMes] = useState(currentMonthStr);
   const [gastoAnio, setGastoAnio] = useState(currentYearStr);
 
