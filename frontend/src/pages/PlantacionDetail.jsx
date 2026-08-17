@@ -600,6 +600,10 @@ function AplicacionesTab({ items }) {
 
 function LaboresTab({ items }) {
   const [laborMetric, setLaborMetric] = useState("horas"); // horas | costo | pct
+  // Filtro propio del panel "Totales por tipo" (mes/año/todo)
+  const [totPeriod, setTotPeriod] = useState("mes"); // mes | año | todo
+  const [totMes, setTotMes] = useState(currentMonthStr);
+  const [totAnio, setTotAnio] = useState(currentYearStr);
 
   if (items.length === 0) return <div className="card empty-state">Sin labores registradas en este lote</div>;
   const totalHH = items.reduce((s, a) => s + (a.horas_hombre || 0), 0);
@@ -615,6 +619,31 @@ function LaboresTab({ items }) {
     porTipo[tipo].costo += (a.costo_total || 0);
   });
   const tipoRows = Object.values(porTipo).sort((a, b) => b.costo - a.costo);
+
+  // Totales por tipo — filtrable por mes/año (independiente de KPIs y de la gráfica)
+  const yearSetL = new Set(items.map((a) => { const d = new Date(a.fecha_actividad); return isNaN(d.getTime()) ? null : String(d.getFullYear()); }).filter(Boolean));
+  yearSetL.add(currentYearStr());
+  const yearsL = [...yearSetL].sort((a, b) => b.localeCompare(a));
+  const inTotPeriodo = (fechaStr) => {
+    if (totPeriod === "todo") return true;
+    const f = new Date(fechaStr);
+    if (isNaN(f.getTime())) return false;
+    if (totPeriod === "mes") return f.getFullYear() === Number(totMes.slice(0, 4)) && (f.getMonth() + 1) === Number(totMes.slice(5, 7));
+    if (totPeriod === "año") return f.getFullYear() === Number(totAnio);
+    return true;
+  };
+  const itemsTot = items.filter((a) => inTotPeriodo(a.fecha_actividad));
+  const porTipoTot = {};
+  itemsTot.forEach((a) => {
+    const tipo = a.tipo_personalizado || a.tipo || "—";
+    if (!porTipoTot[tipo]) porTipoTot[tipo] = { tipo, count: 0, hh: 0, costo: 0 };
+    porTipoTot[tipo].count += 1;
+    porTipoTot[tipo].hh += (a.horas_hombre || 0);
+    porTipoTot[tipo].costo += (a.costo_total || 0);
+  });
+  const tipoRowsTot = Object.values(porTipoTot).sort((a, b) => b.costo - a.costo);
+  const totalHHTot = itemsTot.reduce((s, a) => s + (a.horas_hombre || 0), 0);
+  const totalCostoTot = itemsTot.reduce((s, a) => s + (a.costo_total || 0), 0);
 
   // Métrica activa de la gráfica circular (horas | costo | pct)
   const dataKey = laborMetric === "horas" ? "hh" : "costo";
@@ -641,9 +670,16 @@ function LaboresTab({ items }) {
         {/* Totales por tipo — sin columna "Labores" */}
         <div className="card" style={{ flex: "1 1 320px", minWidth: 0, marginBottom: 0 }} data-testid="plant-labores-totales-tipo">
           <h3 style={{ marginTop: 0, marginBottom: 2 }}>Totales por tipo</h3>
-          <p style={{ color: "#64748b", marginTop: 0, marginBottom: 14, fontSize: 12 }}>
-            Horas-hombre y costo de mano de obra agrupados por tipo de labor.
+          <p style={{ color: "#64748b", marginTop: 0, marginBottom: 12, fontSize: 12 }}>
+            Horas-hombre y costo de mano de obra por tipo de labor según el periodo seleccionado.
           </p>
+          {/* Filtro propio: Mes / Año / Todo (con selector de mes o año) */}
+          <div className="pill-group" style={{ display: "inline-flex", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 14 }} data-testid="plant-labores-totales-filtro-periodo">
+            {[["mes", "Mes"], ["año", "Año"], ["todo", "Todo"]].map(([k, l]) => (
+              <button key={k} type="button" className={`pill ${totPeriod === k ? "active" : ""}`} onClick={() => setTotPeriod(k)} data-testid={`plant-labores-totales-filtro-periodo-${k}`}>{l}</button>
+            ))}
+            <PeriodPicker isMonth={totPeriod === "mes"} isYear={totPeriod === "año"} mes={totMes} setMes={setTotMes} anio={totAnio} setAnio={setTotAnio} years={yearsL} testidPrefix="plant-labores-totales-filtro" />
+          </div>
           <table className="table">
             <thead>
               <tr>
@@ -653,7 +689,9 @@ function LaboresTab({ items }) {
               </tr>
             </thead>
             <tbody>
-              {tipoRows.map((r) => (
+              {tipoRowsTot.length === 0 ? (
+                <tr><td colSpan={3} style={{ color: "#94a3b8", textAlign: "center", padding: "14px 0" }} data-testid="plant-labores-totales-vacio">Sin labores en el periodo seleccionado</td></tr>
+              ) : tipoRowsTot.map((r) => (
                 <tr key={r.tipo} data-testid="plant-labores-tipo-row">
                   <td><span className="badge" style={actBadge(r.tipo)}>{r.tipo}</span></td>
                   <td style={{ textAlign: "right", fontWeight: 600, color: "#8b5cf6" }}>{r.hh.toFixed(2)}</td>
@@ -664,8 +702,8 @@ function LaboresTab({ items }) {
             <tfoot>
               <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 800 }}>
                 <td>Total general</td>
-                <td style={{ textAlign: "right", color: "#8b5cf6" }}>{totalHH.toFixed(2)}</td>
-                <td style={{ textAlign: "right", color: "#16a34a" }}>${totalCosto.toFixed(2)}</td>
+                <td style={{ textAlign: "right", color: "#8b5cf6" }} data-testid="plant-labores-totales-total-hh">{totalHHTot.toFixed(2)}</td>
+                <td style={{ textAlign: "right", color: "#16a34a" }} data-testid="plant-labores-totales-total-costo">${totalCostoTot.toFixed(2)}</td>
               </tr>
             </tfoot>
           </table>
