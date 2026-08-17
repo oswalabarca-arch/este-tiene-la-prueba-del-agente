@@ -724,6 +724,12 @@ async def delete_asignacion(aid: str, _: dict = Depends(get_current_user)):
 CATEGORIAS_INSUMOS = ["fertilizantes", "plaguicidas", "fungicidas", "herbicidas", "tratamiento", "semillas", "otros"]
 
 
+def _norm_nombre(s: Optional[str]) -> str:
+    """Recorta espacios sobrantes (inicio, final y dobles internos) del nombre.
+    Evita que un espacio invisible parta un producto o muestre su valor en $0."""
+    return " ".join((s or "").split())
+
+
 class CompraIn(BaseModel):
     categoria: str
     nombre_producto: str
@@ -748,6 +754,7 @@ async def list_compras(_: dict = Depends(get_current_user)):
 @api.post("/compras")
 async def create_compra(payload: CompraIn, user: dict = Depends(get_current_user)):
     data = payload.model_dump()
+    data["nombre_producto"] = _norm_nombre(data.get("nombre_producto"))
     doc = await _create("compras", data, user)
     # Si es equipo: crear equipo automáticamente
     if data.get("es_equipo"):
@@ -779,7 +786,9 @@ async def create_compra(payload: CompraIn, user: dict = Depends(get_current_user
 
 @api.put("/compras/{cid}")
 async def update_compra(cid: str, payload: CompraIn, _: dict = Depends(get_current_user)):
-    return await _update("compras", cid, payload.model_dump())
+    data = payload.model_dump()
+    data["nombre_producto"] = _norm_nombre(data.get("nombre_producto"))
+    return await _update("compras", cid, data)
 
 
 @api.delete("/compras/{cid}")
@@ -814,7 +823,7 @@ async def create_entrada_inventario(payload: EntradaInventarioIn, user: dict = D
     data = payload.model_dump()
     doc = {
         "categoria": data["categoria"],
-        "nombre_producto": data["nombre_producto"],
+        "nombre_producto": _norm_nombre(data.get("nombre_producto")),
         "ingrediente_activo": data.get("ingrediente_activo", "") or "",
         "precio": float(data.get("precio") or 0),
         "cantidad": float(data["cantidad"]),
@@ -843,7 +852,7 @@ async def update_entrada_inventario(eid: str, payload: EntradaInventarioIn, _: d
     data = payload.model_dump()
     update = {
         "categoria": data["categoria"],
-        "nombre_producto": data["nombre_producto"],
+        "nombre_producto": _norm_nombre(data.get("nombre_producto")),
         "ingrediente_activo": data.get("ingrediente_activo", "") or "",
         "precio": float(data.get("precio") or 0),
         "cantidad": float(data["cantidad"]),
@@ -987,7 +996,12 @@ async def get_inventario(_: dict = Depends(get_current_user)):
         }},
     ]
     apl_agg = await db.aplicaciones.aggregate(pipeline_aplicaciones).to_list(5000)
-    enviado_map = {a["_id"]: a["total_enviado"] for a in apl_agg}
+    # Normalizar la clave (sin espacios sobrantes) y sumar posibles duplicados,
+    # para que coincida con la clave usada al construir el inventario.
+    enviado_map: Dict[str, float] = {}
+    for a in apl_agg:
+        k = " ".join((a["_id"] or "").split())
+        enviado_map[k] = enviado_map.get(k, 0) + a["total_enviado"]
 
     # Stock remanente por método PEPS (FIFO) — sabemos qué unidades y a qué precio
     peps = await _compute_peps_remaining_per_product()
@@ -1014,15 +1028,19 @@ async def get_inventario(_: dict = Depends(get_current_user)):
     for c in compras_agg:
         nombre = c["_id"]["nombre_producto"]
         unidad = c["_id"]["unidad"]
+        # Clave normalizada (sin espacios sobrantes, minúsculas) para cruzar con
+        # los mapas de PEPS/consumo/ingrediente, que se calculan con strip().lower().
+        # Sin esto, un nombre con un espacio de más mostraba "Valor stock" en $0.
+        key = " ".join((nombre or "").split()).lower()
         comprado = c["total_comprado"]
         invertido = c.get("total_invertido", 0)
-        enviado = enviado_map.get(nombre.lower() if nombre else "", 0)
+        enviado = enviado_map.get(key, 0)
         disponible = comprado - enviado
-        info_peps = peps.get((nombre or "").lower(), {})
+        info_peps = peps.get(key, {})
         inventario.append({
             "categoria": c["_id"]["categoria"],
             "nombre_producto": nombre,
-            "ingrediente_activo": ingrediente_map.get((nombre or "").lower(), ""),
+            "ingrediente_activo": ingrediente_map.get(key, ""),
             "unidad": unidad,
             "total_comprado": comprado,
             "total_invertido": round(invertido, 2),
