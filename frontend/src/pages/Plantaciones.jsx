@@ -1,10 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
-import { Plus, Pencil, Trash2, MapPin, ImageOff, Sprout, X, Upload, Archive, ArchiveRestore } from "lucide-react";
+import { Plus, Pencil, Trash2, MapPin, ImageOff, Sprout, X, Upload, Archive, ArchiveRestore, Wallet } from "lucide-react";
 import { DecimalInput } from "../components/DecimalInput";
+import { PeriodPicker, currentMonthStr, currentYearStr } from "../components/PeriodPicker";
+
+const fmtGasto = (n) => {
+  const [ent, dec] = Number(n || 0).toFixed(2).split(".");
+  return ent.replace(/\B(?=(\d{3})+(?!\d))/g, ".") + "," + dec;
+};
 
 export default function Plantaciones() {
   const toast = useToast();
@@ -12,12 +18,57 @@ export default function Plantaciones() {
   const location = useLocation();
   const { canEdit, canDelete } = useAuth();
   const [items, setItems] = useState([]);
+  const [aplicaciones, setAplicaciones] = useState([]);
+  const [actividades, setActividades] = useState([]);
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState(null);
   const [view, setView] = useState("activos"); // activos | archivados
+  // Filtro global del gasto por lote (mes/año/todo)
+  const [gastoPeriod, setGastoPeriod] = useState("todo"); // mes | año | todo
+  const [gastoMes, setGastoMes] = useState(currentMonthStr);
+  const [gastoAnio, setGastoAnio] = useState(currentYearStr);
 
-  const load = useCallback(() => api.get("/plantaciones").then((r) => setItems(r.data.plantaciones)), []);
+  const load = useCallback(async () => {
+    const [pl, ap, ac] = await Promise.all([
+      api.get("/plantaciones"),
+      api.get("/aplicaciones"),
+      api.get("/actividades"),
+    ]);
+    setItems(pl.data.plantaciones);
+    setAplicaciones(ap.data.aplicaciones || []);
+    setActividades(ac.data.actividades || []);
+  }, []);
   useEffect(() => { load(); }, [load]);
+
+  // Gasto acumulado por lote = costo real de aplicaciones (PEPS, prorrateado por
+  // nº de lotes que comparten la aplicación) + costo de mano de obra (labores).
+  const gastoPorLote = useMemo(() => {
+    const inPeriodo = (fechaStr) => {
+      if (gastoPeriod === "todo") return true;
+      const f = new Date(fechaStr);
+      if (isNaN(f.getTime())) return false;
+      if (gastoPeriod === "mes") return f.getFullYear() === Number(gastoMes.slice(0, 4)) && (f.getMonth() + 1) === Number(gastoMes.slice(5, 7));
+      if (gastoPeriod === "año") return f.getFullYear() === Number(gastoAnio);
+      return true;
+    };
+    const map = {};
+    const ensure = (l) => (map[l] = map[l] || { aplic: 0, labores: 0 });
+    aplicaciones.forEach((a) => {
+      if (!inPeriodo(a.fecha)) return;
+      const todos = (a.lotes_destino && a.lotes_destino.length > 0)
+        ? a.lotes_destino
+        : (a.lotes && a.lotes.length > 0 ? a.lotes : [a.lote].filter(Boolean));
+      const n = Math.max(todos.length || 1, 1);
+      const share = (a.costo_insumos || 0) / n;
+      todos.forEach((l) => { if (l) ensure(l).aplic += share; });
+    });
+    actividades.forEach((a) => {
+      if (!inPeriodo(a.fecha_actividad)) return;
+      if (!a.lote) return;
+      ensure(a.lote).labores += (a.costo_total || 0);
+    });
+    return map;
+  }, [aplicaciones, actividades, gastoPeriod, gastoMes, gastoAnio]);
 
   // Si llegamos aquí con state.edit (desde el detalle al hacer "Editar")
   useEffect(() => {
@@ -93,6 +144,18 @@ export default function Plantaciones() {
           onChange={(e) => setSearch(e.target.value)}
           data-testid="plantaciones-search-input"
         />
+        {/* Filtro global del gasto por lote */}
+        <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#334155", display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <Wallet size={15} style={{ color: "#16a34a" }} /> Gasto por lote:
+          </span>
+          <div className="pill-group" style={{ display: "inline-flex", alignItems: "center", flexWrap: "wrap", gap: 6 }} data-testid="plantaciones-gasto-filtro-periodo">
+            {[["mes", "Mes"], ["año", "Año"], ["todo", "Todo"]].map(([k, l]) => (
+              <button key={k} type="button" className={`pill ${gastoPeriod === k ? "active" : ""}`} onClick={() => setGastoPeriod(k)} data-testid={`plantaciones-gasto-filtro-periodo-${k}`}>{l}</button>
+            ))}
+            <PeriodPicker isMonth={gastoPeriod === "mes"} isYear={gastoPeriod === "año"} mes={gastoMes} setMes={setGastoMes} anio={gastoAnio} setAnio={setGastoAnio} years={[]} testidPrefix="plantaciones-gasto-filtro" />
+          </div>
+        </div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 16 }}>
@@ -103,8 +166,32 @@ export default function Plantaciones() {
           return (
             <div key={p._id} className="plant-card" data-testid={`plantacion-card-${p._id}`} onClick={() => navigate(`/dashboard/plantaciones/${p._id}`)}>
               <div className="plant-card-lote">Lote {p.lote}{p.archivada && <span className="badge" style={{ marginLeft: 6, background: "#e2e8f0", color: "#475569", fontSize: 10 }}>Archivado</span>}</div>
-              <div className="plant-card-img">
+              <div className="plant-card-img" style={{ position: "relative" }}>
                 {p.foto_principal ? <img src={p.foto_principal} alt={p.nombre} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <ImageOff size={40} />}
+                {/* Recuadro informativo: gasto acumulado del lote (mano de obra + aplicaciones) */}
+                {(() => {
+                  const g = gastoPorLote[p.lote] || { aplic: 0, labores: 0 };
+                  const total = g.aplic + g.labores;
+                  return (
+                    <div
+                      data-testid={`plantacion-gasto-${p._id}`}
+                      style={{
+                        position: "absolute", top: "50%", right: 14, transform: "translateY(-50%)",
+                        background: "rgba(255,255,255,0.96)", border: "1px solid #bbf7d0", borderRadius: 12,
+                        padding: "10px 14px", minWidth: 150, maxWidth: "62%", boxShadow: "0 4px 12px rgba(15,23,42,0.08)", textAlign: "center",
+                      }}
+                    >
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#15803d", textTransform: "uppercase", letterSpacing: 0.4, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+                        <Wallet size={12} /> Gasto del lote
+                      </div>
+                      <div style={{ fontSize: 20, fontWeight: 800, color: "#16a34a", margin: "2px 0 4px" }} data-testid={`plantacion-gasto-total-${p._id}`}>$ {fmtGasto(total)}</div>
+                      <div style={{ fontSize: 10.5, color: "#64748b", lineHeight: 1.5 }}>
+                        <div>Mano de obra: <b style={{ color: "#334155" }}>$ {fmtGasto(g.labores)}</b></div>
+                        <div>Aplicaciones: <b style={{ color: "#334155" }}>$ {fmtGasto(g.aplic)}</b></div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
               <div className="plant-card-body">
                 <div style={{ fontSize: 16, fontWeight: 700 }}>{p.nombre}</div>
