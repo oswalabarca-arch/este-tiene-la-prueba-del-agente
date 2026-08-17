@@ -3291,6 +3291,34 @@ async def on_start():
             await db.app_meta.update_one({"_id": "admin_seed"}, {"$set": {"admin_pw_marker": pw_marker}}, upsert=True)
             logging.info("Admin password synced from env (one-time)")
 
+    # --- Migración de una sola vez: normalizar nombres de compras (Opción 2) ---
+    # Quita espacios sobrantes de 'nombre_producto' en las compras/entradas ya
+    # registradas. Es idempotente (marcador en app_meta) y REVERSIBLE: guarda el
+    # nombre original en la colección de respaldo 'compras_nombres_backup'.
+    try:
+        meta_mig = await db.app_meta.find_one({"_id": "mig_compras_nombres"})
+        if not (meta_mig or {}).get("done"):
+            cambios = 0
+            async for d in db.compras.find({}, {"nombre_producto": 1}):
+                orig = d.get("nombre_producto")
+                nuevo = _norm_nombre(orig)
+                if orig != nuevo:
+                    await db.compras_nombres_backup.update_one(
+                        {"_id": d["_id"]},
+                        {"$set": {"nombre_original": orig, "nombre_nuevo": nuevo, "fecha": now_iso()}},
+                        upsert=True,
+                    )
+                    await db.compras.update_one({"_id": d["_id"]}, {"$set": {"nombre_producto": nuevo}})
+                    cambios += 1
+            await db.app_meta.update_one(
+                {"_id": "mig_compras_nombres"},
+                {"$set": {"done": True, "cambios": cambios, "fecha": now_iso()}},
+                upsert=True,
+            )
+            logging.info(f"Migración nombres de compras (one-time): {cambios} normalizados")
+    except Exception as e:
+        logging.error(f"Migración nombres de compras falló: {e}")
+
 
 # Mount
 app.include_router(api)
