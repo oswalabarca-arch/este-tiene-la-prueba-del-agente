@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { TrendingUp, DollarSign, Package } from "lucide-react";
+import { PeriodPicker, currentMonthStr, currentYearStr } from "./PeriodPicker";
 
 const fmtMoney = (n) => {
   const [ent, dec] = Number(n || 0).toFixed(2).split(".");
@@ -41,23 +42,38 @@ function Ranking({ items, testid, color, bg, valueFmt, unitOf }) {
 
 export default function TopProductosGasto() {
   const [data, setData] = useState({ top_dinero: [], top_unidades: [] });
+  const [period, setPeriod] = useState("mes"); // mes | año | todo
+  const [mes, setMes] = useState(currentMonthStr);
+  const [anio, setAnio] = useState(currentYearStr);
 
   const load = useCallback(() => {
-    api.get("/dashboard/top-productos", { params: { limit: 5 } })
+    const params = { limit: 5 };
+    if (period === "mes") params.mes = mes;
+    else if (period === "año") params.anio = anio;
+    api.get("/dashboard/top-productos", { params })
       .then((r) => setData(r.data || { top_dinero: [], top_unidades: [] }))
       .catch(() => setData({ top_dinero: [], top_unidades: [] }));
-  }, []);
+  }, [period, mes, anio]);
   useEffect(() => { load(); }, [load]);
 
   return (
     <div className="card" style={{ marginBottom: 24, borderColor: "#fde68a", background: "linear-gradient(135deg,#fff,#fffbeb)" }} data-testid="top-productos-card">
-      <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
-        <div className="kpi-icon-box" style={{ background: "#fef3c7", color: "#d97706", width: 46, height: 46 }}><TrendingUp size={22} /></div>
-        <div>
-          <h2 style={{ margin: 0, color: "#0f172a" }}>Top de productos que más gasto</h2>
-          <div style={{ color: "#64748b", fontSize: 13, marginTop: 2 }}>
-            Los 5 productos con mayor gasto en dinero y en unidades, según las aplicaciones registradas.
+      <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div style={{ display: "flex", gap: 12 }}>
+          <div className="kpi-icon-box" style={{ background: "#fef3c7", color: "#d97706", width: 46, height: 46 }}><TrendingUp size={22} /></div>
+          <div>
+            <h2 style={{ margin: 0, color: "#0f172a" }}>Top de productos que más gasto</h2>
+            <div style={{ color: "#64748b", fontSize: 13, marginTop: 2 }}>
+              Los 5 productos con mayor gasto en dinero y en unidades, según las aplicaciones del periodo seleccionado.
+            </div>
           </div>
+        </div>
+        {/* Filtro Mes / Año / Todo (con selector de mes o año) */}
+        <div className="pill-group" style={{ display: "inline-flex", alignItems: "center", flexWrap: "wrap", gap: 6 }} data-testid="top-productos-filtro-periodo">
+          {[["mes", "Mes"], ["año", "Año"], ["todo", "Todo"]].map(([k, l]) => (
+            <button key={k} type="button" className={`pill ${period === k ? "active" : ""}`} onClick={() => setPeriod(k)} data-testid={`top-productos-filtro-periodo-${k}`}>{l}</button>
+          ))}
+          <PeriodPicker isMonth={period === "mes"} isYear={period === "año"} mes={mes} setMes={setMes} anio={anio} setAnio={setAnio} years={[]} testidPrefix="top-productos-filtro" />
         </div>
       </div>
 

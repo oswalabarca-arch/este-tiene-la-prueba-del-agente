@@ -1136,15 +1136,33 @@ async def dashboard_alertas_reposicion(dias: int = 30, categoria: str = "fertili
 
 
 @api.get("/dashboard/top-productos")
-async def dashboard_top_productos(limit: int = 5, _: dict = Depends(get_current_user)):
+async def dashboard_top_productos(limit: int = 5, mes: Optional[str] = None, anio: Optional[str] = None, _: dict = Depends(get_current_user)):
     """Top de productos con mayor gasto según las aplicaciones (solo lectura).
     - top_dinero: productos con mayor costo real (PEPS/FIFO) en $.
     - top_unidades: productos con mayor cantidad consumida (en su unidad).
-    No modifica ningún módulo."""
+    Filtros opcionales: mes (YYYY-MM) o anio (YYYY). El costo PEPS se sigue
+    calculando sobre TODAS las aplicaciones; el filtro sólo limita qué
+    aplicaciones se suman al ranking. No modifica ningún módulo."""
     costos = await _compute_fifo_costs_per_aplicacion()
+    # Mapa aplicacion_id -> fecha, para filtrar el ranking por periodo
+    aplic_docs = await db.aplicaciones.find({}, {"fecha": 1}).to_list(20000)
+    fecha_by_aid = {a.get("_id"): (a.get("fecha") or "") for a in aplic_docs}
+
+    def _in_periodo(aid: str) -> bool:
+        if not mes and not anio:
+            return True
+        f = fecha_by_aid.get(aid, "") or ""
+        if mes:
+            return f[:7] == mes
+        if anio:
+            return f[:4] == anio
+        return True
+
     money: Dict[str, Dict[str, Any]] = {}
     units: Dict[str, Dict[str, Any]] = {}
     for _aid, c in costos.items():
+        if not _in_periodo(_aid):
+            continue
         for ic in c.get("insumos_costo", []):
             nombre = (ic.get("nombre_producto") or "").strip()
             if not nombre:
