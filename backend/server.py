@@ -1562,7 +1562,14 @@ async def update_aplicacion(aid: str, payload: AplicacionIn, _: dict = Depends(g
 
 @api.delete("/aplicaciones/{aid}")
 async def delete_aplicacion(aid: str, _: dict = Depends(get_current_user)):
-    return await _delete("aplicaciones", aid)
+    # Al eliminar una aplicación, borrar también las labores (mano de obra) que se
+    # crearon al confirmarla. Así, en un solo paso: se devuelven los insumos al
+    # inventario (el stock es derivado) Y se elimina la mano de obra de Nómina/
+    # Plantaciones, sin dejar labores huérfanas.
+    lab = await db.actividades.delete_many({"origen": "aplicacion", "aplicacion_id": aid})
+    res = await _delete("aplicaciones", aid)
+    res["labores_eliminadas"] = lab.deleted_count
+    return res
 
 
 async def _validate_inventory_for_aplicacion(aid: Optional[str], payload_insumos: List[Dict[str, Any]]):
