@@ -1801,6 +1801,16 @@ def _ventas_router(tipo: str):
 
     @api.delete(f"/ventas-{tipo}/{{vid}}")
     async def _delete_v(vid: str, _: dict = Depends(get_current_user)):
+        doc = await db[f"ventas_{tipo}"].find_one({"_id": vid})
+        rid = (doc or {}).get("reasignacion_id")
+        if rid:
+            # Reversa de reasignación: borrar AMBOS lados (salida en el origen + entrada en el
+            # destino) para que la fruta regrese al canal de donde vino y no se descuadre el saldo.
+            borrados = 0
+            for t in ("finca", "ciudad", "refrigerar", "congelar", "descarte", "donaciones"):
+                r = await db[f"ventas_{t}"].delete_many({"reasignacion_id": rid})
+                borrados += r.deleted_count
+            return {"success": True, "reasignacion_revertida": True, "registros_eliminados": borrados}
         return await _delete(f"ventas_{tipo}", vid)
 
     @api.post(f"/ventas-{tipo}/ajuste-saldo")
@@ -1872,6 +1882,9 @@ async def _reasignar_ventas(source_tipo: str, payload: ReasignarIn, allowed: tup
     kg = round(cestas * KG_POR_CESTA, 2)
     fecha_full = fecha_prefix + "T12:00:00.000Z"
     destino_label = _REASIGNAR_LABELS[payload.destino]
+    # ID que vincula la salida (origen) con la entrada (destino) de esta reasignación,
+    # para poder revertir AMBOS lados si luego se elimina (la fruta vuelve a su origen).
+    rid = new_id()
     # 1) Salida del canal origen (reduce su disponible): registro de salida, no es venta real
     salida = {
         "fecha": fecha_full, "cantidad_cestas": cestas, "cantidad_kg": kg,
@@ -1879,6 +1892,7 @@ async def _reasignar_ventas(source_tipo: str, payload: ReasignarIn, allowed: tup
         "telefono": "", "abono_inicial": 0,
         "observaciones": f"Reasignación de cestas sobrantes a {destino_label}",
         "origen": "reasignacion_salida",
+        "reasignacion_id": rid, "reasignacion_source": source_tipo, "reasignacion_destino": payload.destino,
     }
     await _create(coll, salida, user)
     # 2) Entrada en el destino elegido
@@ -1889,6 +1903,7 @@ async def _reasignar_ventas(source_tipo: str, payload: ReasignarIn, allowed: tup
         "precio_unitario": 0, "total": 0, "cliente": "", "telefono": "", "abono_inicial": 0,
         "observaciones": f"Reasignado desde {_FUENTE_LABELS.get(source_tipo, source_tipo)}",
         "origen": "reasignacion_ciudad" if payload.destino == "descarte" else "asignacion_destino",
+        "reasignacion_id": rid, "reasignacion_source": source_tipo, "reasignacion_destino": payload.destino,
     }
     await _create(f"ventas_{payload.destino}", entrada, user)
     return {"success": True, "cantidad_cestas": cestas, "destino": payload.destino}
