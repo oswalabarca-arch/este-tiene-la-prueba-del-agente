@@ -1810,8 +1810,7 @@ def _ventas_router(tipo: str):
 
     @api.get(f"/ventas-{tipo}")
     async def _list_v(_: dict = Depends(get_current_user)):
-        docs = await db[f"ventas_{tipo}"].find({}).sort("fecha", -1).to_list(2000)
-        return {"ventas": docs}
+        return await _list(f"ventas_{tipo}", "ventas", sort_field="fecha")
 
     @api.post(f"/ventas-{tipo}")
     async def _create_v(payload: VentaIn, user: dict = Depends(get_current_user)):
@@ -2799,15 +2798,20 @@ async def conciliacion_diagnostico(gran: str = "todo", anchor: Optional[str] = N
         # Desglose por fecha: recorre los días en orden y marca cuándo el saldo se vuelve negativo
         detalle_fechas = []
         if sobre_c > 0.001:
+            # Recorre los días en orden; el descuadre REAL es el que persiste al final
+            # (asignaciones de días posteriores pueden cubrir usos anteriores). Reportamos
+            # la fecha desde la cual el saldo quedó negativo sin recuperarse, con el neto final.
             running = 0.0
-            prev_deficit = 0.0
+            inicio_deficit = None
             for dia in sorted(movs_dia.keys()):
                 running = round(running + movs_dia[dia], 4)
-                deficit = max(round(-running, 2), 0.0)
-                nuevo = round(deficit - prev_deficit, 2)
-                if nuevo > 0.001:  # este día aumentó el sobreuso
-                    detalle_fechas.append({"fecha": dia, "cestas_de_mas": nuevo, "kg_de_mas": round(nuevo * KG_POR_CESTA, 2)})
-                prev_deficit = max(deficit, prev_deficit)
+                if running < -0.001:
+                    if inicio_deficit is None:
+                        inicio_deficit = dia
+                else:
+                    inicio_deficit = None
+            if inicio_deficit:
+                detalle_fechas.append({"fecha": inicio_deficit, "cestas_de_mas": round(sobre_c, 2), "kg_de_mas": sobre_kg})
         canales.append({
             "canal": tipo, "label": LABELS_CANAL[tipo],
             "recibido_cestas": round(recibido_c, 2), "usado_cestas": round(usado_c, 2),
