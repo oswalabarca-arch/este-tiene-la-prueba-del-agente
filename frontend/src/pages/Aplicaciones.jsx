@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
-import { Droplets, Plus, Trash2, BookOpen, X, CheckCircle, Clock, Eye, Pencil, Search } from "lucide-react";
+import { Droplets, Plus, Trash2, BookOpen, X, CheckCircle, Clock, Eye, Pencil, Search, DollarSign } from "lucide-react";
 import { catBadge, catPill } from "../lib/categoryColors";
 import { todayLocal, toLocalDateStr } from "../lib/dates";
 import { PeriodPicker, currentMonthStr, currentYearStr } from "../components/PeriodPicker";
@@ -11,6 +11,40 @@ import { useFichasTecnicas, VerFichaButton } from "../components/VerFichaTecnica
 
 const TIPOS = ["fertilizacion", "fungicida", "plaguicida", "herbicida", "tratamiento"];
 const UNIDAD = "Unidades";
+
+const fmtCosto = (n) => {
+  const [ent, dec] = Number(n || 0).toFixed(2).split(".");
+  return ent.replace(/\B(?=(\d{3})+(?!\d))/g, ".") + "," + dec;
+};
+
+// Costo PEPS (FIFO) de una receta: valora cada insumo consumiendo los lotes
+// remanentes más antiguos primero. El faltante sin stock se valora al precio del
+// lote más reciente (o al promedio) como costo de reposición. Solo informativo.
+function costoRecetaPEPS(receta, invByName) {
+  let total = 0;
+  let aproximado = false;
+  for (const ins of (receta.insumos || [])) {
+    const key = (ins.nombre_producto || "").trim().toLowerCase();
+    let need = Number(ins.cantidad || 0);
+    if (need <= 0) continue;
+    const info = invByName[key];
+    if (!info) { aproximado = true; continue; }
+    const lotes = (info.lotes_remanentes || []).map((l) => ({ ...l }));
+    for (const lot of lotes) {
+      if (need <= 0) break;
+      const take = Math.min(lot.cantidad, need);
+      total += take * (lot.precio_unitario || 0);
+      need -= take;
+    }
+    if (need > 1e-9) {
+      const ultimo = lotes.length ? lotes[lotes.length - 1].precio_unitario : 0;
+      const precioRep = ultimo || info.precio_unitario_promedio || 0;
+      total += need * precioRep;
+      aproximado = true;
+    }
+  }
+  return { total, aproximado };
+}
 
 // Generador de IDs estables para filas editables (evita keys por índice en React)
 let _rowSeq = 0;
@@ -100,6 +134,18 @@ export default function Aplicaciones() {
     setPlantaciones(p.data.plantaciones);
   };
   useEffect(() => { load(); }, []);
+
+  // Mapa de inventario por producto (lotes PEPS) para calcular el costo de cada receta
+  const invByName = useMemo(() => {
+    const m = {};
+    inventario.forEach((x) => {
+      if (x.nombre_producto) m[x.nombre_producto.trim().toLowerCase()] = {
+        lotes_remanentes: x.lotes_remanentes || [],
+        precio_unitario_promedio: x.precio_unitario_promedio || 0,
+      };
+    });
+    return m;
+  }, [inventario]);
 
   const remove = async (a) => {
     if (!window.confirm("¿Eliminar aplicación?")) return;
@@ -319,7 +365,16 @@ export default function Aplicaciones() {
                   {r.observaciones && (
                     <div style={{ fontSize: 12, color: "#64748b", fontStyle: "italic" }}>&quot;{r.observaciones}&quot;</div>
                   )}
-                  <div style={{ display: "flex", gap: 6, marginTop: "auto", paddingTop: 6 }}>
+                  <div style={{ display: "flex", gap: 6, marginTop: "auto", paddingTop: 6, alignItems: "center", flexWrap: "wrap" }}>
+                    {(() => {
+                      const { total, aproximado } = costoRecetaPEPS(r, invByName);
+                      return (
+                        <span title="Costo estimado por método PEPS (según precios del inventario actual)" data-testid={`receta-costo-${r._id}`}
+                          style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#f0fdf4", border: "1px solid #bbf7d0", color: "#15803d", borderRadius: 8, padding: "4px 9px", fontSize: 12, fontWeight: 700 }}>
+                          <DollarSign size={12} /> {aproximado ? "~ " : ""}US$ {fmtCosto(total)}
+                        </span>
+                      );
+                    })()}
                     <button className="btn btn-sm" onClick={() => setViewReceta(r)} data-testid={`receta-view-${r._id}`}><Eye size={14} /> Ver</button>
                     {canEdit("aplicaciones") && (
                       <button className="btn btn-sm" onClick={() => setEditReceta(r)} data-testid={`receta-edit-${r._id}`}><Pencil size={14} /> Editar</button>
