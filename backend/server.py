@@ -726,11 +726,33 @@ async def asignaciones_pendientes(_: dict = Depends(get_current_user)):
 
 
 @api.delete("/asignaciones-destino/{aid}")
-async def delete_asignacion(aid: str, _: dict = Depends(get_current_user)):
+async def delete_asignacion(aid: str, confirmar: bool = False, _: dict = Depends(get_current_user)):
     # El descarte de cosecha es obligatorio: no se puede eliminar manualmente
     doc = await db.asignaciones_destino.find_one({"_id": aid})
     if doc and doc.get("origen") == "cosecha_descarte_auto":
         raise HTTPException(400, "El descarte de cosecha es obligatorio y no se puede eliminar. Ajusta el descarte en el módulo Cosecha.")
+    # Aviso: si al borrar esta asignación el canal quedaría con más ventas/usos que
+    # cestas asignadas (sobreventa/fantasma), pedir confirmación antes de continuar.
+    if not confirmar:
+        RECIBIDO = {"asignacion_destino", "ajuste_entrada"}
+        avisos = []
+        for coll in _LINKED_COLLS:
+            linked = await db[coll].find({"asignacion_id": aid}).to_list(100)
+            if not linked:
+                continue
+            cestas_quita = sum(float(x.get("cantidad_cestas") or 0) for x in linked)
+            todos = await db[coll].find({}).to_list(20000)
+            recibido = sum(float(x.get("cantidad_cestas") or 0) for x in todos if x.get("origen") in RECIBIDO)
+            usado = sum(float(x.get("cantidad_cestas") or 0) for x in todos if x.get("origen") not in RECIBIDO)
+            if round(recibido - cestas_quita, 2) < round(usado, 2) - 0.001:
+                deficit = round(usado - (recibido - cestas_quita), 2)
+                avisos.append({"canal": coll.replace("ventas_", ""), "cestas_de_mas": deficit, "kg_de_mas": round(deficit * KG_POR_CESTA, 2)})
+        if avisos:
+            raise HTTPException(status_code=409, detail={
+                "tipo": "sobreventa",
+                "avisos": avisos,
+                "mensaje": "Eliminar esta asignación dejará ventas/usos sin respaldo (sobreventa) en el canal destino.",
+            })
     # Eliminar el registro vinculado en el módulo destino, si existe
     for coll in _LINKED_COLLS:
         await db[coll].delete_many({"asignacion_id": aid})

@@ -117,12 +117,30 @@ export default function AsignacionDestino() {
     finally { setBusy(""); }
   };
 
+  // Elimina una asignación; si el backend avisa que dejaría sobreventa (409), pide confirmación.
+  const eliminarConAviso = async (id) => {
+    try {
+      await api.delete(`/asignaciones-destino/${id}`);
+      return true;
+    } catch (e) {
+      const det = e?.response?.data?.detail;
+      if (e?.response?.status === 409 && det?.tipo === "sobreventa") {
+        const lista = (det.avisos || []).map((x) => `• ${x.canal}: ${x.cestas_de_mas} cesta(s) de más`).join("\n");
+        if (window.confirm(`⚠️ ${det.mensaje}\n\n${lista}\n\n¿Eliminar de todas formas?`)) {
+          await api.delete(`/asignaciones-destino/${id}?confirmar=true`);
+          return true;
+        }
+        return false;
+      }
+      toast.show(det?.mensaje || det || "No se pudo eliminar", "error");
+      return false;
+    }
+  };
+
   const remove = async (a) => {
     if (!editable) { toast.show("No puedes modificar asignaciones de una fecha futura", "error"); return; }
     if (!window.confirm("¿Eliminar este movimiento?")) return;
-    await api.delete(`/asignaciones-destino/${a._id}`);
-    toast.show("Eliminado");
-    load();
+    if (await eliminarConAviso(a._id)) { toast.show("Eliminado"); load(); }
   };
 
   const loadHistorial = useCallback(() => {
@@ -146,13 +164,10 @@ export default function AsignacionDestino() {
     }
     const d = DESTINOS.find((x) => x.key === a.destino);
     if (!window.confirm(`¿Eliminar esta asignación del ${(a.fecha || "").slice(0, 10)} → ${d?.label || a.destino} (${a.cantidad_cestas?.toFixed(2)} cestas)?\n\nOJO: también se quitarán esas cestas del canal de Ventas correspondiente. Úsalo para corregir stock fantasma de días pasados.`)) return;
-    try {
-      await api.delete(`/asignaciones-destino/${a._id}`);
+    if (await eliminarConAviso(a._id)) {
       toast.show("Asignación eliminada");
       loadHistorial();
       load();
-    } catch (err) {
-      toast.show(err?.response?.data?.detail || "No se pudo eliminar", "error");
     }
   };
 

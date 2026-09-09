@@ -63,3 +63,11 @@
 - Semana de gastos: hora de Venezuela fija (UTC-4); fechas date-only ancladas a mediodía.
 - PEPS verificado E2E (13/14 tests pasan; el que falla es por dato "hierro" inexistente en preview, no lógica).
 - Lint: queda 1 falso positivo `react-hooks/set-state-in-effect` en Aplicaciones.jsx L59 (patrón estándar `useEffect(()=>{load()},[])` usado en toda la app; no afecta el build).
+
+## 2026-09-09
+- Diagnóstico de sobreventa: ahora muestra la FECHA del descuadre por canal (backend: conciliacion_diagnostico -> sobrevendido_detalle; frontend: CostosPorKg.jsx er-diag-fechas-{canal}). Verificado por testing_agent (iteration_46, 100%).
+- Aviso al eliminar asignación: DELETE /asignaciones-destino/{aid} responde 409 {tipo:sobreventa,avisos} si dejaría el canal en sobreventa; con ?confirmar=true procede. Frontend pide confirmación (eliminarConAviso). Verificado por curl (409 sin confirmar, 200 con confirmar).
+- Reasignaciones (descarte/otros): al eliminar se revierten ambos lados (reasignacion_id) devolviendo fruta al origen.
+- Eliminar aplicación borra en cascada las labores vinculadas (aplicacion_id).
+- Permiso "puede_ajustar_saldos" (solo admin por defecto) para el botón Ajustar saldo.
+- Asignación de destino: quitado reset de medianoche; editable en fechas pasadas; alerta de cestas sin asignar al abrir Nueva Cosecha (endpoint /asignaciones-destino/pendientes).
