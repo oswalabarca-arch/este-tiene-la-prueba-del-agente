@@ -42,6 +42,16 @@ export default function Cosecha() {
 
   const today = todayLocal();
 
+  // Cestas cosechadas aún sin asignar (para avisar al registrar una nueva cosecha)
+  const [pendientes, setPendientes] = useState({ hay_pendientes: false, total_pendiente: 0, pendientes: [] });
+  const abrirNueva = async () => {
+    try {
+      const r = await api.get("/asignaciones-destino/pendientes");
+      setPendientes(r.data || { hay_pendientes: false, total_pendiente: 0, pendientes: [] });
+    } catch { setPendientes({ hay_pendientes: false, total_pendiente: 0, pendientes: [] }); }
+    setEditing({});
+  };
+
   // Nombre del cultivo/variedad: prioriza el string nuevo, con fallback a catálogos legacy.
   const cosTipoName = (c) => c.tipo_fruta || tipos.find((t) => t._id === c.tipo_fruta_id)?.nombre || "";
   const cosVarName = (c) => c.variedad || variedades.find((v) => v._id === c.variedad_id)?.nombre || "";
@@ -184,7 +194,7 @@ export default function Cosecha() {
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 18 }}>
         <input className="input" placeholder="🔍 Buscar por tipo, variedad o lote..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ width: 360 }} data-testid="cosecha-search-input" />
-        <button className="btn btn-primary" onClick={() => setEditing({})} data-testid="cosecha-new-btn"><Plus size={16} /> Nueva Cosecha</button>
+        <button className="btn btn-primary" onClick={abrirNueva} data-testid="cosecha-new-btn"><Plus size={16} /> Nueva Cosecha</button>
       </div>
 
       <div className="card" style={{ marginTop: 18 }}>
@@ -233,6 +243,7 @@ export default function Cosecha() {
           tipos={tipos}
           variedades={variedades}
           plantaciones={plantaciones.filter((p) => !p.archivada)}
+          pendientes={pendientes}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); loadAll(); }}
         />
@@ -273,7 +284,7 @@ function CalidadBoxes({ label, totals, sum, unidad, compact }) {
   );
 }
 
-function CosechaModal({ initial, tipos, variedades, plantaciones, onClose, onSaved }) {
+function CosechaModal({ initial, tipos, variedades, plantaciones, pendientes, onClose, onSaved }) {
   const toast = useToast();
   const isNew = !initial._id;
   const today = todayLocal();
@@ -323,6 +334,17 @@ function CosechaModal({ initial, tipos, variedades, plantaciones, onClose, onSav
     <div className="modal-overlay" onClick={onClose}>
       <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={submit} data-testid="cosecha-modal">
         <h2 className="modal-title">{isNew ? "Nueva cosecha" : "Editar cosecha"}</h2>
+        {isNew && pendientes?.hay_pendientes && (
+          <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, padding: "12px 14px", marginBottom: 14, display: "flex", gap: 10, alignItems: "flex-start" }} data-testid="cosecha-alerta-pendientes">
+            <AlertCircle size={18} style={{ color: "#d97706", flexShrink: 0, marginTop: 1 }} />
+            <div style={{ fontSize: 13, color: "#92400e" }}>
+              <b>Tienes {pendientes.total_pendiente} cesta(s) sin asignar</b> en el módulo <b>Asignación de destino</b>. Te recomendamos asignarlas antes de registrar una nueva cosecha para no mezclar la fruta.
+              <div style={{ marginTop: 4, color: "#a16207", fontSize: 12 }}>
+                {pendientes.pendientes.map((p) => `${p.fecha}: ${p.pendiente} cesta(s)`).join(" · ")}
+              </div>
+            </div>
+          </div>
+        )}
         <div className="form-grid">
           <div className="field">
             <label>Fecha</label>

@@ -38,6 +38,8 @@ export default function AsignacionDestino() {
   const [inputs, setInputs] = useState({}); // { destinoKey: { cantidad, unidad } }
   const [busy, setBusy] = useState("");
   const isToday = selectedDate === realToday;
+  // Editable en cualquier fecha seleccionada (no se puede elegir fecha futura por el max del selector).
+  const editable = selectedDate <= realToday;
 
   // Historial de asignaciones (consulta + borrado de cualquier fecha)
   const monthStart = () => todayLocal().slice(0, 8) + "01";
@@ -58,20 +60,10 @@ export default function AsignacionDestino() {
   }, [selectedDate]);
   useEffect(() => { load(); }, [load]);
 
-  // Reset automático a medianoche (11:59pm → 12:00am): cambia de día y reinicia en 0.
-  // Si estabas viendo "hoy", saltás automáticamente al nuevo día (todo en 0).
-  // El día anterior queda guardado como registro consultable por fecha.
+  // Mantiene actualizada la fecha "hoy" (para el botón "Ir a hoy"), SIN reiniciar ni
+  // borrar nada a medianoche. Las cestas sin asignar quedan disponibles hasta que las asignes.
   useEffect(() => {
-    const iv = setInterval(() => {
-      const d = todayLocal();
-      setRealToday((prev) => {
-        if (prev !== d) {
-          setSelectedDate((sel) => (sel === prev ? d : sel));
-          return d;
-        }
-        return prev;
-      });
-    }, 30000);
+    const iv = setInterval(() => setRealToday(todayLocal()), 60000);
     return () => clearInterval(iv);
   }, []);
 
@@ -97,7 +89,7 @@ export default function AsignacionDestino() {
     }));
 
   const agregar = async (key) => {
-    if (!isToday) { toast.show("Solo podés asignar la cosecha del día de hoy", "error"); return; }
+    if (!editable) { toast.show("No puedes asignar cosecha de una fecha futura", "error"); return; }
     const inp = inputs[key] || {};
     const cantidad = Number(inp.cantidad);
     if (!cantidad || cantidad <= 0) { toast.show("Ingresa una cantidad válida", "error"); return; }
@@ -113,7 +105,7 @@ export default function AsignacionDestino() {
         destino: key,
         unidad_ingreso: unidad,
         cantidad_ingresada: cantidad,
-        fecha: realToday + "T12:00:00.000Z",
+        fecha: selectedDate + "T12:00:00.000Z",
         observaciones: "",
       });
       toast.show("Asignado a " + (DESTINOS.find((d) => d.key === key)?.label || key));
@@ -126,7 +118,7 @@ export default function AsignacionDestino() {
   };
 
   const remove = async (a) => {
-    if (!isToday) { toast.show("Solo se pueden modificar las asignaciones del día de hoy", "error"); return; }
+    if (!editable) { toast.show("No puedes modificar asignaciones de una fecha futura", "error"); return; }
     if (!window.confirm("¿Eliminar este movimiento?")) return;
     await api.delete(`/asignaciones-destino/${a._id}`);
     toast.show("Eliminado");
@@ -186,8 +178,8 @@ export default function AsignacionDestino() {
       </div>
 
       {!isToday && (
-        <div className="card" style={{ marginTop: 12, background: "#fffbeb", borderColor: "#fde68a", color: "#92400e", display: "flex", alignItems: "center", gap: 8 }} data-testid="asignacion-readonly-banner">
-          <AlertCircle size={16} /> Estás viendo el <b>registro del {selectedDate}</b> (solo lectura). Solo podés asignar la cosecha del día de hoy.
+        <div className="card" style={{ marginTop: 12, background: "#eff6ff", borderColor: "#bfdbfe", color: "#1e40af", display: "flex", alignItems: "center", gap: 8 }} data-testid="asignacion-fecha-banner">
+          <AlertCircle size={16} /> Estás viendo el <b>{selectedDate}</b>. Puedes asignar o corregir las cestas de esta fecha con normalidad.
         </div>
       )}
 
@@ -229,9 +221,7 @@ export default function AsignacionDestino() {
       <div className="card" style={{ marginTop: 18 }}>
         <h3 style={{ margin: 0 }}><Send size={18} style={{ verticalAlign: "middle", color: "#16a34a" }} /> Distribución del día</h3>
         <div style={{ color: "#64748b", fontSize: 13, margin: "4px 0 14px" }}>
-          {isToday
-            ? 'Ingresá la cantidad y unidad por destino y pulsá "Agregar". Podés agregar varias veces al mismo destino, se acumulan.'
-            : "Distribución registrada ese día (solo lectura)."}
+          Ingresá la cantidad y unidad por destino y pulsá "Agregar". Podés agregar varias veces al mismo destino, se acumulan.
         </div>
         <table className="table">
           <thead>
@@ -270,7 +260,7 @@ export default function AsignacionDestino() {
                       style={{ width: 120 }}
                       placeholder="0"
                       value={inp.cantidad ?? ""}
-                      disabled={!isToday}
+                      disabled={!editable}
                       onChange={(e) => setInput(d.key, "cantidad", e.target.value)}
                       data-testid={`destino-cantidad-${d.key}`}
                     />
@@ -280,7 +270,7 @@ export default function AsignacionDestino() {
                       className="select"
                       style={{ width: 120 }}
                       value={inp.unidad || "cestas"}
-                      disabled={!isToday}
+                      disabled={!editable}
                       onChange={(e) => setInput(d.key, "unidad", e.target.value)}
                       data-testid={`destino-unidad-${d.key}`}
                     >
@@ -292,7 +282,7 @@ export default function AsignacionDestino() {
                     <button
                       className="btn btn-primary btn-sm"
                       onClick={() => agregar(d.key)}
-                      disabled={busy === d.key || disponible <= 0.001 || !isToday}
+                      disabled={busy === d.key || disponible <= 0.001 || !editable}
                       data-testid={`destino-agregar-${d.key}`}
                     >
                       <Plus size={14} /> {busy === d.key ? "..." : "Agregar"}
@@ -334,7 +324,7 @@ export default function AsignacionDestino() {
                     <td style={{ textAlign: "right" }}>
                       {a.origen === "cosecha_descarte_auto"
                         ? <span className="badge" style={{ background: "#fee2e2", color: "#dc2626" }}>Auto · descarte</span>
-                        : isToday && canDelete("asignacion_destino")
+                        : editable && canDelete("asignacion_destino")
                         ? <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(a)}><Trash2 size={16} /></button>
                         : <span style={{ color: "#94a3b8", fontSize: 12 }}>—</span>}
                     </td>

@@ -709,6 +709,22 @@ async def create_asignacion(payload: AsignacionIn, user: dict = Depends(get_curr
     return created
 
 
+@api.get("/asignaciones-destino/pendientes")
+async def asignaciones_pendientes(_: dict = Depends(get_current_user)):
+    """Cestas cosechadas que aún NO se han asignado a un destino, por fecha.
+    Sirve para alertar (p. ej. al registrar una nueva cosecha) que hay fruta sin asignar."""
+    fechas = await db.cosechas.distinct("fecha_cosecha")
+    prefijos = sorted({(f or "")[:10] for f in fechas if f})
+    items = []
+    total = 0.0
+    for p in prefijos:
+        pend = round(await _cosecha_cestas_dia(p) - await _asignado_cestas_dia(p), 2)
+        if pend > 0.001:
+            items.append({"fecha": p, "pendiente": pend})
+            total += pend
+    return {"pendientes": items, "total_pendiente": round(total, 2), "hay_pendientes": total > 0.001}
+
+
 @api.delete("/asignaciones-destino/{aid}")
 async def delete_asignacion(aid: str, _: dict = Depends(get_current_user)):
     # El descarte de cosecha es obligatorio: no se puede eliminar manualmente
