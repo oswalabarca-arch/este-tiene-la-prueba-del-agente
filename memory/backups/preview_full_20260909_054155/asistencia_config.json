@@ -1,0 +1,1 @@
+[{"_id": "2026-07-06", "salario_default": 12.0, "salarios": {"6676da20-1725-4771-8011-853497d9b4c5": 12.0}, "tasa": 709.7}, {"_id": "2026-08-03", "pagados": {"5343eefc-36b7-4d83-bfa7-f3715bb172c3": true, "6676da20-1725-4771-8011-853497d9b4c5": true, "0d10b0dd-5487-4db8-855a-eeb35dc7ba82": true}, "salario_default": 0, "salarios": {}, "tasa": 0}]
