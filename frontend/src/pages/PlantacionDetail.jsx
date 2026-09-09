@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, Fragment } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
@@ -7,7 +7,7 @@ import {
   ArrowLeft, Pencil, Trash2, ImagePlus,
   Droplets, Users as UsersIcon, Apple, Sprout, TrendingUp,
 } from "lucide-react";
-import { catBadge, actBadge, catColor, actColor } from "../lib/categoryColors";
+import { catBadge, actBadge, catColor, actColor, laborBucketKey, laborBucketLabel } from "../lib/categoryColors";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
 import { PeriodPicker, currentMonthStr, currentYearStr } from "../components/PeriodPicker";
 
@@ -604,21 +604,31 @@ function LaboresTab({ items }) {
   const [totPeriod, setTotPeriod] = useState("mes"); // mes | año | todo
   const [totMes, setTotMes] = useState(currentMonthStr);
   const [totAnio, setTotAnio] = useState(currentYearStr);
+  const [otraOpen, setOtraOpen] = useState(false); // desplegar el detalle de "Otra actividad"
 
   if (items.length === 0) return <div className="card empty-state">Sin labores registradas en este lote</div>;
   const totalHH = items.reduce((s, a) => s + (a.horas_hombre || 0), 0);
   const totalCosto = items.reduce((s, a) => s + (a.costo_total || 0), 0);
 
-  // Totales por tipo de labor (tipo_personalizado || tipo)
-  const porTipo = {};
-  items.forEach((a) => {
-    const tipo = a.tipo_personalizado || a.tipo || "—";
-    if (!porTipo[tipo]) porTipo[tipo] = { tipo, count: 0, hh: 0, costo: 0 };
-    porTipo[tipo].count += 1;
-    porTipo[tipo].hh += (a.horas_hombre || 0);
-    porTipo[tipo].costo += (a.costo_total || 0);
-  });
-  const tipoRows = Object.values(porTipo).sort((a, b) => b.costo - a.costo);
+  // Agrupa por bucket de color: tipos conocidos mantienen su color; el resto va a "Otra actividad".
+  const agrupar = (lista) => {
+    const m = {};
+    lista.forEach((a) => {
+      const raw = a.tipo_personalizado || a.tipo || "—";
+      const key = laborBucketKey(raw);
+      if (!m[key]) m[key] = { key, label: laborBucketLabel(key), count: 0, hh: 0, costo: 0, sub: {} };
+      m[key].count += 1;
+      m[key].hh += (a.horas_hombre || 0);
+      m[key].costo += (a.costo_total || 0);
+      if (key === "otra") {
+        const s = m[key].sub[raw] || { label: raw, count: 0, hh: 0, costo: 0 };
+        s.count += 1; s.hh += (a.horas_hombre || 0); s.costo += (a.costo_total || 0);
+        m[key].sub[raw] = s;
+      }
+    });
+    return Object.values(m).map((r) => ({ ...r, sub: Object.values(r.sub).sort((a, b) => b.costo - a.costo) })).sort((a, b) => b.costo - a.costo);
+  };
+  const tipoRows = agrupar(items);
 
   // Totales por tipo — filtrable por mes/año (independiente de KPIs y de la gráfica)
   const yearSetL = new Set(items.map((a) => { const d = new Date(a.fecha_actividad); return isNaN(d.getTime()) ? null : String(d.getFullYear()); }).filter(Boolean));
@@ -633,15 +643,7 @@ function LaboresTab({ items }) {
     return true;
   };
   const itemsTot = items.filter((a) => inTotPeriodo(a.fecha_actividad));
-  const porTipoTot = {};
-  itemsTot.forEach((a) => {
-    const tipo = a.tipo_personalizado || a.tipo || "—";
-    if (!porTipoTot[tipo]) porTipoTot[tipo] = { tipo, count: 0, hh: 0, costo: 0 };
-    porTipoTot[tipo].count += 1;
-    porTipoTot[tipo].hh += (a.horas_hombre || 0);
-    porTipoTot[tipo].costo += (a.costo_total || 0);
-  });
-  const tipoRowsTot = Object.values(porTipoTot).sort((a, b) => b.costo - a.costo);
+  const tipoRowsTot = agrupar(itemsTot);
   const totalHHTot = itemsTot.reduce((s, a) => s + (a.horas_hombre || 0), 0);
   const totalCostoTot = itemsTot.reduce((s, a) => s + (a.costo_total || 0), 0);
 
@@ -691,13 +693,28 @@ function LaboresTab({ items }) {
             <tbody>
               {tipoRowsTot.length === 0 ? (
                 <tr><td colSpan={3} style={{ color: "#94a3b8", textAlign: "center", padding: "14px 0" }} data-testid="plant-labores-totales-vacio">Sin labores en el periodo seleccionado</td></tr>
-              ) : tipoRowsTot.map((r) => (
-                <tr key={r.tipo} data-testid="plant-labores-tipo-row">
-                  <td><span className="badge" style={actBadge(r.tipo)}>{r.tipo}</span></td>
-                  <td style={{ textAlign: "right", fontWeight: 600, color: "#8b5cf6" }}>{r.hh.toFixed(2)}</td>
-                  <td style={{ textAlign: "right", fontWeight: 700, color: "#16a34a" }}>${r.costo.toFixed(2)}</td>
-                </tr>
-              ))}
+              ) : tipoRowsTot.map((r) => {
+                const expandible = r.key === "otra" && r.sub.length > 0;
+                return (
+                  <Fragment key={r.key}>
+                    <tr data-testid="plant-labores-tipo-row" onClick={expandible ? () => setOtraOpen((o) => !o) : undefined} style={{ cursor: expandible ? "pointer" : "default" }}>
+                      <td>
+                        <span className="badge" style={actBadge(r.key)}>{r.label}</span>
+                        {expandible && <span style={{ marginLeft: 6, fontSize: 11, color: "#64748b" }} data-testid="plant-labores-otra-toggle">{otraOpen ? "▾" : "▸"} ({r.sub.length})</span>}
+                      </td>
+                      <td style={{ textAlign: "right", fontWeight: 600, color: "#8b5cf6" }}>{r.hh.toFixed(2)}</td>
+                      <td style={{ textAlign: "right", fontWeight: 700, color: "#16a34a" }}>${r.costo.toFixed(2)}</td>
+                    </tr>
+                    {expandible && otraOpen && r.sub.map((s) => (
+                      <tr key={`otra-${s.label}`} style={{ background: "#f8fafc" }} data-testid="plant-labores-otra-sub">
+                        <td style={{ paddingLeft: 22, color: "#475569", fontSize: 13 }}>• {s.label}</td>
+                        <td style={{ textAlign: "right", color: "#8b5cf6", fontSize: 13 }}>{s.hh.toFixed(2)}</td>
+                        <td style={{ textAlign: "right", color: "#16a34a", fontSize: 13 }}>${s.costo.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </Fragment>
+                );
+              })}
             </tbody>
             <tfoot>
               <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 800 }}>
@@ -722,10 +739,10 @@ function LaboresTab({ items }) {
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 18 }}>
             <div style={{ width: 180, height: 180, position: "relative", flexShrink: 0, margin: "0 auto" }}>
               <PieChart width={180} height={180}>
-                <Pie data={tipoRows} dataKey={dataKey} nameKey="tipo" cx="50%" cy="50%" innerRadius={54} outerRadius={84} paddingAngle={3} stroke="#fff" strokeWidth={2} cornerRadius={6}>
-                  {tipoRows.map((r) => <Cell key={r.tipo} fill={actColor(r.tipo).color} />)}
+                <Pie data={tipoRows} dataKey={dataKey} nameKey="label" cx="50%" cy="50%" innerRadius={54} outerRadius={84} paddingAngle={3} stroke="#fff" strokeWidth={2} cornerRadius={6}>
+                  {tipoRows.map((r) => <Cell key={r.key} fill={actColor(r.key).color} />)}
                 </Pie>
-                <Tooltip formatter={(_v, _n, p) => [fmtLabor(p?.payload || {}), p?.payload?.tipo]} contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12, textTransform: "capitalize" }} />
+                <Tooltip formatter={(_v, _n, p) => [fmtLabor(p?.payload || {}), p?.payload?.label]} contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12 }} />
               </PieChart>
               <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", textAlign: "center", pointerEvents: "none" }}>
                 <div style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", lineHeight: 1 }}>{centerLabor.num}</div>
@@ -735,13 +752,13 @@ function LaboresTab({ items }) {
             <div style={{ flex: 1, minWidth: 160, display: "flex", flexDirection: "column", gap: 8 }}>
               {tipoRows.map((r) => {
                 const ratio = totalMetric > 0 ? ((laborMetric === "horas" ? r.hh : r.costo) / totalMetric) * 100 : 0;
-                const col = actColor(r.tipo).color;
+                const col = actColor(r.key).color;
                 return (
-                  <div key={r.tipo} data-testid={`plant-labores-legend-${r.tipo}`} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div key={r.key} data-testid={`plant-labores-legend-${r.key}`} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <span style={{ width: 11, height: 11, borderRadius: 4, background: col, flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 3 }}>
-                        <span style={{ fontWeight: 600, fontSize: 12.5, color: "#334155", textTransform: "capitalize" }}>{r.tipo}</span>
+                        <span style={{ fontWeight: 600, fontSize: 12.5, color: "#334155" }}>{r.label}</span>
                         <span style={{ fontSize: 12, color: "#0f172a", fontWeight: 700 }}>{fmtLabor(r)}</span>
                       </div>
                       <div style={{ height: 5, borderRadius: 999, background: "#f1f5f9", overflow: "hidden" }}>

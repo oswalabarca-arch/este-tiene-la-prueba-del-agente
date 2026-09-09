@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import { PieChart, Pie, Cell, Tooltip } from "recharts";
 import { Apple, Users, SprayCan } from "lucide-react";
-import { catColor, actColor } from "../lib/categoryColors";
+import { catColor, actColor, laborBucketKey, laborBucketLabel } from "../lib/categoryColors";
 
 const KG_POR_CESTA = 14;
 const CAL_COLORS = { primera: "#16a34a", segunda: "#3b82f6", tercera: "#f59e0b", descarte: "#dc2626" };
@@ -40,6 +40,7 @@ const Pill = ({ active, onClick, children, testid }) => (
 );
 
 function DonutCard({ icon: Icon, iconColor, iconBg, title, subtitle, data, total, centerNum, centerLabel, toggle, fmt, testid }) {
+  const [openKey, setOpenKey] = useState(null);
   return (
     <div className="card" style={{ flex: "1 1 320px", minWidth: 0, padding: 0, overflow: "hidden", border: "1px solid #e2e8f0" }} data-testid={testid}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", borderBottom: "1px solid #f1f5f9", flexWrap: "wrap" }}>
@@ -70,17 +71,31 @@ function DonutCard({ icon: Icon, iconColor, iconBg, title, subtitle, data, total
             <div style={{ flex: 1, minWidth: 150 }}>
               {data.map((d) => {
                 const ratio = total > 0 ? (d.value / total) * 100 : 0;
+                const hasSub = Array.isArray(d.sub) && d.sub.length > 0;
+                const isOpen = openKey === d.key;
                 return (
                   <div key={d.key} style={{ marginBottom: 10 }} data-testid={`${testid}-row-${d.key}`}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
+                    <div onClick={hasSub ? () => setOpenKey(isOpen ? null : d.key) : undefined}
+                      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3, cursor: hasSub ? "pointer" : "default" }}
+                      data-testid={hasSub ? `${testid}-toggle-${d.key}` : undefined}>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12.5, color: "#334155", fontWeight: 600 }}>
                         <span style={{ width: 11, height: 11, borderRadius: 4, background: d.color, flexShrink: 0 }} />{d.name}
+                        {hasSub && <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>{isOpen ? "▾" : "▸"} ({d.sub.length})</span>}
                       </span>
                       <span style={{ fontSize: 12.5, color: "#0f172a", fontWeight: 700 }}>{fmt(d.value)}</span>
                     </div>
                     <div style={{ height: 6, borderRadius: 999, background: "#f1f5f9", overflow: "hidden" }}>
                       <div style={{ width: `${ratio}%`, height: "100%", borderRadius: 999, background: d.color, transition: "width .4s ease" }} />
                     </div>
+                    {hasSub && isOpen && (
+                      <div style={{ marginTop: 6, marginLeft: 18, paddingLeft: 8, borderLeft: "2px solid #e2e8f0" }} data-testid={`${testid}-sub-${d.key}`}>
+                        {d.sub.map((s) => (
+                          <div key={s.name} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#64748b", padding: "2px 0" }}>
+                            <span>{s.name}</span><span style={{ fontWeight: 600, color: "#334155" }}>{fmt(s.value)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -145,9 +160,27 @@ export default function DashboardTotales() {
   // 2) Labores de personal por tipo (suma de TODOS los lotes)
   const labData = useMemo(() => {
     const agg = {};
-    actF.forEach((a) => { const t = a.tipo_personalizado || a.tipo || "—"; if (!agg[t]) agg[t] = { tipo: t, hh: 0, costo: 0 }; agg[t].hh += (a.horas_hombre || 0); agg[t].costo += (a.costo_total || 0); });
+    actF.forEach((a) => {
+      const raw = a.tipo_personalizado || a.tipo || "—";
+      const key = laborBucketKey(raw);
+      if (!agg[key]) agg[key] = { key, hh: 0, costo: 0, sub: {} };
+      agg[key].hh += (a.horas_hombre || 0);
+      agg[key].costo += (a.costo_total || 0);
+      if (key === "otra") {
+        const s = agg[key].sub[raw] || { name: cap(raw), hh: 0, costo: 0 };
+        s.hh += (a.horas_hombre || 0); s.costo += (a.costo_total || 0);
+        agg[key].sub[raw] = s;
+      }
+    });
     return Object.values(agg)
-      .map((r) => ({ key: r.tipo, name: cap(r.tipo), value: laborMetric === "horas" ? r.hh : r.costo, color: actColor(r.tipo).color }))
+      .map((r) => ({
+        key: r.key, name: laborBucketLabel(r.key),
+        value: laborMetric === "horas" ? r.hh : r.costo,
+        color: actColor(r.key).color,
+        sub: r.key === "otra"
+          ? Object.values(r.sub).map((s) => ({ name: s.name, value: laborMetric === "horas" ? s.hh : s.costo })).filter((x) => x.value > 0).sort((a, b) => b.value - a.value)
+          : null,
+      }))
       .filter((d) => d.value > 0).sort((a, b) => b.value - a.value);
   }, [actF, laborMetric]);
 

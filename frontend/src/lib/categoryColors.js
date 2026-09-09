@@ -77,7 +77,33 @@ const actNorm = (raw) => {
   return ACT_ALIASES[k] || k;
 };
 
-export const actColor = (tipo) => ACT_PALETTE[actNorm(tipo)] || ACT_PALETTE.otra;
+export const actColor = (tipo) => {
+  const a = actNorm(tipo);
+  if (ACT_PALETTE[a]) return ACT_PALETTE[a];
+  // Labor derivada de una aplicación (fertilizacion, plaguicida, etc.): usar la paleta de categorías
+  const c = norm(tipo);
+  if (CAT_PALETTE[c]) return CAT_PALETTE[c];
+  return ACT_PALETTE.otra;
+};
+
+// Agrupación de labores por tipo: los tipos conocidos (abonar/cosechar/deshierbar/
+// riego) y los derivados de aplicaciones (fertilizacion/plaguicida/fungicida/
+// herbicida/tratamiento) mantienen su bucket; el resto se agrupa en "Otra actividad".
+const _LABOR_ACT = ["abonar", "cosechar", "deshierbar", "riego"];
+const _LABOR_CAT = ["fertilizantes", "plaguicidas", "fungicidas", "herbicidas", "tratamiento"];
+export const laborBucketKey = (tipo) => {
+  const a = actNorm(tipo);
+  if (_LABOR_ACT.includes(a)) return a;
+  const c = norm(tipo);
+  if (_LABOR_CAT.includes(c)) return c;
+  return "otra";
+};
+const _LABOR_LABELS = {
+  abonar: "Abonar", cosechar: "Cosechar", deshierbar: "Deshierbar", riego: "Riego",
+  fertilizantes: "Fertilización", plaguicidas: "Plaguicida", fungicidas: "Fungicida",
+  herbicidas: "Herbicida", tratamiento: "Tratamiento", otra: "Otra actividad",
+};
+export const laborBucketLabel = (key) => _LABOR_LABELS[key] || key;
 
 export const actBadge = (tipo) => {
   // Una actividad puede venir de una aplicación confirmada (tipo = "fertilizacion",
