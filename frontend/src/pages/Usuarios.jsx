@@ -144,6 +144,7 @@ function UserModal({ initial, onClose, onSaved }) {
     salario: initial.salario || 0,
     modulos_asignados: initial.modulos_asignados || [],
     permisos_modulos: initial.permisos_modulos || {},
+    puede_ajustar_saldos: initial.puede_ajustar_saldos || false,
   });
   const [busy, setBusy] = useState(false);
 
@@ -227,6 +228,27 @@ function UserModal({ initial, onClose, onSaved }) {
               data-testid="user-form-salario"
             />
           </div>
+        </div>
+
+        {/* Permiso especial: ajustar saldos de los canales de venta */}
+        <div style={{ marginTop: 16, background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, padding: "12px 14px" }}>
+          <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: form.rol === "administrador" ? "default" : "pointer" }} data-testid="user-form-ajustar-saldos-label">
+            <input
+              type="checkbox"
+              checked={form.rol === "administrador" ? true : !!form.puede_ajustar_saldos}
+              disabled={form.rol === "administrador"}
+              onChange={(e) => setForm({ ...form, puede_ajustar_saldos: e.target.checked })}
+              data-testid="user-form-ajustar-saldos"
+              style={{ marginTop: 2, width: 16, height: 16 }}
+            />
+            <span>
+              <span style={{ fontSize: 13.5, fontWeight: 700, color: "#92400e" }}>Puede ajustar saldos</span>
+              <span style={{ display: "block", fontSize: 12, color: "#a16207", marginTop: 2 }}>
+                Permite usar "Ajustar saldo" en los canales de venta (Finca, Ciudad, Refrigerado, Congelado, Donaciones).
+                {form.rol === "administrador" ? " El administrador siempre puede." : " Por defecto solo el administrador."}
+              </span>
+            </span>
+          </label>
         </div>
 
         <div style={{ marginTop: 18 }}>

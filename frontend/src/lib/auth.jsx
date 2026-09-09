@@ -50,9 +50,11 @@ export function AuthProvider({ children }) {
     const p = user?.permisos_modulos?.[modulo];
     return p?.eliminar !== false;
   };
+  // Permiso especial: ajustar saldos de los canales de venta. Por defecto solo el administrador.
+  const puedeAjustarSaldos = !!user && (isAdmin || user?.puede_ajustar_saldos === true);
 
   return (
-    <AuthCtx.Provider value={{ user, setUser, loading, login, logout, isAdmin, canSee, canEdit, canDelete }}>
+    <AuthCtx.Provider value={{ user, setUser, loading, login, logout, isAdmin, canSee, canEdit, canDelete, puedeAjustarSaldos }}>
       {children}
     </AuthCtx.Provider>
   );

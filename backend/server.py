@@ -245,6 +245,7 @@ class UserCreate(BaseModel):
     salario: float = 0
     modulos_asignados: List[str] = []
     permisos_modulos: Optional[Dict[str, Dict[str, bool]]] = None
+    puede_ajustar_saldos: bool = False
 
 
 class UserUpdate(BaseModel):
@@ -254,6 +255,7 @@ class UserUpdate(BaseModel):
     salario: Optional[float] = None
     modulos_asignados: Optional[List[str]] = None
     permisos_modulos: Optional[Dict[str, Dict[str, bool]]] = None
+    puede_ajustar_saldos: Optional[bool] = None
 
 
 class PasswordChange(BaseModel):
@@ -280,6 +282,7 @@ async def create_user(payload: UserCreate, _: dict = Depends(require_admin)):
         "salario": payload.salario,
         "modulos_asignados": payload.modulos_asignados,
         "permisos_modulos": payload.permisos_modulos or {},
+        "puede_ajustar_saldos": bool(payload.puede_ajustar_saldos),
         "createdAt": now_iso(),
         "updatedAt": now_iso(),
     }
@@ -1803,7 +1806,10 @@ def _ventas_router(tipo: str):
     @api.post(f"/ventas-{tipo}/ajuste-saldo")
     async def _ajuste_saldo(payload: AjusteSaldoIn, user: dict = Depends(get_current_user)):
         """Fija el 'Disponible acumulado' real del módulo creando un registro de ajuste.
-        Útil cuando hay ventas históricas sin un 'recibido' que las respalde."""
+        Útil cuando hay ventas históricas sin un 'recibido' que las respalde.
+        Solo el administrador o usuarios con permiso 'puede_ajustar_saldos'."""
+        if user.get("rol") != "administrador" and not user.get("puede_ajustar_saldos"):
+            raise HTTPException(403, "No tienes permiso para ajustar saldos. Solicítalo al administrador.")
         deseado = round(payload.cantidad_cestas or 0, 4)
         if deseado < 0:
             raise HTTPException(400, "El saldo disponible no puede ser negativo.")

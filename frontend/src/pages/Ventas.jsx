@@ -59,7 +59,7 @@ function MoneyCard({ title, icon: Icon, color, value, sub, testid }) {
 
 function Ventas({ tipo }) {
   const toast = useToast();
-  const { canDelete, canEdit } = useAuth();
+  const { canDelete, canEdit, puedeAjustarSaldos } = useAuth();
   const [items, setItems] = useState([]);
   const [editing, setEditing] = useState(null); // null=cerrado, {}=nuevo, {...}=editar
   const [unidad, setUnidad] = useState("cestas");
@@ -348,7 +348,7 @@ function Ventas({ tipo }) {
                 <div style={{ color: "#475569", fontSize: 12, fontWeight: 600 }} data-testid="ventas-disponible-dual">{disponibleAcum.toFixed(2)} cestas · {(disponibleAcum * 14).toFixed(2)} kg</div>
                 <div style={{ color: "#15803d", fontSize: 12, fontWeight: 600 }}>Disponible acumulado</div>
                 <div style={{ color: "#94a3b8", fontSize: 11 }}>arrastra al día siguiente</div>
-                {canEdit("ventas") && (
+                {puedeAjustarSaldos && (
                   <button className="btn" style={{ marginTop: 8, fontSize: 12, padding: "4px 10px" }} onClick={abrirAjuste} data-testid="ajuste-saldo-btn"><Wallet size={13} /> Ajustar saldo</button>
                 )}
               </div>
