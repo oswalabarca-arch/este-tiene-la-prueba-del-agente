@@ -2751,17 +2751,21 @@ async def conciliacion_diagnostico(gran: str = "todo", anchor: Optional[str] = N
     for tipo in ("finca", "ciudad", "refrigerar", "congelar"):
         recibido_c = usado_c = ventas_reales_c = 0.0
         aj_entrada_c = aj_salida_c = 0.0
+        movs_dia = {}  # fecha(YYYY-MM-DD) -> neto de cestas (recibido +, usado -)
         for v in await db[f"ventas_{tipo}"].find({}).to_list(20000):
             if not _in_win(v.get("fecha"), desde, hasta):
                 continue
             cest = float(v.get("cantidad_cestas", 0) or 0)
             origen = v.get("origen")
+            dia = (v.get("fecha") or "")[:10]
             if origen in RECIBIDO_ORIGINS:
                 recibido_c += cest
+                movs_dia[dia] = movs_dia.get(dia, 0.0) + cest
                 if origen == "ajuste_entrada":
                     aj_entrada_c += cest
             else:
                 usado_c += cest
+                movs_dia[dia] = movs_dia.get(dia, 0.0) - cest
                 if origen == "ajuste_salida":
                     aj_salida_c += cest
                 if origen not in VENTA_SYSTEM_ORIGENES:  # venta real
@@ -2770,12 +2774,25 @@ async def conciliacion_diagnostico(gran: str = "todo", anchor: Optional[str] = N
         sobre_c = max(usado_c - recibido_c, 0.0)
         sobre_kg = round(sobre_c * KG_POR_CESTA, 2)
         sobrevendido_kg_total += sobre_kg
+        # Desglose por fecha: recorre los días en orden y marca cuándo el saldo se vuelve negativo
+        detalle_fechas = []
+        if sobre_c > 0.001:
+            running = 0.0
+            prev_deficit = 0.0
+            for dia in sorted(movs_dia.keys()):
+                running = round(running + movs_dia[dia], 4)
+                deficit = max(round(-running, 2), 0.0)
+                nuevo = round(deficit - prev_deficit, 2)
+                if nuevo > 0.001:  # este día aumentó el sobreuso
+                    detalle_fechas.append({"fecha": dia, "cestas_de_mas": nuevo, "kg_de_mas": round(nuevo * KG_POR_CESTA, 2)})
+                prev_deficit = max(deficit, prev_deficit)
         canales.append({
             "canal": tipo, "label": LABELS_CANAL[tipo],
             "recibido_cestas": round(recibido_c, 2), "usado_cestas": round(usado_c, 2),
             "ventas_reales_cestas": round(ventas_reales_c, 2),
             "ajuste_entrada_cestas": round(aj_entrada_c, 2), "ajuste_salida_cestas": round(aj_salida_c, 2),
             "sobrevendido_cestas": round(sobre_c, 2), "sobrevendido_kg": sobre_kg,
+            "sobrevendido_detalle": detalle_fechas,
         })
 
     # Ajustes manuales (entrada/salida) de TODOS los canales dentro de la ventana

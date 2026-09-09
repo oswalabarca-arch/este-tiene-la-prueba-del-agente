@@ -181,9 +181,19 @@ export default function CostosPorKg() {
                       ) : (
                         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                           {canalesSobre.map((c) => (
-                            <div key={c.canal} style={{ display: "flex", justifyContent: "space-between", gap: 8, background: "#fef2f2", borderRadius: 6, padding: "5px 8px" }} data-testid={`er-diag-canal-${c.canal}`}>
-                              <span><b>{c.label}</b>: asignaste {c.recibido_cestas} cestas, usaste {c.usado_cestas} → <b style={{ color: "#dc2626" }}>{c.sobrevendido_cestas} cestas de más</b></span>
-                              <b style={{ color: "#dc2626", whiteSpace: "nowrap" }}>{fmtKg(-c.sobrevendido_kg)}</b>
+                            <div key={c.canal} style={{ background: "#fef2f2", borderRadius: 6, padding: "5px 8px" }} data-testid={`er-diag-canal-${c.canal}`}>
+                              <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                                <span><b>{c.label}</b>: asignaste {c.recibido_cestas} cestas, usaste {c.usado_cestas} → <b style={{ color: "#dc2626" }}>{c.sobrevendido_cestas} cestas de más</b></span>
+                                <b style={{ color: "#dc2626", whiteSpace: "nowrap" }}>{fmtKg(-c.sobrevendido_kg)}</b>
+                              </div>
+                              {(c.sobrevendido_detalle || []).length > 0 && (
+                                <div style={{ marginTop: 4, paddingLeft: 8, borderLeft: "2px solid #fecaca" }} data-testid={`er-diag-fechas-${c.canal}`}>
+                                  <span style={{ fontSize: 11, color: "#991b1b", fontWeight: 600 }}>Ocurrió el:</span>
+                                  {c.sobrevendido_detalle.map((d) => (
+                                    <div key={d.fecha} style={{ fontSize: 11.5, color: "#b91c1c" }}>• {d.fecha}: {d.cestas_de_mas} cesta(s) de más ({fmtKg(-d.kg_de_mas)})</div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           ))}
                           <div style={{ fontSize: 11.5, color: "#64748b" }}>Corrige registrando la asignación de destino que falta a ese canal, o eliminando ventas duplicadas.</div>
