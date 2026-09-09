@@ -29,6 +29,9 @@ export default function Deuda() {
   const [abierto, setAbierto] = useState(null); // key cliente|telefono
   const [detalle, setDetalle] = useState({}); // key -> {ventas, loading}
   const [abonoInput, setAbonoInput] = useState({}); // ventaId -> monto
+  const [tasa, setTasa] = useState(""); // tasa de cambio del día (Bs por US$) — solo informativo
+  const tasaNum = parseFloat(tasa) || 0;
+  const bs = (usd) => fmt((Number(usd) || 0) * tasaNum);
 
   const load = useCallback(() => {
     api.get("/analiticas/cuentas-por-cobrar").then((r) => setData(r.data)).catch(() => setData(null));
@@ -108,6 +111,7 @@ export default function Deuda() {
         <div className="card" style={{ background: "#fef2f2", borderColor: "#fecaca" }} data-testid="deuda-total">
           <div className="kpi-label" style={{ color: "#b91c1c" }}>Deuda total por cobrar</div>
           <div className="kpi-value" style={{ color: "#dc2626" }}>US$ {fmt(data?.total_deuda)}</div>
+          {tasaNum > 0 && <div style={{ fontSize: 13, fontWeight: 700, color: "#a16207" }} data-testid="deuda-total-bs">Bs {bs(data?.total_deuda)}</div>}
           <div style={{ fontSize: 12, color: "#94a3b8" }}>{data?.n_deudores || 0} deudor(es)</div>
         </div>
         <div className="card" data-testid="deuda-vendido">
@@ -120,8 +124,8 @@ export default function Deuda() {
         </div>
       </div>
 
-      {/* Orden */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+      {/* Orden + tasa de cambio del día (solo informativo) */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
         <span style={{ fontSize: 13, color: "#64748b" }}>Ordenar por:</span>
         <div style={{ display: "inline-flex", background: "#f1f5f9", borderRadius: 10, padding: 3 }}>
           {[["deuda", "Mayor deuda"], ["dias", "Más días de atraso"]].map(([k, l]) => (
@@ -131,6 +135,12 @@ export default function Deuda() {
               {l}
             </button>
           ))}
+        </div>
+        <div style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 8, background: "#fef9c3", border: "1px solid #fde68a", borderRadius: 10, padding: "6px 12px" }} data-testid="deuda-tasa-box">
+          <label style={{ fontSize: 12, color: "#a16207", fontWeight: 600 }}>Tasa de cambio del día (Bs/US$)</label>
+          <input type="number" step="0.01" min="0" value={tasa} onChange={(e) => setTasa(e.target.value)}
+            placeholder="0" data-testid="deuda-tasa-input"
+            style={{ width: 100, padding: "5px 8px", border: "1px solid #fbbf24", borderRadius: 6, fontSize: 13 }} />
         </div>
       </div>
 
@@ -171,6 +181,7 @@ export default function Deuda() {
                       <span style={{ textAlign: "right" }}>
                         <span style={{ display: "block", fontSize: 11, color: "#94a3b8" }}>Debe</span>
                         <span style={{ fontWeight: 800, color: "#dc2626", fontSize: 16 }} data-testid={`deuda-saldo-${key}`}>US$ {fmt(c.saldo)}</span>
+                        {tasaNum > 0 && <span style={{ display: "block", fontWeight: 700, color: "#a16207", fontSize: 13 }} data-testid={`deuda-saldo-bs-${key}`}>Bs {bs(c.saldo)}</span>}
                       </span>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 700, color: alerta ? "#dc2626" : "#b45309", background: alerta ? "#fee2e2" : "#fef3c7", padding: "3px 8px", borderRadius: 6 }}>
                         {alerta && <AlertTriangle size={12} />}{c.dias_max}d
@@ -189,6 +200,7 @@ export default function Deuda() {
                           <span style={{ fontSize: 13 }}>Total <b>US$ {fmt(v.total)}</b></span>
                           <span style={{ fontSize: 13, color: "#16a34a" }}>Abonado US$ {fmt(v.abono_inicial)}</span>
                           <span style={{ fontSize: 13, color: "#dc2626", fontWeight: 700 }}>Saldo US$ {fmt(v.saldo)}</span>
+                          {tasaNum > 0 && <span style={{ fontSize: 13, color: "#a16207", fontWeight: 700 }} data-testid={`deuda-venta-bs-${v._id}`}>· Bs {bs(v.saldo)}</span>}
                           <span style={{ fontSize: 12, color: v.dias >= 15 ? "#dc2626" : "#b45309" }}>{v.dias}d</span>
                           {editable && (
                             <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6 }}>
