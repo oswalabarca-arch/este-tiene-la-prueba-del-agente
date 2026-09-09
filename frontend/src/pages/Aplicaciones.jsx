@@ -16,6 +16,49 @@ const UNIDAD = "Unidades";
 let _rowSeq = 0;
 const nextRid = () => `r${++_rowSeq}`;
 
+// Buscador de producto con autocompletado: escribes y se filtran los productos.
+function ProductoBuscador({ value, options, onSelect, unidad, testid }) {
+  const [q, setQ] = useState(value || "");
+  const [open, setOpen] = useState(false);
+  useEffect(() => { setQ(value || ""); }, [value]);
+  const term = q.trim().toLowerCase();
+  const filtrados = term
+    ? options.filter((p) => `${p.nombre_producto} ${p.categoria}`.toLowerCase().includes(term))
+    : options;
+  return (
+    <div style={{ position: "relative" }}>
+      <div style={{ position: "relative" }}>
+        <Search size={14} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "#94a3b8", pointerEvents: "none" }} />
+        <input
+          className="input" value={q} placeholder="Escribe para buscar producto…"
+          data-testid={testid}
+          onChange={(e) => { setQ(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          style={{ paddingLeft: 30, width: "100%" }}
+        />
+      </div>
+      {open && (
+        <div style={{ position: "absolute", zIndex: 30, top: "calc(100% + 2px)", left: 0, right: 0, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, boxShadow: "0 8px 20px rgba(15,23,42,0.12)", maxHeight: 220, overflowY: "auto" }} data-testid={`${testid}-lista`}>
+          {filtrados.length === 0 ? (
+            <div style={{ padding: "10px 12px", fontSize: 13, color: "#94a3b8" }}>Sin coincidencias</div>
+          ) : filtrados.map((p) => (
+            <button
+              key={p.nombre_producto} type="button"
+              onMouseDown={(e) => { e.preventDefault(); onSelect(p.nombre_producto); setQ(p.nombre_producto); setOpen(false); }}
+              data-testid={`${testid}-opcion-${p.nombre_producto}`}
+              style={{ display: "flex", justifyContent: "space-between", gap: 8, width: "100%", textAlign: "left", padding: "8px 12px", border: "none", borderBottom: "1px solid #f1f5f9", background: p.nombre_producto === value ? "#f0fdf4" : "#fff", cursor: "pointer", fontSize: 13 }}
+            >
+              <span style={{ fontWeight: 600, color: "#0f172a" }}>{p.nombre_producto}</span>
+              <span style={{ color: "#64748b", whiteSpace: "nowrap" }}>{p.categoria} · {p.total_disponible} {unidad}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Mapeo tipo de aplicación -> categoría de inventario (para filtrar los productos seleccionables)
 const TIPO_TO_CAT = {
   fertilizacion: "fertilizantes",
@@ -466,15 +509,17 @@ function AplicacionForm({ initial, inventario, plantaciones, recetas, onClose, o
             )}
             {productoRows.map((row, i) => (
               <div key={row._rid} style={{ display: "grid", gridTemplateColumns: "2fr 1.3fr 1fr auto", gap: 8, marginTop: 8, alignItems: "center" }}>
-                <select className="select" value={row.nombre_producto} data-testid={`aplic-producto-${i}`} onChange={(e) => {
-                  const nombre = e.target.value;
-                  const rows = [...productoRows];
-                  rows[i] = { ...rows[i], nombre_producto: nombre, unidad: UNIDAD };
-                  setProductoRows(rows);
-                }}>
-                  <option value="">Producto</option>
-                  {productosDisponibles.map((p) => <option key={p.nombre_producto} value={p.nombre_producto}>{p.nombre_producto} · {p.categoria} ({p.total_disponible} {UNIDAD})</option>)}
-                </select>
+                <ProductoBuscador
+                  value={row.nombre_producto}
+                  options={productosDisponibles}
+                  unidad={UNIDAD}
+                  testid={`aplic-producto-${i}`}
+                  onSelect={(nombre) => {
+                    const rows = [...productoRows];
+                    rows[i] = { ...rows[i], nombre_producto: nombre, unidad: UNIDAD };
+                    setProductoRows(rows);
+                  }}
+                />
                 <input className="input" readOnly tabIndex={-1}
                   value={iaMap[(row.nombre_producto || "").toLowerCase()] || ""}
                   placeholder="Ingrediente activo"
