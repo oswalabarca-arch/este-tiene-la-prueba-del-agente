@@ -1894,8 +1894,8 @@ class ReasignarIn(BaseModel):
     fecha: str    # YYYY-MM-DD o ISO
 
 
-_REASIGNAR_LABELS = {"descarte": "Descarte", "donaciones": "Donaciones", "refrigerar": "Refrigerar", "congelar": "Congelar"}
-_FUENTE_LABELS = {"ciudad": "Envío a ciudad", "refrigerar": "Refrigerar", "congelar": "Congelar", "donaciones": "Donaciones"}
+_REASIGNAR_LABELS = {"descarte": "Descarte", "donaciones": "Donaciones", "refrigerar": "Refrigerar", "congelar": "Congelar", "finca": "Venta en finca", "ciudad": "Envío a ciudad"}
+_FUENTE_LABELS = {"finca": "Venta en finca", "ciudad": "Envío a ciudad", "refrigerar": "Refrigerar", "congelar": "Congelar", "donaciones": "Donaciones", "descarte": "Descarte"}
 
 
 async def _reasignar_ventas(source_tipo: str, payload: ReasignarIn, allowed: tuple, user: dict):
@@ -1963,8 +1963,14 @@ async def reasignar_congelar(payload: ReasignarIn, user: dict = Depends(get_curr
 
 @api.post("/ventas-donaciones/reasignar")
 async def reasignar_donaciones(payload: ReasignarIn, user: dict = Depends(get_current_user)):
-    # Para cestas que no lograron donarse y se perdieron -> a Descarte.
-    return await _reasignar_ventas("donaciones", payload, ("descarte",), user)
+    # Cestas no donadas: a Descarte (perdidas) o de vuelta a un canal de venta si fue un error.
+    return await _reasignar_ventas("donaciones", payload, ("descarte", "finca", "ciudad", "refrigerar", "congelar"), user)
+
+
+@api.post("/ventas-descarte/reasignar")
+async def reasignar_descarte(payload: ReasignarIn, user: dict = Depends(get_current_user)):
+    # Devolver fruta enviada a Descarte por error, de vuelta a un canal de venta.
+    return await _reasignar_ventas("descarte", payload, ("finca", "ciudad", "refrigerar", "congelar"), user)
 
 
 @api.get("/dashboard/stock-canales")
@@ -2400,7 +2406,7 @@ async def _build_estado_resultados(anio: int, mes: Optional[int]) -> dict:
     # que llega con origen=asignacion_destino y ya está contado en kg_descarte).
     kg_descarte_reasignado = 0.0
     for d in await db.ventas_descarte.find({}).to_list(20000):
-        if d.get("origen") == "asignacion_destino":
+        if d.get("origen") in ("asignacion_destino", "reasignacion_salida"):
             continue
         if _en_periodo(d.get("fecha"), anio, mes):
             kg_descarte_reasignado += float(d.get("cantidad_kg") or (d.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
@@ -2531,7 +2537,7 @@ async def costos_kg_tendencia(anio: int, _: dict = Depends(get_current_user)):
                 kg_don += float(d.get("cantidad_kg") or (d.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
         kg_desc_re = 0.0
         for d in descartes_ch:
-            if d.get("origen") == "asignacion_destino":
+            if d.get("origen") in ("asignacion_destino", "reasignacion_salida"):
                 continue
             if _en_periodo(d.get("fecha"), anio, m):
                 kg_desc_re += float(d.get("cantidad_kg") or (d.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
@@ -2631,7 +2637,7 @@ async def costos_kg_filtrado(gran: str = "todo", anchor: Optional[str] = None, _
     # DESCARTE reasignado (fruta buena enviada al canal descarte; el automático ya va en kg_descarte)
     kg_descarte_reasignado = 0.0
     for d in await db.ventas_descarte.find({}).to_list(20000):
-        if d.get("origen") == "asignacion_destino":
+        if d.get("origen") in ("asignacion_destino", "reasignacion_salida"):
             continue
         if _in_win(d.get("fecha"), desde, hasta):
             kg_descarte_reasignado += float(d.get("cantidad_kg") or (d.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
@@ -2761,7 +2767,7 @@ async def conciliacion_diagnostico(gran: str = "todo", anchor: Optional[str] = N
             kg_donaciones += float(d.get("cantidad_kg") or (d.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
     kg_descarte_reasignado = 0.0
     for d in await db.ventas_descarte.find({}).to_list(20000):
-        if d.get("origen") == "asignacion_destino":
+        if d.get("origen") in ("asignacion_destino", "reasignacion_salida"):
             continue
         if _in_win(d.get("fecha"), desde, hasta):
             kg_descarte_reasignado += float(d.get("cantidad_kg") or (d.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)

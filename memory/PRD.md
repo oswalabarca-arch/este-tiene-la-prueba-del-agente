@@ -30,6 +30,8 @@ Idioma: **Español** (todo: UI, variables, respuestas).
 - **(2026-06) Seguridad P0 RESUELTO**: eliminado el bloque de credenciales por defecto visible en Login.jsx.
 - **(2026-06)** Limpieza de movimientos en PREVIEW (14 registros: asignaciones + ventas) para pruebas en cero. Respaldo en /app/memory/backups/preview_movimientos_backup.json.
 - **(2026-06)** Revisión de deploy: PASS, sin bloqueadores.
+- **(2026-06) Reasignación ampliada**: Donaciones ahora puede reasignar a Descarte + Venta en finca / Envío a ciudad / Refrigerado / Congelado. Descarte ahora también puede devolver fruta a esos 4 canales de venta (para corregir envíos por error). Backend: `POST /api/ventas-descarte/reasignar` (nuevo) + destinos ampliados en `/api/ventas-donaciones/reasignar`. Se excluye `reasignacion_salida` de `kg_descarte_reasignado` en las 4 vistas de costos/conciliación para no inflar el descarte al sacar fruta. Verificado e2e (mover y revertir). Frontend: Ventas.jsx (REASIGNAR_DESTINOS, tarjeta de reasignación en Descarte).
+- **(2026-06)** Recordatorio: "Revisar ajustes de saldo" (Analíticas) ya permite eliminar la fruta creada con "Ajustar saldo" (registros ajuste_entrada/salida).
 
 ## Backlog priorizado
 - P1: Separar permisos de Control de Asistencia (marcar vs desbloquear/editar). BLOQUEADO: pendiente decisión del usuario.

@@ -21,9 +21,10 @@ const REASIGNAR_DESTINOS = {
   ciudad: ["descarte", "donaciones", "refrigerar", "congelar"],
   refrigerar: ["congelar", "donaciones", "descarte"],
   congelar: ["donaciones", "descarte"],
-  donaciones: ["descarte"],
+  donaciones: ["descarte", "finca", "ciudad", "refrigerar", "congelar"],
+  descarte: ["finca", "ciudad", "refrigerar", "congelar"],
 };
-const DESTINO_LABEL = { descarte: "Descarte", donaciones: "Donaciones", refrigerar: "Refrigerado", congelar: "Congelado" };
+const DESTINO_LABEL = { descarte: "Descarte", donaciones: "Donaciones", refrigerar: "Refrigerado", congelar: "Congelado", finca: "Venta en finca", ciudad: "Envío a ciudad" };
 
 const fmtMoney = (n) => "US$ " + Number(n || 0).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -573,12 +574,12 @@ function Ventas({ tipo }) {
             </div>
           </div>
 
-          {/* Reasignar a Descarte las cestas que no se donaron (se perdieron) */}
+          {/* Reasignar cestas no donadas: a Descarte (perdidas) o de vuelta a un canal de venta */}
           {tieneReasignar && disponible > 0.001 && (
             <div className="card" style={{ background: "#fff7ed", borderColor: "#fed7aa", marginBottom: 16 }} data-testid="reasignar-card">
-              <h3 style={{ margin: 0, color: "#c2410c", display: "flex", alignItems: "center", gap: 8 }}><Truck size={18} /> Reasignar a descarte (cestas perdidas)</h3>
+              <h3 style={{ margin: 0, color: "#c2410c", display: "flex", alignItems: "center", gap: 8 }}><Truck size={18} /> Reasignar cestas</h3>
               <div style={{ color: "#64748b", fontSize: 13, margin: "4px 0 16px" }}>
-                Quedan <b style={{ color: "#c2410c" }}>{fc(disponible)}</b> cesta(s) sin donar. Si no lograron donarse y se perdieron, envialas a <b>Descarte</b> para sacarlas del disponible.
+                Quedan <b style={{ color: "#c2410c" }}>{fc(disponible)}</b> cesta(s) sin donar. Envialas a <b>Descarte</b> si se perdieron, o devolvelas a un canal de venta (finca, ciudad, refrigerado o congelado) si fue un error.
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, alignItems: "end" }}>
                 <div className="field" style={{ margin: 0 }}>
@@ -652,6 +653,29 @@ function Ventas({ tipo }) {
       ) : (
         <div className="card">
           <h3 style={{ marginTop: 0 }}>Registros</h3>
+          {tieneReasignar && disponible > 0.001 && (
+            <div className="card" style={{ background: "#fff7ed", borderColor: "#fed7aa", marginBottom: 16 }} data-testid="reasignar-card">
+              <h3 style={{ margin: 0, color: "#c2410c", display: "flex", alignItems: "center", gap: 8 }}><Truck size={18} /> Devolver fruta a un canal de venta</h3>
+              <div style={{ color: "#64748b", fontSize: 13, margin: "4px 0 16px" }}>
+                Hay <b style={{ color: "#c2410c" }}>{fc(disponible)}</b> cesta(s) en Descarte. Si enviaste fruta aquí por error, devolvela a su canal de origen (finca, ciudad, refrigerado o congelado).
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, alignItems: "end" }}>
+                <div className="field" style={{ margin: 0 }}>
+                  <label>Cantidad de cestas</label>
+                  <DecimalInput type="number" step="0.01" min="0" className="input" placeholder="0" value={reasign.cantidad} onChange={(e) => setReasign({ ...reasign, cantidad: e.target.value })} data-testid="reasign-cantidad" />
+                </div>
+                <div className="field" style={{ margin: 0 }}>
+                  <label>Destino</label>
+                  <select className="select" value={reasign.destino} onChange={(e) => setReasign({ ...reasign, destino: e.target.value })} data-testid="reasign-destino">
+                    {destinosReasignar.map((d) => <option key={d} value={d}>{DESTINO_LABEL[d]}</option>)}
+                  </select>
+                </div>
+                <button className="btn btn-primary" style={{ background: "#ea580c", borderColor: "#ea580c" }} onClick={reasignarSobrantes} disabled={reasignBusy} data-testid="reasign-btn">
+                  {reasignBusy ? "..." : "Reasignar"}
+                </button>
+              </div>
+            </div>
+          )}
           <table className="table">
             <thead><tr><th>Fecha</th><th>Cestas</th><th>kg</th><th>Origen</th><th>Observaciones</th><th>Acciones</th></tr></thead>
             <tbody>
