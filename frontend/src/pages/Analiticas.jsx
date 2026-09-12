@@ -137,7 +137,7 @@ export default function Analiticas() {
         </Section>
 
         <Section title="GASTOS OPERATIVOS" color="#dc2626">
-          <Row label="Salarios" value={data.gastos_operativos.salarios} sub={data.registrado ? "congelado al registrar" : "actual (se congela al registrar)"} icon={data.registrado ? Lock : null} testid="er-salarios" />
+          <Row label="Salarios" value={data.gastos_operativos.salarios} sub={data.registrado ? "congelado al registrar" : (data.gastos_operativos.salarios_dias != null ? `prorrateado · ${data.gastos_operativos.salarios_dias} de 30 días` : "actual (se congela al registrar)")} icon={data.registrado ? Lock : null} testid="er-salarios" />
           <Row label="Gastos del vehículo" value={data.gastos_operativos.gastos_vehiculo} sub="gasolina + repuestos + mano de obra" testid="er-vehiculo" />
           <RowInput label="Software ERP" value={softwareErp} onChange={setSoftwareErp} testid="er-software" />
           <RowTotal label="Total gastos operativos" value={totalGastosOp} testid="er-total-gastos" />
@@ -209,7 +209,7 @@ export default function Analiticas() {
       </div>
 
       <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 12, maxWidth: 720 }}>
-        Salario mensual = salario diario × {30} (RRHH › Trabajadores activos). Los salarios se congelan al registrar el período, por lo que cambiarlos luego no afecta los períodos ya registrados.
+        Salario mensual = salario diario × {30} (RRHH › Trabajadores activos). En el período en curso se muestran <b>prorrateados</b> según los días transcurridos (para que la utilidad del inicio de mes no salga toda en rojo); al registrar el período se congelan por el mes completo.
       </p>
 
       {/* Panel para revisar/eliminar ajustes de saldo (fantasmas) */}

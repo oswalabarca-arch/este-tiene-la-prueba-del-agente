@@ -2585,6 +2585,29 @@ async def _current_salarios_mensual() -> float:
     return sum((float(t.get("salario_diario") or 0) * SALARIO_DIAS_MES) for t in trabajadores if t.get("activo", True))
 
 
+async def _current_salarios_diario() -> float:
+    trabajadores = await db.trabajadores.find({}).to_list(5000)
+    return sum((float(t.get("salario_diario") or 0)) for t in trabajadores if t.get("activo", True))
+
+
+def _salario_dias_periodo(anio: int, mes: Optional[int]) -> int:
+    """Días de salario (base 30/mes) a cobrar en el período: prorrateado hasta HOY si es el
+    período en curso; completo si es pasado; 0 si es futuro."""
+    now = datetime.now(timezone.utc)
+    if mes:
+        if anio == now.year and mes == now.month:
+            return min(now.day, SALARIO_DIAS_MES)   # mes en curso -> días transcurridos
+        if (anio, mes) < (now.year, now.month):
+            return SALARIO_DIAS_MES                  # mes pasado -> completo
+        return 0                                     # mes futuro
+    # Anual (base 12 x 30 = 360)
+    if anio == now.year:
+        return (now.month - 1) * SALARIO_DIAS_MES + min(now.day, SALARIO_DIAS_MES)
+    if anio < now.year:
+        return SALARIO_DIAS_MES * 12
+    return 0
+
+
 async def _build_estado_resultados(anio: int, mes: Optional[int]) -> dict:
     # INGRESO POR VENTAS: total vendido de los 4 canales con dinero (solo ventas reales)
     ventas_fresa = 0.0
@@ -2657,9 +2680,11 @@ async def _build_estado_resultados(anio: int, mes: Optional[int]) -> dict:
     software_erp = float(doc.get("software_erp", 0)) if doc else 0.0
     if doc and doc.get("salarios_snapshot") is not None:
         salarios = float(doc["salarios_snapshot"])
+        salarios_dias = None
     else:
-        base = await _current_salarios_mensual()
-        salarios = base if mes else base * 12
+        salario_diario = await _current_salarios_diario()
+        salarios_dias = _salario_dias_periodo(anio, mes)
+        salarios = round(salario_diario * salarios_dias, 2)
 
     total_ingresos = round(ventas_fresa + otros_ingresos, 2)
     total_costo_ventas = round(fert_agro + mano_obra, 2)
@@ -2673,7 +2698,7 @@ async def _build_estado_resultados(anio: int, mes: Optional[int]) -> dict:
         "fecha_registro": doc.get("fecha_registro") if doc else None,
         "ingresos": {"ventas_fresa": round(ventas_fresa, 2), "otros_ingresos": round(otros_ingresos, 2), "total": total_ingresos},
         "costo_ventas": {"fertilizantes_agroquimicos": round(fert_agro, 2), "mano_obra": round(mano_obra, 2), "total": total_costo_ventas},
-        "gastos_operativos": {"salarios": round(salarios, 2), "gastos_vehiculo": round(gastos_vehiculo, 2), "software_erp": round(software_erp, 2), "total": total_gastos_op},
+        "gastos_operativos": {"salarios": round(salarios, 2), "salarios_dias": salarios_dias, "gastos_vehiculo": round(gastos_vehiculo, 2), "software_erp": round(software_erp, 2), "total": total_gastos_op},
         "cosecha": {"kg_cosechados": kg_cosechados, "kg_descarte": kg_descarte, "kg_donaciones": kg_donaciones, "kg_descarte_reasignado": kg_descarte_reasignado, "kg_vendible": kg_vendible},
         "utilidad_bruta": utilidad_bruta,
         "utilidad_operativa": utilidad_operativa,
