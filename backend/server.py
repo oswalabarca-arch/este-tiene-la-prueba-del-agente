@@ -1879,6 +1879,54 @@ def _ventas_router(tipo: str):
         await _create(coll, registro, user)
         return {"success": True, "disponible_anterior": round(actual, 2), "disponible_nuevo": deseado, "delta": delta}
 
+    @api.post(f"/ventas-{tipo}/sanear-negativo")
+    async def _sanear_negativo(user: dict = Depends(get_current_user)):
+        """Pone el saldo del canal en CERO cuando quedó negativo por registros sin respaldo
+        (ajustes de salida o reasignaciones basadas en fruta fantasma). NO crea cestas nuevas
+        y NO borra ventas/donaciones reales. Revierte reasignaciones completas (ambos lados)."""
+        if user.get("rol") != "administrador" and not user.get("puede_ajustar_saldos"):
+            raise HTTPException(403, "No tienes permiso para sanear saldos. Solicítalo al administrador.")
+        coll = f"ventas_{tipo}"
+
+        def _disp(docs):
+            rec = sum(float(d.get("cantidad_cestas") or 0) for d in docs if d.get("origen") in RECIBIDO_ORIGINS)
+            usa = sum(float(d.get("cantidad_cestas") or 0) for d in docs if d.get("origen") not in RECIBIDO_ORIGINS)
+            return round(rec - usa, 4)
+
+        docs = await db[coll].find({}).to_list(50000)
+        disponible = _disp(docs)
+        if disponible > -0.001:
+            return {"success": True, "sin_cambios": True, "disponible": round(max(disponible, 0), 2)}
+        revertidas = eliminados = 0
+        # 1) Ajustes de salida (sin efecto en otros canales)
+        for d in [x for x in docs if x.get("origen") == "ajuste_salida"]:
+            if disponible > -0.001:
+                break
+            await db[coll].delete_one({"_id": d.get("_id")})
+            eliminados += 1
+            disponible += float(d.get("cantidad_cestas") or 0)
+        # 2) Reasignaciones de salida: revertir AMBOS lados (por reasignacion_id)
+        if disponible < -0.001:
+            docs = await db[coll].find({}).to_list(50000)
+            for d in [x for x in docs if x.get("origen") == "reasignacion_salida"]:
+                if disponible > -0.001:
+                    break
+                cest = float(d.get("cantidad_cestas") or 0)
+                rid = d.get("reasignacion_id")
+                if rid:
+                    for t in ("finca", "ciudad", "refrigerar", "congelar", "descarte", "donaciones"):
+                        r = await db[f"ventas_{t}"].delete_many({"reasignacion_id": rid})
+                        revertidas += r.deleted_count
+                else:
+                    await db[coll].delete_one({"_id": d.get("_id")})
+                    eliminados += 1
+                disponible += cest
+        docs = await db[coll].find({}).to_list(50000)
+        disponible_final = _disp(docs)
+        if disponible_final < -0.001:
+            raise HTTPException(400, f"El saldo sigue en {round(disponible_final, 2)} cesta(s): el resto del negativo proviene de VENTAS/DONACIONES reales (se registró más de lo asignado). Corrige o elimina esas ventas para saldar el canal; no se tocan automáticamente.")
+        return {"success": True, "disponible": round(max(disponible_final, 0), 2), "reasignaciones_revertidas": revertidas, "ajustes_eliminados": eliminados}
+
 _ventas_router("finca")
 _ventas_router("ciudad")
 _ventas_router("refrigerar")

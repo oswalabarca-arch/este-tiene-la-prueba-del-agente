@@ -85,6 +85,7 @@ function Ventas({ tipo }) {
   const [ajusteOpen, setAjusteOpen] = useState(false);
   const [ajusteVal, setAjusteVal] = useState("");
   const [ajusteBusy, setAjusteBusy] = useState(false);
+  const [sanearBusy, setSanearBusy] = useState(false);
 
   const load = useCallback(() => api.get(`/ventas-${tipo}`).then((r) => setItems(r.data.ventas)), [tipo]);
   useEffect(() => { load(); }, [load]);
@@ -301,6 +302,22 @@ function Ventas({ tipo }) {
     }
   };
 
+  const sanearNegativo = async () => {
+    if (!window.confirm(`¿Poner el saldo de "${meta.label}" en cero?\n\nSe eliminarán los ajustes de salida y se revertirán por completo las reasignaciones (también las cestas que se movieron a otro canal) que dejaron este saldo en negativo. NO se crean cestas nuevas ni se tocan las ventas/donaciones reales.`)) return;
+    setSanearBusy(true);
+    try {
+      const r = await api.post(`/ventas-${tipo}/sanear-negativo`, {});
+      const d = r.data || {};
+      if (d.sin_cambios) toast.show("El saldo ya estaba en cero o positivo");
+      else toast.show(`Saldo saneado. Reasignaciones revertidas: ${d.reasignaciones_revertidas || 0}, ajustes eliminados: ${d.ajustes_eliminados || 0}`);
+      load();
+    } catch (err) {
+      toast.show(err?.response?.data?.detail || "No se pudo sanear el saldo", "error");
+    } finally {
+      setSanearBusy(false);
+    }
+  };
+
   const rows = conPanel ? ventasFiltradas : items;
 
   return (
@@ -396,6 +413,25 @@ function Ventas({ tipo }) {
         <div className="kpi-grid" style={{ marginBottom: 18 }}>
           <div className="card kpi-card"><div className="kpi-label">Total registros</div><div className="kpi-value">{items.length}</div></div>
           <div className="card kpi-card"><div className="kpi-label">Cestas</div><div className="kpi-value" style={{ color: meta.color }}>{totalCestas.toFixed(2)}</div></div>
+        </div>
+      )}
+
+      {disponible < -0.001 && puedeAjustarSaldos && (
+        <div className="card" style={{ background: "#fef2f2", borderColor: "#fecaca", marginBottom: 16 }} data-testid="saldo-negativo-card">
+          <div style={{ display: "flex", gap: 12, alignItems: "flex-start", flexWrap: "wrap", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+              <AlertTriangle size={20} style={{ color: "#dc2626", flexShrink: 0, marginTop: 2 }} />
+              <div>
+                <div style={{ fontWeight: 700, color: "#b91c1c" }}>Saldo negativo: {fc(disponible)} cesta(s)</div>
+                <div style={{ color: "#7f1d1d", fontSize: 13, marginTop: 2, maxWidth: 640 }}>
+                  Este canal quedó en negativo por registros sin respaldo (un ajuste de salida o una reasignación de fruta que en realidad no entró). Pulsá el botón para dejarlo en <b>cero</b> sin crear cestas nuevas.
+                </div>
+              </div>
+            </div>
+            <button className="btn btn-primary" style={{ background: "#dc2626", borderColor: "#dc2626" }} onClick={sanearNegativo} disabled={sanearBusy} data-testid="sanear-negativo-btn">
+              {sanearBusy ? "..." : "Poner saldo en cero"}
+            </button>
+          </div>
         </div>
       )}
 
