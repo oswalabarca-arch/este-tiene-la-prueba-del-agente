@@ -114,8 +114,9 @@ function Ventas({ tipo }) {
   const esReasig = (v) => v.origen === "reasignacion_salida";       // salida por reasignación
   const esAjusteEntrada = (v) => v.origen === "ajuste_entrada";     // ajuste manual que SUMA
   const esAjusteSalida = (v) => v.origen === "ajuste_salida";       // ajuste manual que RESTA
+  const esSalidaError = (v) => v.origen === "salida_error";         // fruta retirada del sistema (NO es venta)
   const esRecibido = (v) => isAsig(v) || esAjusteEntrada(v);        // entradas de stock
-  const esVentaReal = (v) => !esRecibido(v) && !esReasig(v) && !esAjusteSalida(v); // venta/donación real
+  const esVentaReal = (v) => !esRecibido(v) && !esReasig(v) && !esAjusteSalida(v) && !esSalidaError(v); // venta/donación real
   const esHoy = (v) => (v.fecha || "").slice(0, 10) === realToday;
   const cestasDe = (v) => v.cantidad_cestas || 0;
 
@@ -135,7 +136,8 @@ function Ventas({ tipo }) {
   const vendidoTotal = ventasReales.reduce((s, v) => s + cestasDe(v), 0);
   const reasignadoTotal = items.filter(esReasig).reduce((s, v) => s + cestasDe(v), 0);
   const ajusteSalidaTotal = items.filter(esAjusteSalida).reduce((s, v) => s + cestasDe(v), 0);
-  const disponibleAcum = recibidoTotal - vendidoTotal - reasignadoTotal - ajusteSalidaTotal;
+  const salidaErrorTotal = items.filter(esSalidaError).reduce((s, v) => s + cestasDe(v), 0);
+  const disponibleAcum = recibidoTotal - vendidoTotal - reasignadoTotal - ajusteSalidaTotal - salidaErrorTotal;
 
   // Actividad del día (bloque "Acumulado de hoy")
   const asignadoHoy = asignados.filter(esHoy).reduce((s, v) => s + cestasDe(v), 0);
@@ -150,12 +152,14 @@ function Ventas({ tipo }) {
     items.filter((v) => esRecibido(v) && antesDeHoy(v)).reduce((s, v) => s + cestasDe(v), 0)
     - items.filter((v) => esVentaReal(v) && antesDeHoy(v)).reduce((s, v) => s + cestasDe(v), 0)
     - items.filter((v) => esReasig(v) && antesDeHoy(v)).reduce((s, v) => s + cestasDe(v), 0)
-    - items.filter((v) => esAjusteSalida(v) && antesDeHoy(v)).reduce((s, v) => s + cestasDe(v), 0);
+    - items.filter((v) => esAjusteSalida(v) && antesDeHoy(v)).reduce((s, v) => s + cestasDe(v), 0)
+    - items.filter((v) => esSalidaError(v) && antesDeHoy(v)).reduce((s, v) => s + cestasDe(v), 0);
   // "Disponible hoy" = lo que traías arrastrado + asignado hoy − salidas de hoy.
   // Incluir el arrastre evita el falso negativo cuando sacás cestas de días anteriores.
   const ajusteEntradaHoy = items.filter((v) => esAjusteEntrada(v) && esHoy(v)).reduce((s, v) => s + cestasDe(v), 0);
   const ajusteSalidaHoy = items.filter((v) => esAjusteSalida(v) && esHoy(v)).reduce((s, v) => s + cestasDe(v), 0);
-  const disponibleHoy = saldoArrastrado + asignadoHoy + ajusteEntradaHoy - vendidoHoyCestas - reasignadoHoy - ajusteSalidaHoy;
+  const salidaErrorHoy = items.filter((v) => esSalidaError(v) && esHoy(v)).reduce((s, v) => s + cestasDe(v), 0);
+  const disponibleHoy = saldoArrastrado + asignadoHoy + ajusteEntradaHoy - vendidoHoyCestas - reasignadoHoy - ajusteSalidaHoy - salidaErrorHoy;
 
   // El "disponible" que habilita vender/reasignar es el ACUMULADO (para poder
   // sacar las cestas que quedaron de días anteriores).
