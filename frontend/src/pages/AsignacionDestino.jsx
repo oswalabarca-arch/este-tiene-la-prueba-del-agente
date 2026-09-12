@@ -112,6 +112,9 @@ export default function AsignacionDestino() {
       toast.show(`No hay cestas disponibles suficientes. Disponible: ${Math.max(disponible, 0).toFixed(2)} cestas`, "error");
       return;
     }
+    if (key === "asignacion_error") {
+      if (!window.confirm(`⚠️ "Asignación por error" SACA la fruta del sistema (no es una venta ni un envío; no se puede vender después).\n\nVas a retirar ${cantidad} ${unidad}. ¿Continuar?\n\nSi lo que querías era mandarla a la ciudad, cancelá y usá la fila "Enviar a ciudad".`)) return;
+    }
     setBusy(key);
     try {
       await api.post("/asignaciones-destino", {
