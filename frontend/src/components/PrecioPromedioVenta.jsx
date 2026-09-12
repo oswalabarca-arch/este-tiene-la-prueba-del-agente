@@ -3,7 +3,7 @@ import { api } from "../lib/api";
 import { Tag, ArrowUp, ArrowDown, Minus } from "lucide-react";
 
 const KG_POR_CESTA = 14;
-const SYSTEM_ORIGENES = ["asignacion_destino", "ajuste_entrada", "ajuste_salida", "reasignacion_salida"];
+const SYSTEM_ORIGENES = ["asignacion_destino", "ajuste_entrada", "ajuste_salida", "reasignacion_salida", "salida_error"];
 const CANALES = [
   { tipo: "finca", label: "Venta en finca" },
   { tipo: "ciudad", label: "Envío a ciudad" },
