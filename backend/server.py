@@ -1841,13 +1841,22 @@ def _ventas_router(tipo: str):
         doc = await db[f"ventas_{tipo}"].find_one({"_id": vid})
         rid = (doc or {}).get("reasignacion_id")
         if rid:
-            # Reversa de reasignación: borrar AMBOS lados (salida en el origen + entrada en el
-            # destino) para que la fruta regrese al canal de donde vino y no se descuadre el saldo.
+            # Reversa de reasignación (nueva): borrar AMBOS lados por reasignacion_id para que la
+            # fruta regrese al canal de donde vino y no se descuadre el saldo.
             borrados = 0
             for t in ("finca", "ciudad", "refrigerar", "congelar", "descarte", "donaciones"):
                 r = await db[f"ventas_{t}"].delete_many({"reasignacion_id": rid})
                 borrados += r.deleted_count
             return {"success": True, "reasignacion_revertida": True, "registros_eliminados": borrados}
+        # Reversa de reasignación ANTIGUA (sin reasignacion_id): buscar la contraparte por
+        # coincidencia y borrarla también, para que la fruta regrese a su canal de origen.
+        if doc:
+            cp = await _find_reasig_counterpart(tipo, doc)
+            if cp:
+                ccoll, cid = cp
+                await db[ccoll].delete_one({"_id": cid})
+                await _delete(f"ventas_{tipo}", vid)
+                return {"success": True, "reasignacion_revertida": True, "registros_eliminados": 2}
         return await _delete(f"ventas_{tipo}", vid)
 
     @api.post(f"/ventas-{tipo}/ajuste-saldo")
@@ -1944,6 +1953,58 @@ class ReasignarIn(BaseModel):
 
 _REASIGNAR_LABELS = {"descarte": "Descarte", "donaciones": "Donaciones", "refrigerar": "Refrigerar", "congelar": "Congelar", "finca": "Venta en finca", "ciudad": "Envío a ciudad", "asignacion": "Asignación de destino", "error": "Salida por error"}
 _FUENTE_LABELS = {"finca": "Venta en finca", "ciudad": "Envío a ciudad", "refrigerar": "Refrigerar", "congelar": "Congelar", "donaciones": "Donaciones", "descarte": "Descarte"}
+
+
+def _label_to_key(label: str, table: dict):
+    for k, v in table.items():
+        if v == label:
+            return k
+    return None
+
+
+async def _find_reasig_counterpart(source_tipo: str, doc: dict):
+    """Para reasignaciones ANTIGUAS sin reasignacion_id: encuentra la contraparte (el otro lado
+    de la reasignación) por coincidencia de fecha, cantidad y etiqueta de origen/destino en las
+    observaciones. Devuelve (coleccion, id) o None."""
+    obs = doc.get("observaciones") or ""
+    origen = doc.get("origen")
+    cest = round(float(doc.get("cantidad_cestas") or 0), 2)
+    fecha10 = (doc.get("fecha") or "")[:10]
+    # Caso A: doc es la SALIDA del origen -> buscar la ENTRADA en el destino
+    if origen == "reasignacion_salida" and "sobrantes a " in obs:
+        dest_key = _label_to_key(obs.split("sobrantes a ", 1)[1].strip(), _REASIGNAR_LABELS)
+        if not dest_key:
+            return None
+        src_label = _FUENTE_LABELS.get(source_tipo)
+        for c in await db[f"ventas_{dest_key}"].find({}).to_list(20000):
+            if c.get("reasignacion_id"):
+                continue
+            if (c.get("observaciones") or "") != f"Reasignado desde {src_label}":
+                continue
+            if abs(round(float(c.get("cantidad_cestas") or 0), 2) - cest) > 0.001:
+                continue
+            if (c.get("fecha") or "")[:10] != fecha10:
+                continue
+            return (f"ventas_{dest_key}", c.get("_id"))
+        return None
+    # Caso B: doc es la ENTRADA del destino ("Reasignado desde X") -> buscar la SALIDA en el origen
+    if obs.startswith("Reasignado desde "):
+        src_key = _label_to_key(obs[len("Reasignado desde "):].strip(), _FUENTE_LABELS)
+        if not src_key:
+            return None
+        dest_label = _REASIGNAR_LABELS.get(source_tipo)
+        for c in await db[f"ventas_{src_key}"].find({"origen": "reasignacion_salida"}).to_list(20000):
+            if c.get("reasignacion_id"):
+                continue
+            if (c.get("observaciones") or "") != f"Reasignación de cestas sobrantes a {dest_label}":
+                continue
+            if abs(round(float(c.get("cantidad_cestas") or 0), 2) - cest) > 0.001:
+                continue
+            if (c.get("fecha") or "")[:10] != fecha10:
+                continue
+            return (f"ventas_{src_key}", c.get("_id"))
+        return None
+    return None
 
 
 async def _devolver_a_asignacion(source_tipo: str, coll: str, cestas: float, user: dict):
