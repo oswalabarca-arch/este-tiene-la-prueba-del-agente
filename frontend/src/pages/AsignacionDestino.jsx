@@ -7,6 +7,7 @@ import {
   Award, TrendingUp, TrendingDown, AlertCircle,
 } from "lucide-react";
 import { todayLocal } from "../lib/dates";
+import { PeriodPicker, currentMonthStr, currentDayStr, currentWeekStr } from "../components/PeriodPicker";
 import { DecimalInput } from "../components/DecimalInput";
 
 const KG = 14;
@@ -43,12 +44,20 @@ export default function AsignacionDestino() {
 
   // Historial de asignaciones (consulta + borrado de cualquier fecha)
   const monthStart = () => todayLocal().slice(0, 8) + "01";
-  const shiftDays = (ymd, n) => { const d = new Date(ymd + "T12:00:00"); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
-  const weekStart = () => { const t = todayLocal(); const dow = (new Date(t + "T12:00:00").getDay() + 6) % 7; return shiftDays(t, -dow); };
   const [histPreset, setHistPreset] = useState("mes");
   const [histDesde, setHistDesde] = useState(monthStart());
   const [histHasta, setHistHasta] = useState(todayLocal());
+  const [histDia, setHistDia] = useState(currentDayStr);
+  const [histSemana, setHistSemana] = useState(currentWeekStr);
+  const [histMes, setHistMes] = useState(currentMonthStr);
   const [historial, setHistorial] = useState([]);
+  const lastDayOfMonth = (ym) => { const [y, m] = ym.split("-").map(Number); return new Date(y, m, 0).getDate(); };
+  const weekRange = (ym, wk) => {
+    const starts = { "1": 1, "2": 8, "3": 15, "4": 22 };
+    const ends = { "1": 7, "2": 14, "3": 21, "4": lastDayOfMonth(ym) };
+    const pad = (n) => String(n).padStart(2, "0");
+    return [`${ym}-${pad(starts[wk])}`, `${ym}-${pad(ends[wk])}`];
+  };
 
   const load = useCallback(async () => {
     const [a, c] = await Promise.all([
@@ -152,10 +161,14 @@ export default function AsignacionDestino() {
 
   const aplicarPreset = (p) => {
     setHistPreset(p);
-    if (p === "mes") { setHistDesde(monthStart()); setHistHasta(todayLocal()); }
-    else if (p === "semana") { setHistDesde(weekStart()); setHistHasta(todayLocal()); }
-    else if (p === "hoy") { setHistDesde(todayLocal()); setHistHasta(todayLocal()); }
   };
+
+  useEffect(() => {
+    if (histPreset === "hoy") { setHistDesde(histDia); setHistHasta(histDia); }
+    else if (histPreset === "semana") { const [s, e] = weekRange(histMes, histSemana); setHistDesde(s); setHistHasta(e); }
+    else if (histPreset === "mes") { setHistDesde(`${histMes}-01`); setHistHasta(`${histMes}-${String(lastDayOfMonth(histMes)).padStart(2, "0")}`); }
+    // "rango": el usuario define histDesde/histHasta manualmente
+  }, [histPreset, histDia, histSemana, histMes]);
 
   const removeHist = async (a) => {
     if (a.origen === "cosecha_descarte_auto") {
@@ -356,12 +369,14 @@ export default function AsignacionDestino() {
           <h3 style={{ margin: 0 }}>📋 Historial de asignaciones</h3>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <div style={{ display: "inline-flex", background: "#f1f5f9", borderRadius: 10, padding: 3 }}>
-              {[["hoy", "Hoy"], ["semana", "Semana"], ["mes", "Mes"], ["rango", "Rango"]].map(([k, l]) => (
+              {[["hoy", "Hoy"], ["semana", "Esta semana"], ["mes", "Este mes"], ["rango", "Rango"]].map(([k, l]) => (
                 <button key={k} type="button" onClick={() => aplicarPreset(k)} data-testid={`hist-preset-${k}`}
                   style={{ padding: "5px 12px", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 13,
                     background: histPreset === k ? "#16a34a" : "transparent", color: histPreset === k ? "#fff" : "#475569" }}>{l}</button>
               ))}
             </div>
+            <PeriodPicker isDay={histPreset === "hoy"} isWeek={histPreset === "semana"} isMonth={histPreset === "mes"}
+              dia={histDia} setDia={setHistDia} semana={histSemana} setSemana={setHistSemana} mes={histMes} setMes={setHistMes} testidPrefix="hist" />
             {histPreset === "rango" && (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                 <input type="date" className="input" style={{ width: 150 }} value={histDesde} max={realToday} onChange={(e) => setHistDesde(e.target.value)} data-testid="hist-desde" />
