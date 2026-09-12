@@ -1942,8 +1942,49 @@ class ReasignarIn(BaseModel):
     fecha: str    # YYYY-MM-DD o ISO
 
 
-_REASIGNAR_LABELS = {"descarte": "Descarte", "donaciones": "Donaciones", "refrigerar": "Refrigerar", "congelar": "Congelar", "finca": "Venta en finca", "ciudad": "Envío a ciudad"}
+_REASIGNAR_LABELS = {"descarte": "Descarte", "donaciones": "Donaciones", "refrigerar": "Refrigerar", "congelar": "Congelar", "finca": "Venta en finca", "ciudad": "Envío a ciudad", "asignacion": "Asignación de destino"}
 _FUENTE_LABELS = {"finca": "Venta en finca", "ciudad": "Envío a ciudad", "refrigerar": "Refrigerar", "congelar": "Congelar", "donaciones": "Donaciones", "descarte": "Descarte"}
+
+
+async def _devolver_a_asignacion(source_tipo: str, coll: str, cestas: float, user: dict):
+    """Devuelve cestas de un canal de ventas a 'Asignación de destino' (deshace la asignación).
+    Reduce/elimina las entradas del canal que vinieron de una asignación (origen=asignacion_destino,
+    NO el descarte automático) y su asignación de destino vinculada, para que esa cosecha vuelva a
+    quedar 'sin asignar'. Solo afecta fruta aún NO vendida ni reasignada."""
+    remaining = round(cestas, 4)
+    devuelto = 0.0
+    entradas = await db[coll].find({"origen": "asignacion_destino"}).sort("fecha", -1).to_list(20000)
+    for e in entradas:
+        if remaining <= 0.001:
+            break
+        aid = e.get("asignacion_id")
+        if not aid:
+            continue
+        asig = await db.asignaciones_destino.find_one({"_id": aid})
+        if not asig or asig.get("origen") == "cosecha_descarte_auto":
+            continue
+        ecest = float(e.get("cantidad_cestas") or 0)
+        take = round(min(ecest, remaining), 4)
+        if take <= 0:
+            continue
+        # 1) reducir/eliminar la entrada del canal
+        if take >= ecest - 0.0001:
+            await db[coll].delete_one({"_id": e.get("_id")})
+        else:
+            rest = round(ecest - take, 2)
+            await db[coll].update_one({"_id": e.get("_id")}, {"$set": {"cantidad_cestas": rest, "cantidad_kg": round(rest * KG_POR_CESTA, 2)}})
+        # 2) reducir/eliminar la asignación de destino vinculada
+        acest = float(asig.get("cantidad_cestas") or 0)
+        if take >= acest - 0.0001:
+            await db.asignaciones_destino.delete_one({"_id": aid})
+        else:
+            arest = round(acest - take, 2)
+            await db.asignaciones_destino.update_one({"_id": aid}, {"$set": {"cantidad_cestas": arest, "cantidad_kg": round(arest * KG_POR_CESTA, 2), "cantidad_ingresada": arest}})
+        remaining = round(remaining - take, 4)
+        devuelto = round(devuelto + take, 4)
+    if remaining > 0.001:
+        raise HTTPException(400, f"Solo se pueden devolver a Asignación de destino {round(devuelto, 2)} cesta(s) (las que llegaron desde ahí y siguen sin venderse). El resto proviene de otro origen o ya se usó.")
+    return {"success": True, "cantidad_cestas": round(devuelto, 2), "destino": "asignacion", "devuelto_a_asignacion": True}
 
 
 async def _reasignar_ventas(source_tipo: str, payload: ReasignarIn, allowed: tuple, user: dict):
@@ -1964,6 +2005,11 @@ async def _reasignar_ventas(source_tipo: str, payload: ReasignarIn, allowed: tup
     disponible = asignado - usado
     if cestas > disponible + 0.001:
         raise HTTPException(400, f"Solo hay {round(max(disponible, 0), 2)} cesta(s) disponible(s) en {_FUENTE_LABELS.get(source_tipo, source_tipo)} para reasignar.")
+    # Destino especial: devolver la fruta a "Asignación de destino" (deshacer la asignación).
+    # No crea entrada en otro canal: reduce/elimina la asignación de origen y su entrada en
+    # este canal, de modo que la cosecha vuelve a quedar "sin asignar" y se puede reasignar.
+    if payload.destino == "asignacion":
+        return await _devolver_a_asignacion(source_tipo, coll, cestas, user)
     kg = round(cestas * KG_POR_CESTA, 2)
     fecha_full = fecha_prefix + "T12:00:00.000Z"
     destino_label = _REASIGNAR_LABELS[payload.destino]
@@ -1994,25 +2040,31 @@ async def _reasignar_ventas(source_tipo: str, payload: ReasignarIn, allowed: tup
     return {"success": True, "cantidad_cestas": cestas, "destino": payload.destino}
 
 
+@api.post("/ventas-finca/reasignar")
+async def reasignar_finca(payload: ReasignarIn, user: dict = Depends(get_current_user)):
+    # Venta en finca: devolver a Asignación de destino o mover a otro canal si fue un error.
+    return await _reasignar_ventas("finca", payload, ("asignacion", "ciudad", "refrigerar", "congelar", "descarte", "donaciones"), user)
+
+
 @api.post("/ventas-ciudad/reasignar")
 async def reasignar_ciudad(payload: ReasignarIn, user: dict = Depends(get_current_user)):
-    return await _reasignar_ventas("ciudad", payload, ("descarte", "donaciones", "refrigerar", "congelar"), user)
+    return await _reasignar_ventas("ciudad", payload, ("asignacion", "descarte", "donaciones", "refrigerar", "congelar", "finca"), user)
 
 
 @api.post("/ventas-refrigerar/reasignar")
 async def reasignar_refrigerar(payload: ReasignarIn, user: dict = Depends(get_current_user)):
-    return await _reasignar_ventas("refrigerar", payload, ("congelar", "donaciones", "descarte"), user)
+    return await _reasignar_ventas("refrigerar", payload, ("asignacion", "congelar", "donaciones", "descarte", "finca", "ciudad"), user)
 
 
 @api.post("/ventas-congelar/reasignar")
 async def reasignar_congelar(payload: ReasignarIn, user: dict = Depends(get_current_user)):
-    return await _reasignar_ventas("congelar", payload, ("donaciones", "descarte"), user)
+    return await _reasignar_ventas("congelar", payload, ("asignacion", "donaciones", "descarte", "finca", "ciudad", "refrigerar"), user)
 
 
 @api.post("/ventas-donaciones/reasignar")
 async def reasignar_donaciones(payload: ReasignarIn, user: dict = Depends(get_current_user)):
-    # Cestas no donadas: a Descarte (perdidas) o de vuelta a un canal de venta si fue un error.
-    return await _reasignar_ventas("donaciones", payload, ("descarte", "finca", "ciudad", "refrigerar", "congelar"), user)
+    # Cestas no donadas: a Descarte (perdidas), a Asignación de destino, o a un canal de venta.
+    return await _reasignar_ventas("donaciones", payload, ("asignacion", "descarte", "finca", "ciudad", "refrigerar", "congelar"), user)
 
 
 @api.post("/ventas-descarte/reasignar")
