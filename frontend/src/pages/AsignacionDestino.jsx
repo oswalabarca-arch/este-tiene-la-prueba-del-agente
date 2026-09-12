@@ -4,7 +4,7 @@ import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
 import {
   Send, Plus, Trash2, Home, Truck, MapPin, Thermometer, Snowflake, Heart,
-  Award, TrendingUp, TrendingDown, AlertCircle, Ban,
+  Award, TrendingUp, TrendingDown, AlertCircle, Ban, Pencil, Check, X,
 } from "lucide-react";
 import { todayLocal } from "../lib/dates";
 import { PeriodPicker, currentMonthStr, currentDayStr, currentWeekStr } from "../components/PeriodPicker";
@@ -52,6 +52,9 @@ export default function AsignacionDestino() {
   const [histSemana, setHistSemana] = useState(currentWeekStr);
   const [histMes, setHistMes] = useState(currentMonthStr);
   const [historial, setHistorial] = useState([]);
+  const [editId, setEditId] = useState(null);
+  const [editCant, setEditCant] = useState("");
+  const [editUnidad, setEditUnidad] = useState("cestas");
   const lastDayOfMonth = (ym) => { const [y, m] = ym.split("-").map(Number); return new Date(y, m, 0).getDate(); };
   const weekRange = (ym, wk) => {
     const starts = { "1": 1, "2": 8, "3": 15, "4": 22 };
@@ -170,6 +173,27 @@ export default function AsignacionDestino() {
     else if (histPreset === "mes") { setHistDesde(`${histMes}-01`); setHistHasta(`${histMes}-${String(lastDayOfMonth(histMes)).padStart(2, "0")}`); }
     // "rango": el usuario define histDesde/histHasta manualmente
   }, [histPreset, histDia, histSemana, histMes]);
+
+  const startEdit = (a) => { setEditId(a._id); setEditCant(String(a.cantidad_ingresada ?? a.cantidad_cestas ?? "")); setEditUnidad(a.unidad_ingreso || "cestas"); };
+  const cancelEdit = () => { setEditId(null); setEditCant(""); };
+  const saveEdit = async (a, confirmar = false) => {
+    const cant = parseFloat(editCant);
+    if (!cant || cant <= 0) { toast.show("Ingresá una cantidad mayor a 0", "error"); return; }
+    try {
+      await api.put(`/asignaciones-destino/${a._id}${confirmar ? "?confirmar=true" : ""}`, { unidad_ingreso: editUnidad, cantidad_ingresada: cant });
+      toast.show("Asignación actualizada");
+      setEditId(null); setEditCant("");
+      loadHistorial(); load();
+    } catch (e) {
+      const d = e?.response?.data?.detail;
+      if (e?.response?.status === 409 && d?.tipo === "sobreventa") {
+        const av = (d.avisos || []).map((x) => `${x.canal}: ${x.cestas_de_mas} de más`).join(", ");
+        if (window.confirm(`Reducir esta asignación dejará sobreventa en el canal destino (${av}).\n\n¿Continuar de todos modos?`)) return saveEdit(a, true);
+      } else {
+        toast.show(typeof d === "string" ? d : "No se pudo editar la asignación", "error");
+      }
+    }
+  };
 
   const removeHist = async (a) => {
     if (a.origen === "cosecha_descarte_auto") {
@@ -345,6 +369,8 @@ export default function AsignacionDestino() {
             <tbody>
               {asignaciones.map((a) => {
                 const d = DESTINOS.find((x) => x.key === a.destino);
+                const auto = a.origen === "cosecha_descarte_auto";
+                const enEdicion = editId === a._id;
                 return (
                   <tr key={a._id}>
                     <td>
@@ -352,15 +378,32 @@ export default function AsignacionDestino() {
                         {d && <d.icon size={15} style={{ color: d.color }} />} {d?.label || a.destino}
                       </span>
                     </td>
-                    <td>{a.cantidad_ingresada} {a.unidad_ingreso}</td>
+                    <td>
+                      {enEdicion ? (
+                        <span style={{ display: "inline-flex", gap: 6 }}>
+                          <DecimalInput type="number" step="0.01" min="0" className="input" style={{ width: 90 }} value={editCant} onChange={(e) => setEditCant(e.target.value)} data-testid={`mov-edit-cant-${a._id}`} />
+                          <select className="select" style={{ width: 90 }} value={editUnidad} onChange={(e) => setEditUnidad(e.target.value)}>
+                            <option value="cestas">cestas</option><option value="kg">kg</option>
+                          </select>
+                        </span>
+                      ) : (<>{a.cantidad_ingresada} {a.unidad_ingreso}</>)}
+                    </td>
                     <td>{a.cantidad_cestas?.toFixed(2)}</td>
                     <td>{a.cantidad_kg?.toFixed(2)} kg</td>
-                    <td style={{ textAlign: "right" }}>
-                      {a.origen === "cosecha_descarte_auto"
+                    <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                      {auto
                         ? <span className="badge" style={{ background: "#fee2e2", color: "#dc2626" }}>Auto · descarte</span>
-                        : editable && canDelete("asignacion_destino")
-                        ? <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(a)}><Trash2 size={16} /></button>
-                        : <span style={{ color: "#94a3b8", fontSize: 12 }}>—</span>}
+                        : !editable
+                        ? <span style={{ color: "#94a3b8", fontSize: 12 }}>—</span>
+                        : enEdicion
+                        ? (<>
+                            <button className="btn-icon" style={{ color: "#16a34a" }} title="Guardar" onClick={() => saveEdit(a)} data-testid={`mov-save-${a._id}`}><Check size={16} /></button>
+                            <button className="btn-icon" style={{ color: "#64748b" }} title="Cancelar" onClick={cancelEdit}><X size={16} /></button>
+                          </>)
+                        : (<>
+                            <button className="btn-icon" style={{ color: "#2563eb" }} title="Editar cantidad" onClick={() => startEdit(a)} data-testid={`mov-edit-${a._id}`}><Pencil size={15} /></button>
+                            {canDelete("asignacion_destino") && <button className="btn-icon" style={{ color: "#dc2626" }} title="Eliminar (devolver a sin asignar)" onClick={() => remove(a)}><Trash2 size={16} /></button>}
+                          </>)}
                     </td>
                   </tr>
                 );
@@ -393,7 +436,7 @@ export default function AsignacionDestino() {
           </div>
         </div>
         <div style={{ color: "#64748b", fontSize: 12.5, margin: "6px 0 10px" }}>
-          Consulta y elimina asignaciones de cualquier fecha. Borrar una asignación quita esas cestas también del canal de Ventas (útil para corregir stock fantasma de días pasados). El descarte automático de cosecha no se puede borrar aquí.
+          Consulta, edita (✏️) o elimina asignaciones de cualquier fecha. Editar a una cantidad menor devuelve las cestas a "sin asignar"; eliminar quita todas. Los cambios se reflejan también en el canal de Ventas. El descarte automático de cosecha no se edita aquí.
         </div>
         {historial.length === 0 ? (
           <div className="empty-state" data-testid="hist-empty">No hay asignaciones en este período.</div>
@@ -407,18 +450,36 @@ export default function AsignacionDestino() {
                 {historial.map((a) => {
                   const d = DESTINOS.find((x) => x.key === a.destino);
                   const auto = a.origen === "cosecha_descarte_auto";
+                  const enEdicion = editId === a._id;
                   return (
                     <tr key={a._id} data-testid={`hist-row-${a._id}`}>
                       <td style={{ whiteSpace: "nowrap" }}>{(a.fecha || "").slice(0, 10)}</td>
                       <td><span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>{d && <d.icon size={15} style={{ color: d.color }} />} {d?.label || a.destino}</span></td>
-                      <td style={{ textAlign: "right", fontWeight: 600 }}>{a.cantidad_cestas?.toFixed(2)}</td>
+                      <td style={{ textAlign: "right", fontWeight: 600 }}>
+                        {enEdicion ? (
+                          <span style={{ display: "inline-flex", gap: 6, justifyContent: "flex-end" }}>
+                            <DecimalInput type="number" step="0.01" min="0" className="input" style={{ width: 80 }} value={editCant} onChange={(e) => setEditCant(e.target.value)} data-testid={`hist-edit-cant-${a._id}`} />
+                            <select className="select" style={{ width: 80 }} value={editUnidad} onChange={(e) => setEditUnidad(e.target.value)}>
+                              <option value="cestas">cestas</option><option value="kg">kg</option>
+                            </select>
+                          </span>
+                        ) : a.cantidad_cestas?.toFixed(2)}
+                      </td>
                       <td style={{ textAlign: "right" }}>{a.cantidad_kg?.toFixed(2)}</td>
                       <td style={{ fontSize: 12.5, color: "#64748b" }}>{a.observaciones || (auto ? "Descarte automático" : "—")}</td>
                       {canDelete("asignacion_destino") && (
-                        <td style={{ textAlign: "center" }}>
+                        <td style={{ textAlign: "center", whiteSpace: "nowrap" }}>
                           {auto
                             ? <span className="badge" style={{ background: "#fee2e2", color: "#dc2626" }}>Auto</span>
-                            : <button className="btn-icon" style={{ color: "#dc2626" }} title="Eliminar asignación" onClick={() => removeHist(a)} data-testid={`hist-delete-${a._id}`}><Trash2 size={15} /></button>}
+                            : enEdicion
+                            ? (<>
+                                <button className="btn-icon" style={{ color: "#16a34a" }} title="Guardar" onClick={() => saveEdit(a)} data-testid={`hist-save-${a._id}`}><Check size={16} /></button>
+                                <button className="btn-icon" style={{ color: "#64748b" }} title="Cancelar" onClick={cancelEdit}><X size={16} /></button>
+                              </>)
+                            : (<>
+                                <button className="btn-icon" style={{ color: "#2563eb" }} title="Editar cantidad" onClick={() => startEdit(a)} data-testid={`hist-edit-${a._id}`}><Pencil size={15} /></button>
+                                <button className="btn-icon" style={{ color: "#dc2626" }} title="Eliminar asignación" onClick={() => removeHist(a)} data-testid={`hist-delete-${a._id}`}><Trash2 size={15} /></button>
+                              </>)}
                         </td>
                       )}
                     </tr>

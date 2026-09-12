@@ -709,6 +709,62 @@ async def create_asignacion(payload: AsignacionIn, user: dict = Depends(get_curr
     return created
 
 
+class AsignacionEditIn(BaseModel):
+    unidad_ingreso: str = "cestas"  # cestas | kg
+    cantidad_ingresada: float
+
+
+@api.put("/asignaciones-destino/{aid}")
+async def editar_asignacion(aid: str, payload: AsignacionEditIn, confirmar: bool = False, user: dict = Depends(get_current_user)):
+    doc = await db.asignaciones_destino.find_one({"_id": aid})
+    if not doc:
+        raise HTTPException(404, "Asignación no encontrada")
+    if doc.get("origen") == "cosecha_descarte_auto":
+        raise HTTPException(400, "El descarte de cosecha es obligatorio y no se edita aquí. Ajústalo en el módulo Cosecha.")
+    if payload.unidad_ingreso == "cestas":
+        new_cestas = round(payload.cantidad_ingresada, 2)
+        new_kg = round(payload.cantidad_ingresada * KG_POR_CESTA, 2)
+    else:
+        new_kg = round(payload.cantidad_ingresada, 2)
+        new_cestas = round(payload.cantidad_ingresada / KG_POR_CESTA, 2)
+    if new_cestas <= 0:
+        raise HTTPException(400, "La cantidad debe ser mayor a 0. Si querés quitarla, usá eliminar.")
+    fecha_prefix = (doc.get("fecha") or "")[:10]
+    # Disponibilidad del día EXCLUYENDO esta asignación (para poder subirla/bajarla)
+    asignado_otros = await _asignado_cestas_dia(fecha_prefix) - float(doc.get("cantidad_cestas") or 0)
+    disponible = await _cosecha_cestas_dia(fecha_prefix) - asignado_otros
+    if new_cestas > disponible + 0.001:
+        raise HTTPException(400, f"No hay cestas suficientes ese día. Disponible para esta asignación: {round(max(disponible, 0), 2)} cestas")
+    delta = round(new_cestas - float(doc.get("cantidad_cestas") or 0), 2)
+    # Si REDUCE y el canal destino quedaría con más ventas/usos que cestas (sobreventa), avisar.
+    if delta < -0.001 and not confirmar:
+        RECIBIDO = {"asignacion_destino", "ajuste_entrada"}
+        for coll in _LINKED_COLLS:
+            linked = await db[coll].find({"asignacion_id": aid}).to_list(100)
+            if not linked:
+                continue
+            todos = await db[coll].find({}).to_list(20000)
+            recibido = sum(float(x.get("cantidad_cestas") or 0) for x in todos if x.get("origen") in RECIBIDO)
+            usado = sum(float(x.get("cantidad_cestas") or 0) for x in todos if x.get("origen") not in RECIBIDO)
+            if round(recibido + delta, 2) < round(usado, 2) - 0.001:
+                deficit = round(usado - (recibido + delta), 2)
+                raise HTTPException(status_code=409, detail={
+                    "tipo": "sobreventa",
+                    "avisos": [{"canal": coll.replace("ventas_", ""), "cestas_de_mas": deficit, "kg_de_mas": round(deficit * KG_POR_CESTA, 2)}],
+                    "mensaje": "Reducir esta asignación dejará ventas/usos sin respaldo (sobreventa) en el canal destino.",
+                })
+    await db.asignaciones_destino.update_one({"_id": aid}, {"$set": {
+        "cantidad_cestas": new_cestas, "cantidad_kg": new_kg,
+        "cantidad_ingresada": payload.cantidad_ingresada, "unidad_ingreso": payload.unidad_ingreso,
+        "updatedAt": now_iso(),
+    }})
+    # Sincronizar el/los registro(s) vinculado(s) del canal destino
+    for coll in _LINKED_COLLS:
+        for l in await db[coll].find({"asignacion_id": aid}).to_list(100):
+            await db[coll].update_one({"_id": l.get("_id")}, {"$set": {"cantidad_cestas": new_cestas, "cantidad_kg": new_kg, "updatedAt": now_iso()}})
+    return {"success": True, "cantidad_cestas": new_cestas, "cantidad_kg": new_kg}
+
+
 @api.get("/asignaciones-destino/pendientes")
 async def asignaciones_pendientes(_: dict = Depends(get_current_user)):
     """Cestas cosechadas que aún NO se han asignado a un destino, por fecha.
