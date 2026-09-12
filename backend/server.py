@@ -1942,7 +1942,7 @@ class ReasignarIn(BaseModel):
     fecha: str    # YYYY-MM-DD o ISO
 
 
-_REASIGNAR_LABELS = {"descarte": "Descarte", "donaciones": "Donaciones", "refrigerar": "Refrigerar", "congelar": "Congelar", "finca": "Venta en finca", "ciudad": "Envío a ciudad", "asignacion": "Asignación de destino"}
+_REASIGNAR_LABELS = {"descarte": "Descarte", "donaciones": "Donaciones", "refrigerar": "Refrigerar", "congelar": "Congelar", "finca": "Venta en finca", "ciudad": "Envío a ciudad", "asignacion": "Asignación de destino", "error": "Salida por error"}
 _FUENTE_LABELS = {"finca": "Venta en finca", "ciudad": "Envío a ciudad", "refrigerar": "Refrigerar", "congelar": "Congelar", "donaciones": "Donaciones", "descarte": "Descarte"}
 
 
@@ -2010,6 +2010,19 @@ async def _reasignar_ventas(source_tipo: str, payload: ReasignarIn, allowed: tup
     # este canal, de modo que la cosecha vuelve a quedar "sin asignar" y se puede reasignar.
     if payload.destino == "asignacion":
         return await _devolver_a_asignacion(source_tipo, coll, cestas, user)
+    # Destino especial: "Salida por error" (vacío de salida). Saca la fruta del canal y del
+    # sistema. Solo crea una salida en este canal (no entra a ningún otro lado) y se excluye
+    # de todas las analíticas (no es venta, ni descarte, ni donación).
+    if payload.destino == "error":
+        kg_e = round(cestas * KG_POR_CESTA, 2)
+        salida_e = {
+            "fecha": fecha_prefix + "T12:00:00.000Z", "cantidad_cestas": cestas, "cantidad_kg": kg_e,
+            "precio_unitario": 0, "total": 0, "cliente": "Salida por error", "telefono": "", "abono_inicial": 0,
+            "observaciones": "Fruta retirada del sistema (salida por error)",
+            "origen": "salida_error",
+        }
+        await _create(coll, salida_e, user)
+        return {"success": True, "cantidad_cestas": cestas, "destino": "error", "salida_error": True}
     kg = round(cestas * KG_POR_CESTA, 2)
     fecha_full = fecha_prefix + "T12:00:00.000Z"
     destino_label = _REASIGNAR_LABELS[payload.destino]
@@ -2043,34 +2056,34 @@ async def _reasignar_ventas(source_tipo: str, payload: ReasignarIn, allowed: tup
 @api.post("/ventas-finca/reasignar")
 async def reasignar_finca(payload: ReasignarIn, user: dict = Depends(get_current_user)):
     # Venta en finca: devolver a Asignación de destino o mover a otro canal si fue un error.
-    return await _reasignar_ventas("finca", payload, ("asignacion", "ciudad", "refrigerar", "congelar", "descarte", "donaciones"), user)
+    return await _reasignar_ventas("finca", payload, ("asignacion", "ciudad", "refrigerar", "congelar", "descarte", "donaciones", "error"), user)
 
 
 @api.post("/ventas-ciudad/reasignar")
 async def reasignar_ciudad(payload: ReasignarIn, user: dict = Depends(get_current_user)):
-    return await _reasignar_ventas("ciudad", payload, ("asignacion", "descarte", "donaciones", "refrigerar", "congelar", "finca"), user)
+    return await _reasignar_ventas("ciudad", payload, ("asignacion", "descarte", "donaciones", "refrigerar", "congelar", "finca", "error"), user)
 
 
 @api.post("/ventas-refrigerar/reasignar")
 async def reasignar_refrigerar(payload: ReasignarIn, user: dict = Depends(get_current_user)):
-    return await _reasignar_ventas("refrigerar", payload, ("asignacion", "congelar", "donaciones", "descarte", "finca", "ciudad"), user)
+    return await _reasignar_ventas("refrigerar", payload, ("asignacion", "congelar", "donaciones", "descarte", "finca", "ciudad", "error"), user)
 
 
 @api.post("/ventas-congelar/reasignar")
 async def reasignar_congelar(payload: ReasignarIn, user: dict = Depends(get_current_user)):
-    return await _reasignar_ventas("congelar", payload, ("asignacion", "donaciones", "descarte", "finca", "ciudad", "refrigerar"), user)
+    return await _reasignar_ventas("congelar", payload, ("asignacion", "donaciones", "descarte", "finca", "ciudad", "refrigerar", "error"), user)
 
 
 @api.post("/ventas-donaciones/reasignar")
 async def reasignar_donaciones(payload: ReasignarIn, user: dict = Depends(get_current_user)):
     # Cestas no donadas: a Descarte (perdidas), a Asignación de destino, o a un canal de venta.
-    return await _reasignar_ventas("donaciones", payload, ("asignacion", "descarte", "finca", "ciudad", "refrigerar", "congelar"), user)
+    return await _reasignar_ventas("donaciones", payload, ("asignacion", "descarte", "finca", "ciudad", "refrigerar", "congelar", "error"), user)
 
 
 @api.post("/ventas-descarte/reasignar")
 async def reasignar_descarte(payload: ReasignarIn, user: dict = Depends(get_current_user)):
     # Devolver fruta enviada a Descarte por error, de vuelta a un canal de venta.
-    return await _reasignar_ventas("descarte", payload, ("finca", "ciudad", "refrigerar", "congelar"), user)
+    return await _reasignar_ventas("descarte", payload, ("finca", "ciudad", "refrigerar", "congelar", "error"), user)
 
 
 @api.get("/dashboard/stock-canales")
@@ -2434,7 +2447,7 @@ class EstadoResultadosIn(BaseModel):
     software_erp: float = 0
 
 
-VENTA_SYSTEM_ORIGENES = ("asignacion_destino", "ajuste_entrada", "ajuste_salida", "reasignacion_salida")
+VENTA_SYSTEM_ORIGENES = ("asignacion_destino", "ajuste_entrada", "ajuste_salida", "reasignacion_salida", "salida_error")
 SALARIO_DIAS_MES = 30  # factor para convertir salario diario -> mensual
 
 
@@ -2514,7 +2527,12 @@ async def _build_estado_resultados(anio: int, mes: Optional[int]) -> dict:
     kg_descarte = round(kg_descarte, 2)
     kg_donaciones = round(kg_donaciones, 2)
     kg_descarte_reasignado = round(kg_descarte_reasignado, 2)
-    kg_vendible = round(kg_cosechados - kg_descarte - kg_donaciones - kg_descarte_reasignado, 2)
+    kg_error_asignado = 0.0
+    for a in await db.asignaciones_destino.find({"destino": "asignacion_error"}).to_list(20000):
+        if _en_periodo(a.get("fecha"), anio, mes):
+            kg_error_asignado += float(a.get("cantidad_kg") or (a.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
+    kg_error_asignado = round(kg_error_asignado, 2)
+    kg_vendible = round(kg_cosechados - kg_descarte - kg_donaciones - kg_descarte_reasignado - kg_error_asignado, 2)
 
     # Valores guardados del periodo (manuales + snapshot de salarios congelado)
     doc = await db.estado_resultados.find_one({"anio": anio, "mes": mes})
@@ -2784,7 +2802,12 @@ async def costos_kg_filtrado(gran: str = "todo", anchor: Optional[str] = None, _
     kg_descarte = round(kg_descarte, 2)
     kg_donaciones = round(kg_donaciones, 2)
     kg_descarte_reasignado = round(kg_descarte_reasignado, 2)
-    kg_vendible = round(kg_cosechados - kg_donaciones - kg_descarte - kg_descarte_reasignado, 2)
+    kg_error_asignado = 0.0
+    for a in await db.asignaciones_destino.find({"destino": "asignacion_error"}).to_list(20000):
+        if _in_win(a.get("fecha"), desde, hasta):
+            kg_error_asignado += float(a.get("cantidad_kg") or (a.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
+    kg_error_asignado = round(kg_error_asignado, 2)
+    kg_vendible = round(kg_cosechados - kg_donaciones - kg_descarte - kg_descarte_reasignado - kg_error_asignado, 2)
     kg_vendidos = round(kg_vendidos, 2)
     kg_disponible = round(kg_vendible - kg_vendidos, 2)
     # Lo que no está en ningún canal de venta = cosechado vendible aún sin asignar a un destino
@@ -2954,7 +2977,12 @@ async def conciliacion_diagnostico(gran: str = "todo", anchor: Optional[str] = N
 
     kg_cosechados = round(kg_cosechados, 2)
     kg_descarte = round(kg_descarte, 2)
-    kg_vendible = round(kg_cosechados - round(kg_donaciones, 2) - kg_descarte - round(kg_descarte_reasignado, 2), 2)
+    kg_error_asignado = 0.0
+    for a in await db.asignaciones_destino.find({"destino": "asignacion_error"}).to_list(20000):
+        if _in_win(a.get("fecha"), desde, hasta):
+            kg_error_asignado += float(a.get("cantidad_kg") or (a.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
+    kg_error_asignado = round(kg_error_asignado, 2)
+    kg_vendible = round(kg_cosechados - round(kg_donaciones, 2) - kg_descarte - round(kg_descarte_reasignado, 2) - kg_error_asignado, 2)
     kg_vendidos = round(kg_vendidos, 2)
     kg_ajuste_saldo = round(kg_vendible - kg_vendidos, 2)  # residuo antes de disponible físico (negativo = fantasma)
     sobrevendido_kg_total = round(sobrevendido_kg_total, 2)

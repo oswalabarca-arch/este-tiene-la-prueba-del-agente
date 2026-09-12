@@ -4,7 +4,7 @@ import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
 import {
   Send, Plus, Trash2, Home, Truck, MapPin, Thermometer, Snowflake, Heart,
-  Award, TrendingUp, TrendingDown, AlertCircle,
+  Award, TrendingUp, TrendingDown, AlertCircle, Ban,
 } from "lucide-react";
 import { todayLocal } from "../lib/dates";
 import { PeriodPicker, currentMonthStr, currentDayStr, currentWeekStr } from "../components/PeriodPicker";
@@ -20,6 +20,7 @@ const DESTINOS = [
   { key: "congelar", label: "Congelado", icon: Snowflake, color: "#0284c7" },
   { key: "descarte", label: "Descarte", icon: Trash2, color: "#dc2626" },
   { key: "donaciones", label: "Donaciones", icon: Heart, color: "#db2777" },
+  { key: "asignacion_error", label: "Asignación por error", icon: Ban, color: "#64748b" },
 ];
 
 const CALIDADES = [
@@ -275,6 +276,11 @@ export default function AsignacionDestino() {
                     {d.key === "descarte" && (
                       <div style={{ color: "#94a3b8", fontSize: 11, marginTop: 2 }}>
                         El descarte de cosecha se asigna aquí automáticamente
+                      </div>
+                    )}
+                    {d.key === "asignacion_error" && (
+                      <div style={{ color: "#94a3b8", fontSize: 11, marginTop: 2 }}>
+                        Vacío de salida: saca la fruta del sistema (no cuenta como venta ni descarte)
                       </div>
                     )}
                   </td>

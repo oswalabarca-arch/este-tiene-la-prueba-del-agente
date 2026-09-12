@@ -18,14 +18,14 @@ const TIPO_META = {
 
 // Destinos de reasignación de cestas sobrantes por canal de origen
 const REASIGNAR_DESTINOS = {
-  finca: ["asignacion", "ciudad", "refrigerar", "congelar", "descarte", "donaciones"],
-  ciudad: ["asignacion", "descarte", "donaciones", "refrigerar", "congelar", "finca"],
-  refrigerar: ["asignacion", "congelar", "donaciones", "descarte", "finca", "ciudad"],
-  congelar: ["asignacion", "donaciones", "descarte", "finca", "ciudad", "refrigerar"],
-  donaciones: ["asignacion", "descarte", "finca", "ciudad", "refrigerar", "congelar"],
-  descarte: ["finca", "ciudad", "refrigerar", "congelar"],
+  finca: ["asignacion", "ciudad", "refrigerar", "congelar", "descarte", "donaciones", "error"],
+  ciudad: ["asignacion", "descarte", "donaciones", "refrigerar", "congelar", "finca", "error"],
+  refrigerar: ["asignacion", "congelar", "donaciones", "descarte", "finca", "ciudad", "error"],
+  congelar: ["asignacion", "donaciones", "descarte", "finca", "ciudad", "refrigerar", "error"],
+  donaciones: ["asignacion", "descarte", "finca", "ciudad", "refrigerar", "congelar", "error"],
+  descarte: ["finca", "ciudad", "refrigerar", "congelar", "error"],
 };
-const DESTINO_LABEL = { descarte: "Descarte", donaciones: "Donaciones", refrigerar: "Refrigerado", congelar: "Congelado", finca: "Venta en finca", ciudad: "Envío a ciudad", asignacion: "Asignación de destino (deshacer)" };
+const DESTINO_LABEL = { descarte: "Descarte", donaciones: "Donaciones", refrigerar: "Refrigerado", congelar: "Congelado", finca: "Venta en finca", ciudad: "Envío a ciudad", asignacion: "Asignación de destino (deshacer)", error: "Salida por error (sacar del sistema)" };
 
 const fmtMoney = (n) => "US$ " + Number(n || 0).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
