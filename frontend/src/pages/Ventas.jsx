@@ -4,7 +4,7 @@ import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
 import { Plus, Pencil, Trash2, Home, Truck, DollarSign, Snowflake, AlertCircle, Heart, TrendingUp, Wallet, AlertTriangle, Filter, Search, X, CreditCard, User, Phone } from "lucide-react";
 import { todayLocal } from "../lib/dates";
-import { PeriodPicker, currentMonthStr, currentYearStr } from "../components/PeriodPicker";
+import { PeriodPicker, currentMonthStr, currentYearStr, currentDayStr, currentWeekStr } from "../components/PeriodPicker";
 import { DecimalInput } from "../components/DecimalInput";
 
 const TIPO_META = {
@@ -69,6 +69,8 @@ function Ventas({ tipo }) {
   const [period, setPeriod] = useState("mes");
   const [mesSel, setMesSel] = useState(currentMonthStr);
   const [anioSel, setAnioSel] = useState(currentYearStr);
+  const [diaSel, setDiaSel] = useState(currentDayStr);
+  const [semanaSel, setSemanaSel] = useState(currentWeekStr);
   const [search, setSearch] = useState("");
   const [estadoPago, setEstadoPago] = useState("todos");
   const [diasMin, setDiasMin] = useState("");
@@ -179,12 +181,16 @@ function Ventas({ tipo }) {
 
   // Aplicar filtros del registro
   const ventasFiltradas = ventas.filter((v) => {
-    const f = new Date(v.fecha);
-    const now = new Date();
-    if (period === "hoy" && (v.fecha || "").slice(0, 10) !== realToday) return false;
-    if (period === "semana" && (now - f) / 86400000 > 7) return false;
-    if (period === "mes" && (v.fecha || "").slice(0, 7) !== mesSel) return false;
-    if (period === "año" && (v.fecha || "").slice(0, 4) !== anioSel) return false;
+    const d = (v.fecha || "").slice(0, 10);
+    if (period === "hoy" && d !== diaSel) return false;
+    if (period === "semana") {
+      if (d.slice(0, 7) !== mesSel) return false;
+      const dia = parseInt(d.slice(8, 10), 10);
+      const wk = dia <= 7 ? "1" : dia <= 14 ? "2" : dia <= 21 ? "3" : "4";
+      if (wk !== String(semanaSel)) return false;
+    }
+    if (period === "mes" && d.slice(0, 7) !== mesSel) return false;
+    if (period === "año" && d.slice(0, 4) !== anioSel) return false;
     if (search && !`${v.cliente || ""} ${v.telefono || ""}`.toLowerCase().includes(search.toLowerCase())) return false;
     if (estadoPago !== "todos" && estadoDe(v) !== estadoPago) return false;
     if (diasMin && diasEndeudado(v) < Number(diasMin)) return false;
@@ -524,7 +530,7 @@ function Ventas({ tipo }) {
                   {lbl}
                 </button>
               ))}
-              <PeriodPicker isMonth={period === "mes"} isYear={period === "año"} mes={mesSel} setMes={setMesSel} anio={anioSel} setAnio={setAnioSel} years={years} testidPrefix="ventas" />
+              <PeriodPicker isDay={period === "hoy"} isWeek={period === "semana"} isMonth={period === "mes"} isYear={period === "año"} dia={diaSel} setDia={setDiaSel} semana={semanaSel} setSemana={setSemanaSel} mes={mesSel} setMes={setMesSel} anio={anioSel} setAnio={setAnioSel} years={years} testidPrefix="ventas" />
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, alignItems: "end" }}>
               <div className="field" style={{ margin: 0 }}><label>Buscar (nombre o teléfono)</label>
@@ -648,7 +654,7 @@ function Ventas({ tipo }) {
                   {lbl}
                 </button>
               ))}
-              <PeriodPicker isMonth={period === "mes"} isYear={period === "año"} mes={mesSel} setMes={setMesSel} anio={anioSel} setAnio={setAnioSel} years={years} testidPrefix="ventas" />
+              <PeriodPicker isDay={period === "hoy"} isWeek={period === "semana"} isMonth={period === "mes"} isYear={period === "año"} dia={diaSel} setDia={setDiaSel} semana={semanaSel} setSemana={setSemanaSel} mes={mesSel} setMes={setMesSel} anio={anioSel} setAnio={setAnioSel} years={years} testidPrefix="ventas" />
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, alignItems: "end" }}>
               <div className="field" style={{ margin: 0 }}><label>Buscar (beneficiario o teléfono)</label>
