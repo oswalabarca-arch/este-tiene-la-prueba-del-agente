@@ -1962,35 +1962,69 @@ def _ventas_router(tipo: str):
         disponible = _disp(docs)
         if disponible > -0.001:
             return {"success": True, "sin_cambios": True, "disponible": round(max(disponible, 0), 2)}
-        revertidas = eliminados = 0
-        # 1) Ajustes de salida (sin efecto en otros canales)
+        revertidas = eliminados = parciales = 0
+        # 1) Ajustes de salida (sin efecto en otros canales). Revierte solo lo necesario:
+        #    si el ajuste es mayor que el déficit restante, lo reduce parcialmente.
         for d in [x for x in docs if x.get("origen") == "ajuste_salida"]:
             if disponible > -0.001:
                 break
-            await db[coll].delete_one({"_id": d.get("_id")})
-            eliminados += 1
-            disponible += float(d.get("cantidad_cestas") or 0)
-        # 2) Reasignaciones de salida: revertir AMBOS lados (por reasignacion_id)
+            cest = float(d.get("cantidad_cestas") or 0)
+            needed = -disponible  # cuánto falta para llegar a 0 (positivo)
+            if cest <= needed + 0.001:
+                await db[coll].delete_one({"_id": d.get("_id")})
+                eliminados += 1
+                disponible += cest
+            else:
+                nuevo = round(cest - needed, 4)
+                await db[coll].update_one({"_id": d.get("_id")}, {"$set": {"cantidad_cestas": nuevo, "cantidad_kg": round(nuevo * KG_POR_CESTA, 4)}})
+                parciales += 1
+                disponible += needed
+        # 2) Reasignaciones de salida: revertir de a poco, empezando por la MÁS PEQUEÑA, y
+        #    NUNCA deshacer una reasignación entera si solo falta una fracción: se reduce
+        #    parcialmente (ambos lados) para no romper el canal enlazado.
         if disponible < -0.001:
             docs = await db[coll].find({}).to_list(50000)
-            for d in [x for x in docs if x.get("origen") == "reasignacion_salida"]:
+            reasigs = sorted([x for x in docs if x.get("origen") == "reasignacion_salida"], key=lambda x: float(x.get("cantidad_cestas") or 0))
+            for d in reasigs:
                 if disponible > -0.001:
                     break
                 cest = float(d.get("cantidad_cestas") or 0)
+                needed = -disponible
                 rid = d.get("reasignacion_id")
-                if rid:
-                    for t in ("finca", "ciudad", "refrigerar", "congelar", "descarte", "donaciones"):
-                        r = await db[f"ventas_{t}"].delete_many({"reasignacion_id": rid})
-                        revertidas += r.deleted_count
+                if cest <= needed + 0.001:
+                    # revertir COMPLETA (ambos lados)
+                    if rid:
+                        for t in ("finca", "ciudad", "refrigerar", "congelar", "descarte", "donaciones"):
+                            r = await db[f"ventas_{t}"].delete_many({"reasignacion_id": rid})
+                            revertidas += r.deleted_count
+                    else:
+                        cp = await _find_reasig_counterpart(tipo, d)
+                        if cp:
+                            await db[cp[0]].delete_one({"_id": cp[1]})
+                            revertidas += 1
+                        await db[coll].delete_one({"_id": d.get("_id")})
+                        eliminados += 1
+                    disponible += cest
                 else:
-                    await db[coll].delete_one({"_id": d.get("_id")})
-                    eliminados += 1
-                disponible += cest
+                    # revertir PARCIAL: reducir esta salida y su contraparte en `needed`
+                    nuevo = round(cest - needed, 4)
+                    nuevo_kg = round(nuevo * KG_POR_CESTA, 4)
+                    if rid:
+                        for t in ("finca", "ciudad", "refrigerar", "congelar", "descarte", "donaciones"):
+                            await db[f"ventas_{t}"].update_many({"reasignacion_id": rid}, {"$set": {"cantidad_cestas": nuevo, "cantidad_kg": nuevo_kg}})
+                    else:
+                        cp = await _find_reasig_counterpart(tipo, d)
+                        if cp:
+                            await db[cp[0]].update_one({"_id": cp[1]}, {"$set": {"cantidad_cestas": nuevo, "cantidad_kg": nuevo_kg}})
+                        await db[coll].update_one({"_id": d.get("_id")}, {"$set": {"cantidad_cestas": nuevo, "cantidad_kg": nuevo_kg}})
+                    parciales += 1
+                    disponible += needed
+                    break
         docs = await db[coll].find({}).to_list(50000)
         disponible_final = _disp(docs)
         if disponible_final < -0.001:
             raise HTTPException(400, f"El saldo sigue en {round(disponible_final, 2)} cesta(s): el resto del negativo proviene de VENTAS/DONACIONES reales (se registró más de lo asignado). Corrige o elimina esas ventas para saldar el canal; no se tocan automáticamente.")
-        return {"success": True, "disponible": round(max(disponible_final, 0), 2), "reasignaciones_revertidas": revertidas, "ajustes_eliminados": eliminados}
+        return {"success": True, "disponible": round(max(disponible_final, 0), 2), "reasignaciones_revertidas": revertidas, "ajustes_eliminados": eliminados, "parciales": parciales}
 
 _ventas_router("finca")
 _ventas_router("ciudad")
