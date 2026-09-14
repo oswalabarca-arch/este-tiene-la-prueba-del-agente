@@ -2977,10 +2977,17 @@ async def costos_kg_filtrado(gran: str = "todo", anchor: Optional[str] = None, _
         except Exception:
             ini = today
         dias = max((today - ini).days + 1, 0)
-    else:
+    elif gran == "mes":
+        _d0 = _date.fromisoformat(desde)
+        dias = _salario_dias_periodo(_d0.year, _d0.month)
+    elif gran == "anio":
+        _d0 = _date.fromisoformat(desde)
+        dias = _salario_dias_periodo(_d0.year, None)
+    else:  # semana: días calendario de la ventana, prorrateados hasta HOY
         d0 = _date.fromisoformat(desde)
         d1 = _date.fromisoformat(hasta)
-        dias = (d1 - d0).days + 1
+        d_end = min(d1, today)
+        dias = (d_end - d0).days + 1 if d_end >= d0 else 0
     salario_diario = sum(float(t.get("salario_diario") or 0) for t in await db.trabajadores.find({}).to_list(5000) if t.get("activo", True))
     salarios = round(salario_diario * dias, 2)
 
