@@ -83,6 +83,20 @@ function BitacoraDia({ items, esDonacion }) {
   const signed = (v) => (MOV_META[v.origen]?.entra ? cestasDe(v) : -cestasDe(v));
   const diaDe = (v) => (v.fecha || "").slice(0, 10);
   const saldoInicio = items.filter((v) => diaDe(v) < dia).reduce((s, v) => s + signed(v), 0);
+  // Si el saldo al inicio es negativo, ubicar desde qué día viene arrastrado ese déficit:
+  // recorre los días anteriores en orden y marca el primer día en que el acumulado quedó
+  // negativo y ya no se recuperó hasta el día elegido.
+  let inicioDeficit = null;
+  if (saldoInicio < -0.001) {
+    const byDay = {};
+    for (const v of items) { const d = diaDe(v); if (d && d < dia) byDay[d] = (byDay[d] || 0) + signed(v); }
+    let running = 0;
+    for (const d of Object.keys(byDay).sort()) {
+      running += byDay[d];
+      if (running < -0.001) { if (!inicioDeficit) inicioDeficit = d; }
+      else inicioDeficit = null;
+    }
+  }
   const movs = items.filter((v) => diaDe(v) === dia).sort((a, b) => (a.fecha || "").localeCompare(b.fecha || ""));
   const netoDia = movs.reduce((s, v) => s + signed(v), 0);
   const saldoFin = saldoInicio + netoDia;
@@ -100,7 +114,9 @@ function BitacoraDia({ items, esDonacion }) {
         Todos los movimientos de este canal en el día elegido (asignaciones, ventas/donaciones, reasignaciones, salidas por error y ajustes), con el saldo que traías y con el que quedaste. Solo lectura, para que veas qué pasó antes de tocar nada.
       </div>
       <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginBottom: 12, fontSize: 13, color: "#334155" }}>
-        <div data-testid="bitacora-saldo-inicio">Saldo al inicio del día: {chip(saldoInicio)} cestas ({(saldoInicio * 14).toFixed(2)} kg)</div>
+        <div data-testid="bitacora-saldo-inicio">Saldo al inicio del día: {chip(saldoInicio)} cestas ({(saldoInicio * 14).toFixed(2)} kg)
+          {inicioDeficit && <span style={{ color: "#dc2626", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4, marginLeft: 6 }} data-testid="bitacora-deficit-origen"><AlertTriangle size={13} /> negativo arrastrado desde {inicioDeficit}</span>}
+        </div>
         <div data-testid="bitacora-neto">Neto del día: {chip(netoDia)} cestas</div>
         <div data-testid="bitacora-saldo-fin">Saldo al final del día: {chip(saldoFin)} cestas ({(saldoFin * 14).toFixed(2)} kg)</div>
       </div>
