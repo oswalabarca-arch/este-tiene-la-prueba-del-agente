@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
-import { Plus, Pencil, Trash2, Home, Truck, DollarSign, Snowflake, AlertCircle, Heart, TrendingUp, Wallet, AlertTriangle, Filter, Search, X, CreditCard, User, Phone } from "lucide-react";
+import { Plus, Pencil, Trash2, Home, Truck, DollarSign, Snowflake, AlertCircle, Heart, TrendingUp, Wallet, AlertTriangle, Filter, Search, X, CreditCard, User, Phone, History } from "lucide-react";
 import { todayLocal } from "../lib/dates";
 import { PeriodPicker, currentMonthStr, currentYearStr, currentDayStr, currentWeekStr } from "../components/PeriodPicker";
 import { DecimalInput } from "../components/DecimalInput";
@@ -55,6 +55,78 @@ function MoneyCard({ title, icon: Icon, color, value, sub, testid }) {
       </div>
       <div style={{ fontSize: 24, fontWeight: 800, color, marginTop: 8 }}>{value}</div>
       <div style={{ color: "#94a3b8", fontSize: 12, marginTop: 4 }}>{sub}</div>
+    </div>
+  );
+}
+
+// Clasificación de cada movimiento para la bitácora del día (entra = suma stock, sale = resta).
+const MOV_META = {
+  asignacion_destino:  { label: "Asignación recibida", color: "#16a34a", entra: true },
+  ajuste_entrada:      { label: "Ajuste (entrada)",     color: "#16a34a", entra: true },
+  reasignacion_salida: { label: "Reasignación (salida)", color: "#ea580c", entra: false },
+  ajuste_salida:       { label: "Ajuste (salida)",      color: "#d97706", entra: false },
+  salida_error:        { label: "Salida por error",     color: "#dc2626", entra: false },
+};
+function movInfo(v, esDonacion) {
+  return MOV_META[v.origen] || (esDonacion
+    ? { label: "Donación", color: "#be185d", entra: false }
+    : { label: "Venta", color: "#2563eb", entra: false });
+}
+
+// Bitácora de movimientos de UN día (solo lectura): asignaciones, ventas/donaciones,
+// reasignaciones, salidas por error y ajustes, con saldo al inicio y al final del día.
+function BitacoraDia({ items, esDonacion }) {
+  const [dia, setDia] = useState(todayLocal());
+  const realToday = todayLocal();
+  const cestasDe = (v) => v.cantidad_cestas || 0;
+  const kgDe = (v) => (v.cantidad_kg != null && v.cantidad_kg !== "" ? Number(v.cantidad_kg) : cestasDe(v) * 14);
+  const signed = (v) => (MOV_META[v.origen]?.entra ? cestasDe(v) : -cestasDe(v));
+  const diaDe = (v) => (v.fecha || "").slice(0, 10);
+  const saldoInicio = items.filter((v) => diaDe(v) < dia).reduce((s, v) => s + signed(v), 0);
+  const movs = items.filter((v) => diaDe(v) === dia).sort((a, b) => (a.fecha || "").localeCompare(b.fecha || ""));
+  const netoDia = movs.reduce((s, v) => s + signed(v), 0);
+  const saldoFin = saldoInicio + netoDia;
+  const chip = (val) => <b style={{ color: val < -0.001 ? "#dc2626" : val > 0.001 ? "#15803d" : "#64748b" }}>{val.toFixed(2)}</b>;
+  return (
+    <div className="card" style={{ marginBottom: 16, borderColor: "#c7d2fe", background: "#eef2ff" }} data-testid="bitacora-dia-card">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+        <h3 style={{ margin: 0, color: "#4338ca", display: "flex", alignItems: "center", gap: 8 }}><History size={18} /> Bitácora de movimientos del día</h3>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <label style={{ color: "#475569", fontSize: 13, fontWeight: 600 }}>Ver día:</label>
+          <input type="date" className="input" style={{ width: 160 }} value={dia} max={realToday} onChange={(e) => setDia(e.target.value)} data-testid="bitacora-fecha" />
+        </div>
+      </div>
+      <div style={{ color: "#64748b", fontSize: 12.5, margin: "8px 0 12px", maxWidth: 720 }}>
+        Todos los movimientos de este canal en el día elegido (asignaciones, ventas/donaciones, reasignaciones, salidas por error y ajustes), con el saldo que traías y con el que quedaste. Solo lectura, para que veas qué pasó antes de tocar nada.
+      </div>
+      <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginBottom: 12, fontSize: 13, color: "#334155" }}>
+        <div data-testid="bitacora-saldo-inicio">Saldo al inicio del día: {chip(saldoInicio)} cestas ({(saldoInicio * 14).toFixed(2)} kg)</div>
+        <div data-testid="bitacora-neto">Neto del día: {chip(netoDia)} cestas</div>
+        <div data-testid="bitacora-saldo-fin">Saldo al final del día: {chip(saldoFin)} cestas ({(saldoFin * 14).toFixed(2)} kg)</div>
+      </div>
+      {movs.length === 0 ? (
+        <div className="empty-state" data-testid="bitacora-empty">Sin movimientos este día.</div>
+      ) : (
+        <div style={{ overflowX: "auto" }}>
+          <table className="table" data-testid="bitacora-table">
+            <thead><tr><th>Tipo</th><th>Mov.</th><th style={{ textAlign: "right" }}>Cestas</th><th style={{ textAlign: "right" }}>kg</th><th>Detalle</th></tr></thead>
+            <tbody>
+              {movs.map((v) => {
+                const info = movInfo(v, esDonacion);
+                return (
+                  <tr key={v._id} data-testid="bitacora-row">
+                    <td><span className="badge" style={{ background: info.color + "22", color: info.color }}>{info.label}</span></td>
+                    <td style={{ fontWeight: 700, color: info.entra ? "#15803d" : "#dc2626" }}>{info.entra ? "Entra" : "Sale"}</td>
+                    <td style={{ textAlign: "right", fontWeight: 600, color: info.entra ? "#15803d" : "#dc2626" }}>{info.entra ? "+" : "−"}{cestasDe(v).toFixed(2)}</td>
+                    <td style={{ textAlign: "right" }}>{kgDe(v).toFixed(2)}</td>
+                    <td style={{ color: "#475569", fontSize: 13 }}>{v.cliente || v.observaciones || "—"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
@@ -445,6 +517,8 @@ function Ventas({ tipo }) {
           </div>
         </div>
       )}
+
+      <BitacoraDia items={items} esDonacion={esDonacion} />
 
       {esIngreso ? (
         <>
