@@ -2237,6 +2237,51 @@ async def reasignar_descarte(payload: ReasignarIn, user: dict = Depends(get_curr
     return await _reasignar_ventas("descarte", payload, ("finca", "ciudad", "refrigerar", "congelar", "error"), user)
 
 
+@api.post("/reparar-reasignaciones-huerfanas")
+async def reparar_reasignaciones_huerfanas(dry_run: int = 0, user: dict = Depends(get_current_user)):
+    """Reparación puntual (idempotente): reasignaciones ANTIGUAS que registraron la SALIDA en el
+    canal origen (origen=reasignacion_salida, sin reasignacion_id) pero NUNCA crearon la ENTRADA
+    en el canal destino. Eso deja fruta 'colgada' (p.ej. buena mandada a descarte que no se resta
+    del vendible). Crea la entrada faltante emparejándola con la salida existente. Con dry_run=1
+    solo cuenta, sin escribir."""
+    if user.get("rol") != "administrador":
+        raise HTTPException(403, "Solo un administrador puede ejecutar esta reparación.")
+    dry = dry_run == 1
+    canales = ("finca", "ciudad", "refrigerar", "congelar", "descarte", "donaciones")
+    reparadas = []
+    for src in canales:
+        for d in await db[f"ventas_{src}"].find({"origen": "reasignacion_salida"}).to_list(20000):
+            if d.get("reasignacion_id"):
+                continue  # ya emparejada (idempotente)
+            obs = d.get("observaciones") or ""
+            if "sobrantes a " not in obs:
+                continue
+            dest_key = _label_to_key(obs.split("sobrantes a ", 1)[1].strip(), _REASIGNAR_LABELS)
+            if not dest_key:
+                continue
+            cp = await _find_reasig_counterpart(src, d)
+            if cp is not None:
+                continue  # la entrada ya existe -> no es huérfana
+            cest = float(d.get("cantidad_cestas") or 0)
+            kg = float(d.get("cantidad_kg") or cest * KG_POR_CESTA)
+            reparadas.append({"origen_id": d.get("_id"), "canal": src, "destino": dest_key, "cestas": round(cest, 2), "kg": round(kg, 2), "fecha": (d.get("fecha") or "")[:10]})
+            if dry:
+                continue
+            rid = new_id()
+            entrada = {
+                "fecha": d.get("fecha"), "cantidad_cestas": cest, "cantidad_kg": kg,
+                "precio_unitario": 0, "total": 0, "cliente": "", "telefono": "", "abono_inicial": 0,
+                "observaciones": f"Reasignado desde {_FUENTE_LABELS.get(src, src)}",
+                "origen": "reasignacion_ciudad" if dest_key == "descarte" else "asignacion_destino",
+                "reasignacion_id": rid, "reasignacion_source": src, "reasignacion_destino": dest_key,
+                "reparado_huerfano": True,
+            }
+            await _create(f"ventas_{dest_key}", entrada, user)
+            await db[f"ventas_{src}"].update_one({"_id": d.get("_id")}, {"$set": {"reasignacion_id": rid, "reasignacion_destino": dest_key, "reparado_huerfano": True}})
+    return {"success": True, "dry_run": dry, "total": len(reparadas), "reparadas": reparadas}
+
+
+
 @api.get("/dashboard/stock-canales")
 async def stock_canales(_: dict = Depends(get_current_user)):
     """Stock disponible actual por canal (cestas/kg) y antigüedad (días) del lote más viejo
