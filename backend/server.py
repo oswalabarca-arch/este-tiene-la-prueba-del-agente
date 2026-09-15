@@ -2911,15 +2911,18 @@ async def costos_kg_filtrado(gran: str = "todo", anchor: Optional[str] = None, _
 
     # COSECHA: kg cosechados/descarte + donaciones en la ventana
     kg_cosechados = kg_descarte = 0.0
+    kg_cosechados_all = kg_descarte_all = 0.0   # ACUMULADO (todo el tiempo) para el disponible físico
     min_fecha = None
     for c in await db.cosechas.find({}).to_list(20000):
         fc = str(c.get("fecha_cosecha") or "")[:10]
         if len(fc) == 10 and (min_fecha is None or fc < min_fecha):
             min_fecha = fc
-        if not _in_win(c.get("fecha_cosecha"), desde, hasta):
-            continue
         suma = (c.get("primera_calidad", 0) or 0) + (c.get("segunda_calidad", 0) or 0) + (c.get("tercera_calidad", 0) or 0) + (c.get("descarte", 0) or 0)
         mult = 1 if c.get("unidad") == "kg" else KG_POR_CESTA
+        kg_cosechados_all += suma * mult
+        kg_descarte_all += (c.get("descarte", 0) or 0) * mult
+        if not _in_win(c.get("fecha_cosecha"), desde, hasta):
+            continue
         kg_cosechados += suma * mult
         kg_descarte += (c.get("descarte", 0) or 0) * mult
     kg_donaciones = 0.0
@@ -2945,17 +2948,19 @@ async def costos_kg_filtrado(gran: str = "todo", anchor: Optional[str] = None, _
         recibido_c = 0.0
         usado_c = 0.0
         for v in await db[f"ventas_{tipo}"].find({}).to_list(20000):
-            if not _in_win(v.get("fecha"), desde, hasta):
-                continue
             cest = float(v.get("cantidad_cestas", 0) or 0)
             origen = v.get("origen")
+            # VENTAS REALES: solo del período (para kg_vendidos e ingreso del mes)
+            if origen not in RECIBIDO_ORIGINS and origen not in VENTA_SYSTEM_ORIGENES and _in_win(v.get("fecha"), desde, hasta):
+                kg_vendidos += float(v.get("cantidad_kg") or cest * KG_POR_CESTA)
+                ingreso_ventas += float(v.get("total") or 0)
+            # DISPONIBLE del canal = saldo ACUMULADO (todo el tiempo), igual que la pantalla de
+            # Ventas y la vista "Todo". El stock de un canal es una foto del momento, NO una
+            # cantidad mensual: acotarlo al mes inventa fantasmas cuando hubo déficit de otro mes.
             if origen in RECIBIDO_ORIGINS:
                 recibido_c += cest
             else:
                 usado_c += cest
-                if origen not in VENTA_SYSTEM_ORIGENES:  # venta real
-                    kg_vendidos += float(v.get("cantidad_kg") or cest * KG_POR_CESTA)
-                    ingreso_ventas += float(v.get("total") or 0)
         disp_c = round(max(recibido_c - usado_c, 0) * KG_POR_CESTA, 2)
         if disp_c > 0.001:
             disponible_canales.append({"canal": tipo, "label": LABELS_CANAL[tipo], "kg": disp_c})
@@ -2964,8 +2969,6 @@ async def costos_kg_filtrado(gran: str = "todo", anchor: Optional[str] = None, _
     rec_don = 0.0
     usa_don = 0.0
     for v in await db.ventas_donaciones.find({}).to_list(20000):
-        if not _in_win(v.get("fecha"), desde, hasta):
-            continue
         cest = float(v.get("cantidad_cestas", 0) or 0)
         if v.get("origen") in RECIBIDO_ORIGINS:
             rec_don += cest
@@ -2988,15 +2991,15 @@ async def costos_kg_filtrado(gran: str = "todo", anchor: Optional[str] = None, _
     kg_disponible = round(kg_vendible - kg_vendidos, 2)
     # Lo que no está en ningún canal de venta = cosechado vendible aún sin asignar a un destino
     kg_en_canales = round(sum(c["kg"] for c in disponible_canales), 2)
-    # SIN ASIGNAR real = cosecha buena (cosechado − descarte de calidad) − lo realmente asignado
-    # desde cosecha (asignaciones manuales del período, sin la auto-descarte).
-    cosecha_buena = round(kg_cosechados - kg_descarte, 2)
+    # SIN ASIGNAR real = cosecha buena ACUMULADA (cosechado − descarte de calidad, todo el tiempo)
+    # − lo realmente asignado (todo el tiempo, sin la auto-descarte). Igual que el disponible: es
+    # una foto del momento, no una cantidad mensual, para no inventar fantasmas por corte de mes.
+    cosecha_buena = round(kg_cosechados_all - kg_descarte_all, 2)
     kg_asignado = 0.0
     for a in await db.asignaciones_destino.find({}).to_list(20000):
         if a.get("origen") == "cosecha_descarte_auto":
             continue
-        if _in_win(a.get("fecha"), desde, hasta):
-            kg_asignado += float(a.get("cantidad_kg") or (a.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
+        kg_asignado += float(a.get("cantidad_kg") or (a.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
     kg_sin_asignar = round(max(cosecha_buena - kg_asignado, 0), 2)
     # DISPONIBLE FÍSICO real = lo que queda en canales + lo cosechado sin asignar
     kg_disponible_fisico = round(kg_en_canales + kg_sin_asignar, 2)
