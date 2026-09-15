@@ -41,6 +41,7 @@ export default function Inventario() {
 
   const disponibles = filtered.filter((i) => i.existencia);
   const agotados = filtered.filter((i) => !i.existencia);
+  const valorTotal = items.reduce((s, i) => s + Number(i.valor_remanente || 0), 0);
 
   return (
     <div data-testid="inventario-page">
@@ -60,6 +61,13 @@ export default function Inventario() {
         <div className="card kpi-card"><div className="kpi-label">Productos en inventario</div><div className="kpi-value">{items.length}</div></div>
         <div className="card kpi-card"><div className="kpi-label">Disponibles</div><div className="kpi-value" style={{ color: "#16a34a" }}>{disponibles.length}</div></div>
         <div className="card kpi-card"><div className="kpi-label">Agotados</div><div className="kpi-value" style={{ color: "#dc2626" }}>{agotados.length}</div></div>
+        <div className="card kpi-card" style={{ background: "linear-gradient(135deg,#f0fdf4,#dcfce7)", borderColor: "#86efac" }} data-testid="inv-valor-total-card">
+          <div className="kpi-label">Valor total del inventario</div>
+          <div className="kpi-value" style={{ color: "#15803d" }} data-testid="inv-valor-total">
+            ${valorTotal.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
+          <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>Stock disponible valorado por PEPS</div>
+        </div>
       </div>
 
       <div className="card" style={{ marginBottom: 18 }}>
