@@ -3092,6 +3092,8 @@ async def costos_kg_filtrado(gran: str = "todo", anchor: Optional[str] = None, _
         "ingreso_ventas": round(ingreso_ventas, 2),
         "precio_promedio_kg": round(ingreso_ventas / kg_vendidos, 4) if kg_vendidos > 0 else 0,
         "ganancia_real_kg": round((ingreso_ventas / kg_vendidos if kg_vendidos > 0 else 0) - (costo_con_op / kg_vendible if kg_vendible > 0 else 0), 4),
+        "costo_total_real_vendido": round(costo_con_op / kg_vendidos, 4) if kg_vendidos > 0 else 0,
+        "ganancia_real_kg_vendido": round((ingreso_ventas - costo_con_op) / kg_vendidos, 4) if kg_vendidos > 0 else 0,
     }
 
 
