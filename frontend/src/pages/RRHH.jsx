@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
-import { Briefcase, Plus, Pencil, Trash2, DollarSign } from "lucide-react";
+import { Briefcase, Plus, Pencil, Trash2, DollarSign, Power, PowerOff } from "lucide-react";
 import { actBadge } from "../lib/categoryColors";
 import { PeriodPicker, currentMonthStr, currentYearStr } from "../components/PeriodPicker";
 import { DecimalInput } from "../components/DecimalInput";
@@ -20,6 +20,16 @@ export function Trabajadores() {
     if (!window.confirm("¿Eliminar?")) return;
     await api.delete(`/trabajadores/${t._id}`);
     load();
+  };
+
+  const toggleActivo = async (t) => {
+    const bajando = t.activo;
+    if (bajando && !window.confirm(`¿Marcar a ${t.nombre_completo} como INACTIVO? Su salario dejará de sumar desde hoy (lo anterior se conserva).`)) return;
+    try {
+      await api.post(`/trabajadores/${t._id}/toggle-activo`);
+      toast.show(bajando ? "Trabajador inactivo · salario detenido desde hoy" : "Trabajador reactivado · el salario vuelve a sumar");
+      load();
+    } catch { toast.show("Error al cambiar el estado", "error"); }
   };
 
   return (
@@ -42,7 +52,21 @@ export function Trabajadores() {
                 <td>{t.documento}</td>
                 <td>{t.cargo}</td>
                 <td>${t.salario_diario}</td>
-                <td>{t.activo ? <span className="badge badge-primary">Activo</span> : <span className="badge badge-rose">Inactivo</span>}</td>
+                <td>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-start" }}>
+                    {t.activo
+                      ? <span className="badge badge-primary" data-testid={`trab-estado-${t._id}`}>Activo</span>
+                      : <span className="badge badge-rose" data-testid={`trab-estado-${t._id}`}>Inactivo{t.fecha_inactivo ? ` · desde ${t.fecha_inactivo}` : ""}</span>}
+                    {canEdit("recursos_humanos") && (
+                      <button className="btn btn-sm" data-testid={`trab-toggle-${t._id}`} onClick={() => toggleActivo(t)}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 9px", fontSize: 12,
+                          color: t.activo ? "#b91c1c" : "#15803d", borderColor: t.activo ? "#fecaca" : "#bbf7d0",
+                          background: t.activo ? "#fef2f2" : "#f0fdf4" }}>
+                        {t.activo ? <><PowerOff size={13} /> Marcar inactivo</> : <><Power size={13} /> Reactivar</>}
+                      </button>
+                    )}
+                  </div>
+                </td>
                 <td>
                   {canEdit("recursos_humanos") && <button className="btn-icon" onClick={() => setEditing(t)}><Pencil size={16} /></button>}
                   {canDelete("recursos_humanos") && <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(t)}><Trash2 size={16} /></button>}

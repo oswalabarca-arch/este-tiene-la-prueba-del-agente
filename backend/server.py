@@ -2362,6 +2362,7 @@ class TrabajadorIn(BaseModel):
     salario_diario: float = 0
     fecha_ingreso: Optional[str] = None
     activo: bool = True
+    fecha_inactivo: Optional[str] = None
 
 
 @api.get("/trabajadores")
@@ -2371,12 +2372,46 @@ async def list_trabajadores(_: dict = Depends(get_current_user)):
 
 @api.post("/trabajadores")
 async def create_trabajador(payload: TrabajadorIn, user: dict = Depends(get_current_user)):
-    return await _create("trabajadores", payload.model_dump(), user)
+    data = payload.model_dump()
+    if data.get("activo", True):
+        data["fecha_inactivo"] = None
+    elif not data.get("fecha_inactivo"):
+        data["fecha_inactivo"] = datetime.now(VE_TZ).date().isoformat()
+    return await _create("trabajadores", data, user)
 
 
 @api.put("/trabajadores/{tid}")
 async def update_trabajador(tid: str, payload: TrabajadorIn, _: dict = Depends(get_current_user)):
-    return await _update("trabajadores", tid, payload.model_dump())
+    existing = await db.trabajadores.find_one({"_id": tid})
+    if not existing:
+        raise HTTPException(404, "No encontrado")
+    data = payload.model_dump()
+    if data.get("activo", True):
+        fecha_inactivo = None                         # reactivado -> vuelve a sumar salario
+    else:
+        fecha_inactivo = data.get("fecha_inactivo") or existing.get("fecha_inactivo") or datetime.now(VE_TZ).date().isoformat()
+    set_fields = {k: v for k, v in data.items() if v is not None and k != "fecha_inactivo"}
+    set_fields["fecha_inactivo"] = fecha_inactivo     # se escribe aunque sea None (para poder limpiarla)
+    set_fields["updatedAt"] = now_iso()
+    await db.trabajadores.update_one({"_id": tid}, {"$set": set_fields})
+    return await db.trabajadores.find_one({"_id": tid})
+
+
+@api.post("/trabajadores/{tid}/toggle-activo")
+async def toggle_activo_trabajador(tid: str, _: dict = Depends(get_current_user)):
+    """Activa/inactiva un trabajador. Al inactivar, su salario deja de sumar DESDE HOY
+    (se guarda fecha_inactivo); lo cobrado antes de esa fecha se conserva. Al reactivar, vuelve a sumar."""
+    t = await db.trabajadores.find_one({"_id": tid})
+    if not t:
+        raise HTTPException(404, "Trabajador no encontrado")
+    nuevo = not t.get("activo", True)
+    set_fields = {
+        "activo": nuevo,
+        "fecha_inactivo": None if nuevo else datetime.now(VE_TZ).date().isoformat(),
+        "updatedAt": now_iso(),
+    }
+    await db.trabajadores.update_one({"_id": tid}, {"$set": set_fields})
+    return await db.trabajadores.find_one({"_id": tid})
 
 
 @api.delete("/trabajadores/{tid}")
@@ -2711,6 +2746,56 @@ async def _salario_dias_periodo(anio: int, mes: Optional[int]) -> int:
     return sum(_dias_mes_salario(anio, m, now, inicio) for m in range(1, 13))
 
 
+def _worker_dias(anio: int, mes: Optional[int], now: datetime, inicio: Optional[date], fin: Optional[date]) -> int:
+    """Días de salario (base 30/mes) de UN trabajador en el período, acotados por el inicio de
+    operaciones (inicio) y por su fecha de baja (fin). Si fin es None, sigue activo."""
+    def _mes_dias(y: int, m: int) -> int:
+        d = _dias_mes_salario(y, m, now, inicio)
+        if fin is not None:
+            if (y, m) > (fin.year, fin.month):
+                return 0                               # ya estaba de baja ese mes
+            if (y, m) == (fin.year, fin.month):
+                d = min(d, min(fin.day, SALARIO_DIAS_MES))  # cuenta hasta el día de baja
+        return d
+    if mes:
+        return _mes_dias(anio, mes)
+    return sum(_mes_dias(anio, m) for m in range(1, 13))
+
+
+def _fecha_baja(t: dict) -> Optional[date]:
+    """Fecha desde la cual un trabajador deja de sumar salario. Si está inactivo sin fecha,
+    devuelve date.min (no suma en ningún período). Si está activo, None."""
+    if t.get("activo", True):
+        return None
+    fi = t.get("fecha_inactivo")
+    if not fi:
+        return date.min
+    try:
+        return date.fromisoformat(str(fi)[:10])
+    except Exception:
+        return date.min
+
+
+async def _salarios_periodo(anio: int, mes: Optional[int]) -> tuple:
+    """Salario total del período (base 30/mes), calculado POR TRABAJADOR: cada uno suma solo
+    mientras estuvo activo (desde el inicio de operaciones y hasta su fecha de baja). Devuelve
+    (salarios, dias_representativos) donde dias_representativos es para la etiqueta del período."""
+    now = datetime.now(timezone.utc)
+    inicio = await _inicio_operaciones()
+    total = 0.0
+    dias_repr = 0
+    for t in await db.trabajadores.find({}).to_list(5000):
+        sd = float(t.get("salario_diario") or 0)
+        if sd <= 0:
+            continue
+        fin = _fecha_baja(t)
+        d = _worker_dias(anio, mes, now, inicio, fin)
+        total += sd * d
+        if t.get("activo", True):
+            dias_repr = max(dias_repr, d)
+    return round(total, 2), dias_repr
+
+
 async def _build_estado_resultados(anio: int, mes: Optional[int]) -> dict:
     # INGRESO POR VENTAS: total vendido de los 4 canales con dinero (solo ventas reales)
     ventas_fresa = 0.0
@@ -2785,9 +2870,7 @@ async def _build_estado_resultados(anio: int, mes: Optional[int]) -> dict:
         salarios = float(doc["salarios_snapshot"])
         salarios_dias = None
     else:
-        salario_diario = await _current_salarios_diario()
-        salarios_dias = await _salario_dias_periodo(anio, mes)
-        salarios = round(salario_diario * salarios_dias, 2)
+        salarios, salarios_dias = await _salarios_periodo(anio, mes)
 
     total_ingresos = round(ventas_fresa + otros_ingresos, 2)
     total_costo_ventas = round(fert_agro + mano_obra, 2)
@@ -2815,9 +2898,7 @@ async def get_estado_resultados(anio: int, mes: Optional[int] = None, _: dict = 
 
 @api.post("/analiticas/estado-resultados")
 async def guardar_estado_resultados(payload: EstadoResultadosIn, _: dict = Depends(get_current_user)):
-    salario_diario = await _current_salarios_diario()
-    dias = await _salario_dias_periodo(payload.anio, payload.mes)
-    salarios = round(salario_diario * dias, 2)
+    salarios, _dias = await _salarios_periodo(payload.anio, payload.mes)
     await db.estado_resultados.update_one(
         {"anio": payload.anio, "mes": payload.mes},
         {"$set": {
@@ -2895,7 +2976,6 @@ async def costos_kg_tendencia(anio: int, _: dict = Depends(get_current_user)):
     donaciones = await db.ventas_donaciones.find({}).to_list(20000)
     descartes_ch = await db.ventas_descarte.find({}).to_list(20000)
     docs_by_mes = {d.get("mes"): d for d in await db.estado_resultados.find({"anio": anio}).to_list(200)}
-    base_salario_diario = await _current_salarios_diario()
 
     meses = []
     for m in range(1, 13):
@@ -2910,7 +2990,7 @@ async def costos_kg_tendencia(anio: int, _: dict = Depends(get_current_user)):
         if doc and doc.get("salarios_snapshot") is not None:
             sal = float(doc["salarios_snapshot"])
         else:
-            sal = round(base_salario_diario * await _salario_dias_periodo(anio, m), 2)
+            sal, _d = await _salarios_periodo(anio, m)
 
         kg_cos = 0.0
         kg_desc = 0.0
@@ -3104,30 +3184,46 @@ async def costos_kg_filtrado(gran: str = "todo", anchor: Optional[str] = None, _
     # DIFERENCIA POR AJUSTES DE SALDO = residuo (vendible−vendidos) que NO corresponde a fruta física
     kg_ajuste_saldo = round(kg_disponible - kg_disponible_fisico, 2)
 
-    # SALARIOS prorrateados por dias de la ventana
+    # SALARIOS prorrateados por dias de la ventana (calculados POR TRABAJADOR: cada uno suma
+    # solo mientras estuvo activo, desde el inicio de operaciones y hasta su fecha de baja)
     today = datetime.now(VE_TZ).date()
     _inicio_op = await _inicio_operaciones()
-    if gran == "todo":
-        try:
-            ini = _date.fromisoformat(min_fecha) if min_fecha else today
-        except Exception:
-            ini = today
-        if _inicio_op is not None and _inicio_op > ini:
-            ini = _inicio_op   # no cobrar salarios antes de iniciar operaciones
-        dias = max((today - ini).days + 1, 0)
-    elif gran == "mes":
+    if gran == "mes":
         _d0 = _date.fromisoformat(desde)
-        dias = await _salario_dias_periodo(_d0.year, _d0.month)
+        salarios, dias = await _salarios_periodo(_d0.year, _d0.month)
     elif gran == "anio":
         _d0 = _date.fromisoformat(desde)
-        dias = await _salario_dias_periodo(_d0.year, None)
-    else:  # semana: días calendario de la ventana, prorrateados hasta HOY
-        d0 = _date.fromisoformat(desde)
-        d1 = _date.fromisoformat(hasta)
-        d_end = min(d1, today)
-        dias = (d_end - d0).days + 1 if d_end >= d0 else 0
-    salario_diario = sum(float(t.get("salario_diario") or 0) for t in await db.trabajadores.find({}).to_list(5000) if t.get("activo", True))
-    salarios = round(salario_diario * dias, 2)
+        salarios, dias = await _salarios_periodo(_d0.year, None)
+    else:  # todo / semana: días calendario de la ventana
+        if gran == "todo":
+            try:
+                win0 = _date.fromisoformat(min_fecha) if min_fecha else today
+            except Exception:
+                win0 = today
+            win1 = today
+        else:  # semana: prorrateado hasta HOY
+            win0 = _date.fromisoformat(desde)
+            win1 = min(_date.fromisoformat(hasta), today)
+        if _inicio_op is not None and _inicio_op > win0:
+            win0 = _inicio_op   # no cobrar salarios antes de iniciar operaciones
+        salarios = 0.0
+        dias = 0
+        for t in await db.trabajadores.find({}).to_list(5000):
+            sd = float(t.get("salario_diario") or 0)
+            if sd <= 0:
+                continue
+            w1 = win1
+            fin = _fecha_baja(t)
+            if fin is not None:
+                if fin < win0:
+                    continue           # de baja antes de la ventana -> no suma
+                if fin < w1:
+                    w1 = fin            # cuenta hasta su fecha de baja
+            d = (w1 - win0).days + 1 if w1 >= win0 else 0
+            salarios += sd * d
+            if t.get("activo", True):
+                dias = max(dias, d)
+        salarios = round(salarios, 2)
 
     total_costo = round(fert_agro + mano_obra, 2)
     total_gastos_op = round(salarios + gastos_vehiculo, 2)
