@@ -31,6 +31,7 @@ export default function Analiticas() {
   const [saving, setSaving] = useState(false);
   const [tendencia, setTendencia] = useState([]);
   const [visibles, setVisibles] = useState(SERIES.map((s) => s.key));
+  const [inicioOp, setInicioOp] = useState("");
 
   const load = useCallback(() => {
     const params = { anio };
@@ -51,6 +52,20 @@ export default function Analiticas() {
   }, [anio]);
 
   useEffect(() => { loadTendencia(); }, [loadTendencia]);
+
+  useEffect(() => {
+    api.get("/config/inicio-operaciones").then((r) => setInicioOp(r.data.inicio_operaciones || "")).catch(() => {});
+  }, []);
+
+  const guardarInicioOp = async (valor) => {
+    try {
+      await api.post("/config/inicio-operaciones", { inicio_operaciones: valor || null });
+      setInicioOp(valor);
+      toast.show(valor ? "Inicio de operaciones actualizado" : "Inicio de operaciones eliminado");
+      load();
+      loadTendencia();
+    } catch { toast.show("Error al guardar la fecha", "error"); }
+  };
 
   const toggleSerie = (key) => setVisibles((v) => (v.includes(key) ? v.filter((k) => k !== key) : [...v, key]));
 
@@ -119,7 +134,16 @@ export default function Analiticas() {
         <span className="badge" style={{ background: data.registrado ? "#dcfce7" : "#fef3c7", color: data.registrado ? "#15803d" : "#b45309" }} data-testid="er-estado">
           {data.registrado ? "Registrado" : "No registrado"}
         </span>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
+          <label style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Inicio de operaciones</label>
+          <input type="date" className="input" style={{ width: 160 }} value={inicioOp}
+            onChange={(e) => setInicioOp(e.target.value)} onBlur={(e) => guardarInicioOp(e.target.value)}
+            data-testid="er-inicio-operaciones" />
+        </div>
       </div>
+      <p style={{ color: "#94a3b8", fontSize: 12, marginTop: -6, marginBottom: 12 }}>
+        Los salarios se cuentan a partir del <b>inicio de operaciones</b>. Los meses anteriores no suman salarios.
+      </p>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 18, alignItems: "flex-start" }}>
       {/* Estado de resultados */}
@@ -209,7 +233,7 @@ export default function Analiticas() {
       </div>
 
       <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 12, maxWidth: 720 }}>
-        Salario mensual = salario diario × {30} (RRHH › Trabajadores activos). En el período en curso se muestran <b>prorrateados</b> según los días transcurridos (para que la utilidad del inicio de mes no salga toda en rojo); al registrar el período se congelan por el mes completo.
+        Salario mensual = salario diario × {30} (RRHH › Trabajadores activos), contado a partir del <b>inicio de operaciones</b>. En el período en curso se muestran <b>prorrateados</b> según los días transcurridos (para que la utilidad del inicio de mes no salga toda en rojo); al registrar el período se congela el valor mostrado.
       </p>
 
       {/* Panel para revisar/eliminar ajustes de saldo (fantasmas) */}

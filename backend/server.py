@@ -15,7 +15,7 @@ import jwt
 import logging
 import requests
 from PIL import Image, ImageOps
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, date
 from typing import List, Optional, Any, Dict
 
 # Zona horaria de Venezuela (UTC-4). Definida temprano para uso global.
@@ -2669,22 +2669,46 @@ async def _current_salarios_diario() -> float:
     return sum((float(t.get("salario_diario") or 0)) for t in trabajadores if t.get("activo", True))
 
 
-def _salario_dias_periodo(anio: int, mes: Optional[int]) -> int:
+async def _inicio_operaciones() -> Optional[date]:
+    """Fecha de inicio de operaciones (configurable). Antes de esta fecha NO se cobran salarios,
+    porque no había trabajadores operando. Devuelve None si no está configurada."""
+    doc = await db.app_config.find_one({"_id": "app_config"})
+    v = (doc or {}).get("inicio_operaciones")
+    if not v:
+        return None
+    try:
+        return date.fromisoformat(str(v)[:10])
+    except Exception:
+        return None
+
+
+def _dias_mes_salario(anio: int, mes: int, now: datetime, inicio: Optional[date]) -> int:
+    """Días de salario (base 30/mes) de UN mes, prorrateado hasta HOY si es el mes en curso,
+    completo si es pasado, 0 si es futuro; y acotado por la fecha de inicio de operaciones."""
+    if (anio, mes) > (now.year, now.month):
+        return 0  # mes futuro
+    if anio == now.year and mes == now.month:
+        avail = min(now.day, SALARIO_DIAS_MES)   # mes en curso -> días transcurridos
+    else:
+        avail = SALARIO_DIAS_MES                 # mes pasado -> completo
+    # Acotar por inicio de operaciones
+    if inicio is not None:
+        if (anio, mes) < (inicio.year, inicio.month):
+            return 0                             # antes de operar -> sin salarios
+        if (anio, mes) == (inicio.year, inicio.month):
+            avail = max(0, avail - (min(inicio.day, SALARIO_DIAS_MES) - 1))
+    return avail
+
+
+async def _salario_dias_periodo(anio: int, mes: Optional[int]) -> int:
     """Días de salario (base 30/mes) a cobrar en el período: prorrateado hasta HOY si es el
-    período en curso; completo si es pasado; 0 si es futuro."""
+    período en curso; completo si es pasado; 0 si es futuro o anterior al inicio de operaciones."""
     now = datetime.now(timezone.utc)
+    inicio = await _inicio_operaciones()
     if mes:
-        if anio == now.year and mes == now.month:
-            return min(now.day, SALARIO_DIAS_MES)   # mes en curso -> días transcurridos
-        if (anio, mes) < (now.year, now.month):
-            return SALARIO_DIAS_MES                  # mes pasado -> completo
-        return 0                                     # mes futuro
-    # Anual (base 12 x 30 = 360)
-    if anio == now.year:
-        return (now.month - 1) * SALARIO_DIAS_MES + min(now.day, SALARIO_DIAS_MES)
-    if anio < now.year:
-        return SALARIO_DIAS_MES * 12
-    return 0
+        return _dias_mes_salario(anio, mes, now, inicio)
+    # Anual: suma de los 12 meses (respetando inicio de operaciones y prorrateo del mes en curso)
+    return sum(_dias_mes_salario(anio, m, now, inicio) for m in range(1, 13))
 
 
 async def _build_estado_resultados(anio: int, mes: Optional[int]) -> dict:
@@ -2762,7 +2786,7 @@ async def _build_estado_resultados(anio: int, mes: Optional[int]) -> dict:
         salarios_dias = None
     else:
         salario_diario = await _current_salarios_diario()
-        salarios_dias = _salario_dias_periodo(anio, mes)
+        salarios_dias = await _salario_dias_periodo(anio, mes)
         salarios = round(salario_diario * salarios_dias, 2)
 
     total_ingresos = round(ventas_fresa + otros_ingresos, 2)
@@ -2791,8 +2815,9 @@ async def get_estado_resultados(anio: int, mes: Optional[int] = None, _: dict = 
 
 @api.post("/analiticas/estado-resultados")
 async def guardar_estado_resultados(payload: EstadoResultadosIn, _: dict = Depends(get_current_user)):
-    base = await _current_salarios_mensual()
-    salarios = base if payload.mes else base * 12
+    salario_diario = await _current_salarios_diario()
+    dias = await _salario_dias_periodo(payload.anio, payload.mes)
+    salarios = round(salario_diario * dias, 2)
     await db.estado_resultados.update_one(
         {"anio": payload.anio, "mes": payload.mes},
         {"$set": {
@@ -2806,6 +2831,31 @@ async def guardar_estado_resultados(payload: EstadoResultadosIn, _: dict = Depen
         upsert=True,
     )
     return await _build_estado_resultados(payload.anio, payload.mes)
+
+
+class InicioOperacionesIn(BaseModel):
+    inicio_operaciones: Optional[str] = None  # "YYYY-MM-DD" o null para quitar
+
+
+@api.get("/config/inicio-operaciones")
+async def get_inicio_operaciones(_: dict = Depends(get_current_user)):
+    ini = await _inicio_operaciones()
+    return {"inicio_operaciones": ini.isoformat() if ini else None}
+
+
+@api.post("/config/inicio-operaciones")
+async def set_inicio_operaciones(payload: InicioOperacionesIn, _: dict = Depends(require_admin)):
+    val = (payload.inicio_operaciones or "").strip() or None
+    if val:
+        try:
+            val = date.fromisoformat(val[:10]).isoformat()
+        except Exception:
+            raise HTTPException(400, "Fecha inválida (use YYYY-MM-DD)")
+    await db.app_config.update_one(
+        {"_id": "app_config"}, {"$set": {"inicio_operaciones": val}}, upsert=True,
+    )
+    return {"inicio_operaciones": val}
+
 
 
 
@@ -2845,7 +2895,7 @@ async def costos_kg_tendencia(anio: int, _: dict = Depends(get_current_user)):
     donaciones = await db.ventas_donaciones.find({}).to_list(20000)
     descartes_ch = await db.ventas_descarte.find({}).to_list(20000)
     docs_by_mes = {d.get("mes"): d for d in await db.estado_resultados.find({"anio": anio}).to_list(200)}
-    base_salario = await _current_salarios_mensual()
+    base_salario_diario = await _current_salarios_diario()
 
     meses = []
     for m in range(1, 13):
@@ -2857,7 +2907,10 @@ async def costos_kg_tendencia(anio: int, _: dict = Depends(get_current_user)):
                    for g in gastos if _en_periodo(g.get("fecha"), anio, m))
         doc = docs_by_mes.get(m)
         soft = float(doc.get("software_erp", 0)) if doc else 0.0
-        sal = float(doc["salarios_snapshot"]) if (doc and doc.get("salarios_snapshot") is not None) else base_salario
+        if doc and doc.get("salarios_snapshot") is not None:
+            sal = float(doc["salarios_snapshot"])
+        else:
+            sal = round(base_salario_diario * await _salario_dias_periodo(anio, m), 2)
 
         kg_cos = 0.0
         kg_desc = 0.0
@@ -3053,18 +3106,21 @@ async def costos_kg_filtrado(gran: str = "todo", anchor: Optional[str] = None, _
 
     # SALARIOS prorrateados por dias de la ventana
     today = datetime.now(VE_TZ).date()
+    _inicio_op = await _inicio_operaciones()
     if gran == "todo":
         try:
             ini = _date.fromisoformat(min_fecha) if min_fecha else today
         except Exception:
             ini = today
+        if _inicio_op is not None and _inicio_op > ini:
+            ini = _inicio_op   # no cobrar salarios antes de iniciar operaciones
         dias = max((today - ini).days + 1, 0)
     elif gran == "mes":
         _d0 = _date.fromisoformat(desde)
-        dias = _salario_dias_periodo(_d0.year, _d0.month)
+        dias = await _salario_dias_periodo(_d0.year, _d0.month)
     elif gran == "anio":
         _d0 = _date.fromisoformat(desde)
-        dias = _salario_dias_periodo(_d0.year, None)
+        dias = await _salario_dias_periodo(_d0.year, None)
     else:  # semana: días calendario de la ventana, prorrateados hasta HOY
         d0 = _date.fromisoformat(desde)
         d1 = _date.fromisoformat(hasta)
@@ -3772,6 +3828,20 @@ async def on_start():
             logging.info(f"Migración nombres de compras (one-time): {cambios} normalizados")
     except Exception as e:
         logging.error(f"Migración nombres de compras falló: {e}")
+
+    # Inicio de operaciones por defecto (junio 2026). Idempotente: solo se crea si no existe,
+    # para que el usuario pueda cambiarlo desde la interfaz sin que se revierta al reiniciar.
+    try:
+        cfg = await db.app_config.find_one({"_id": "app_config"})
+        if not cfg or not cfg.get("inicio_operaciones"):
+            await db.app_config.update_one(
+                {"_id": "app_config"},
+                {"$set": {"inicio_operaciones": "2026-06-01"}},
+                upsert=True,
+            )
+            logging.info("Inicio de operaciones sembrado por defecto: 2026-06-01")
+    except Exception as e:
+        logging.error(f"Seed inicio de operaciones falló: {e}")
 
 
 # Mount
