@@ -43,8 +43,27 @@ export function Trabajadores() {
       </div>
 
       <div className="card">
+        {(() => {
+          const activos = items.filter((t) => t.activo);
+          const diario = activos.reduce((s, t) => s + (Number(t.salario_diario) || 0), 0);
+          const mensual = diario * 30;
+          return (
+            <div data-testid="trab-resumen-salario" style={{ display: "flex", flexWrap: "wrap", gap: 24, alignItems: "center", padding: "6px 4px 16px", borderBottom: "1px solid #e2e8f0", marginBottom: 14 }}>
+              <div>
+                <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, color: "#64748b", fontWeight: 700 }}>Salario mensual activo</div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: "#16a34a" }}>${mensual.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                <div style={{ fontSize: 12, color: "#94a3b8" }}>Lo que corre hoy · {activos.length} activo{activos.length === 1 ? "" : "s"} × salario diario × 30</div>
+              </div>
+              <div style={{ paddingLeft: 24, borderLeft: "1px solid #e2e8f0" }}>
+                <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, color: "#64748b", fontWeight: 700 }}>Salario diario activo</div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: "#0f172a" }}>${diario.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                <div style={{ fontSize: 12, color: "#94a3b8" }}>Los trabajadores inactivos no suman</div>
+              </div>
+            </div>
+          );
+        })()}
         <table className="table">
-          <thead><tr><th>Nombre</th><th>Documento</th><th>Cargo</th><th>Salario diario</th><th>Estado</th><th>Acciones</th></tr></thead>
+          <thead><tr><th>Nombre</th><th>Documento</th><th>Cargo</th><th>Salario diario</th><th>Estado</th><th>Fecha de baja</th><th>Acciones</th></tr></thead>
           <tbody>
             {items.map((t) => (
               <tr key={t._id}>
@@ -56,7 +75,7 @@ export function Trabajadores() {
                   <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-start" }}>
                     {t.activo
                       ? <span className="badge badge-primary" data-testid={`trab-estado-${t._id}`}>Activo</span>
-                      : <span className="badge badge-rose" data-testid={`trab-estado-${t._id}`}>Inactivo{t.fecha_inactivo ? ` · desde ${t.fecha_inactivo}` : ""}</span>}
+                      : <span className="badge badge-rose" data-testid={`trab-estado-${t._id}`}>Inactivo</span>}
                     {canEdit("recursos_humanos") && (
                       <button className="btn btn-sm" data-testid={`trab-toggle-${t._id}`} onClick={() => toggleActivo(t)}
                         style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 9px", fontSize: 12,
@@ -66,6 +85,9 @@ export function Trabajadores() {
                       </button>
                     )}
                   </div>
+                </td>
+                <td data-testid={`trab-baja-${t._id}`} style={{ color: t.activo ? "#94a3b8" : "#b91c1c", fontWeight: t.activo ? 400 : 600 }}>
+                  {t.activo ? "—" : (t.fecha_inactivo || "sin fecha")}
                 </td>
                 <td>
                   {canEdit("recursos_humanos") && <button className="btn-icon" onClick={() => setEditing(t)}><Pencil size={16} /></button>}
