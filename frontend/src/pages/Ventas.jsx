@@ -329,6 +329,24 @@ function Ventas({ tipo }) {
       );
       return;
     }
+    // Aviso (opción b): venta fechada en un día donde el canal aún no tiene stock (desfase de
+    // fechas: la asignación de esa fruta no se registró o quedó fechada después de la venta).
+    {
+      const fVenta = nv.fecha;
+      const saldoEnFecha = items
+        .filter((v) => (v.fecha || "").slice(0, 10) <= fVenta)
+        .reduce((s, v) => s + (MOV_META[v.origen]?.entra ? (v.cantidad_cestas || 0) : -(v.cantidad_cestas || 0)), 0);
+      if (cestasVenta > saldoEnFecha + 0.001) {
+        const disp = Math.max(saldoEnFecha, 0);
+        const ok = window.confirm(
+          `⚠️ En "${meta.label}" no hay stock suficiente al ${fVenta}.\n\n` +
+          `Disponible hasta esa fecha: ${disp.toFixed(2)} cesta(s) (${(disp * 14).toFixed(2)} kg), y estás ${esDonacion ? "donando" : "vendiendo"} ${cestasVenta.toFixed(2)}.\n\n` +
+          `Esto suele pasar cuando la asignación de esa fruta todavía no se registró, o quedó fechada DESPUÉS de la venta. La Bitácora va a arrancar en negativo ese día hasta que la entrada aparezca.\n\n` +
+          `Sugerencia: primero registrá la Asignación de destino con la fecha real en que entró la fruta.\n\n¿Registrar igual?`
+        );
+        if (!ok) return;
+      }
+    }
     try {
       await api.post(`/ventas-${tipo}`, {
         fecha: nv.fecha + "T12:00:00.000Z",
