@@ -67,6 +67,20 @@ export default function Analiticas() {
     } catch { toast.show("Error al guardar la fecha", "error"); }
   };
 
+  const limpiarDatosPrueba = async () => {
+    try {
+      const prev = await api.post("/limpiar-datos-anteriores?dry_run=1");
+      const d = prev.data || {};
+      if (!d.total_registros) { toast.show("No hay datos anteriores al inicio de operaciones"); return; }
+      const resumen = (d.detalle || []).map((x) => `• ${x.coleccion}: ${x.registros} reg. (${x.kg} kg)`).join("\n");
+      if (!window.confirm(`Se eliminarán ${d.total_registros} registros de PRUEBA anteriores al ${d.corte} (cosechas, asignaciones y ventas):\n\n${resumen}\n\nEsto NO toca nada del ${d.corte} en adelante. ¿Confirmás?`)) return;
+      const r = await api.post("/limpiar-datos-anteriores?dry_run=0");
+      toast.show(`Listo: ${r.data.total_registros} registros de prueba eliminados`);
+      load();
+      loadTendencia();
+    } catch (e) { toast.show(e?.response?.data?.detail || "Error al limpiar", "error"); }
+  };
+
   const toggleSerie = (key) => setVisibles((v) => (v.includes(key) ? v.filter((k) => k !== key) : [...v, key]));
 
   const guardar = async () => {
@@ -143,6 +157,10 @@ export default function Analiticas() {
       </div>
       <p style={{ color: "#94a3b8", fontSize: 12, marginTop: -6, marginBottom: 12 }}>
         Los salarios se cuentan a partir del <b>inicio de operaciones</b>. Los meses anteriores no suman salarios.
+        <button onClick={limpiarDatosPrueba} data-testid="er-limpiar-prueba"
+          style={{ marginLeft: 10, border: "1px solid #fca5a5", background: "#fff", color: "#b91c1c", borderRadius: 6, padding: "2px 8px", fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}>
+          Limpiar datos de prueba anteriores
+        </button>
       </p>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 18, alignItems: "flex-start" }}>

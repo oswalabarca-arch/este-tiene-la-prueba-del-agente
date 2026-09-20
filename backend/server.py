@@ -2295,6 +2295,46 @@ async def reparar_reasignaciones_huerfanas(dry_run: int = 0, user: dict = Depend
     return {"success": True, "dry_run": dry, "total": len(reparadas), "reparadas": reparadas}
 
 
+# Colecciones de flujo de fruta con su campo de fecha, para limpiar data de prueba pre-operaciones.
+_LIMPIEZA_COLECCIONES = [
+    ("cosechas", "fecha_cosecha"),
+    ("asignaciones_destino", "fecha"),
+    ("ventas_finca", "fecha"), ("ventas_ciudad", "fecha"),
+    ("ventas_refrigerar", "fecha"), ("ventas_congelar", "fecha"),
+    ("ventas_descarte", "fecha"), ("ventas_donaciones", "fecha"),
+]
+
+
+@api.post("/limpiar-datos-anteriores")
+async def limpiar_datos_anteriores(dry_run: int = 1, user: dict = Depends(get_current_user)):
+    """Elimina los registros de flujo de fruta ANTERIORES al inicio de operaciones (data de
+    prueba de antes de arrancar). Cosechas, asignaciones y ventas de todos los canales con
+    fecha < inicio_operaciones. Con dry_run=1 (default) solo cuenta, NO borra. Solo admin."""
+    if user.get("rol") != "administrador":
+        raise HTTPException(403, "Solo un administrador puede ejecutar esta limpieza.")
+    inicio = await _inicio_operaciones()
+    if inicio is None:
+        raise HTTPException(400, "No hay 'inicio de operaciones' configurado.")
+    corte = inicio.isoformat()  # 'YYYY-MM-DD'
+    dry = dry_run == 1
+    detalle = []
+    total = 0
+    for coll, campo in _LIMPIEZA_COLECCIONES:
+        q = {campo: {"$lt": corte}}
+        docs = await db[coll].find(q).to_list(50000)
+        # Comparación robusta por prefijo de 10 chars (por si hay formatos con/sin hora)
+        ids = [d["_id"] for d in docs if str(d.get(campo) or "")[:10] < corte]
+        kg = round(sum(float(d.get("cantidad_kg") or (d.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
+                       for d in docs if str(d.get(campo) or "")[:10] < corte), 2)
+        if ids:
+            detalle.append({"coleccion": coll, "registros": len(ids), "kg": kg})
+            total += len(ids)
+            if not dry:
+                await db[coll].delete_many({"_id": {"$in": ids}})
+    return {"success": True, "dry_run": dry, "corte": corte, "total_registros": total, "detalle": detalle}
+
+
+
 
 @api.get("/dashboard/stock-canales")
 async def stock_canales(_: dict = Depends(get_current_user)):
