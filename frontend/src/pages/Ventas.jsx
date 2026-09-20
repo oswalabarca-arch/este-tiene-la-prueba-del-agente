@@ -171,7 +171,7 @@ function Ventas({ tipo }) {
   // Reasignar cestas sobrantes a otros canales (ciudad / refrigerar / congelar)
   const destinosReasignar = REASIGNAR_DESTINOS[tipo] || [];
   const tieneReasignar = destinosReasignar.length > 0;
-  const [reasign, setReasign] = useState({ cantidad: "", destino: destinosReasignar[0] || "descarte" });
+  const [reasign, setReasign] = useState({ cantidad: "", destino: destinosReasignar[0] || "descarte", fecha: todayLocal() });
   const [reasignBusy, setReasignBusy] = useState(false);
   // Ajustar saldo disponible (corrige descuadres por ventas históricas sin "recibido")
   const [ajusteOpen, setAjusteOpen] = useState(false);
@@ -390,9 +390,9 @@ function Ventas({ tipo }) {
     if (cant > disponible + 0.001) { toast.show(`Solo hay ${disponible.toFixed(2)} cesta(s) disponible(s) para reasignar`, "error"); return; }
     setReasignBusy(true);
     try {
-      await api.post(`/ventas-${tipo}/reasignar`, { cantidad_cestas: cant, destino: reasign.destino, fecha: realToday });
+      await api.post(`/ventas-${tipo}/reasignar`, { cantidad_cestas: cant, destino: reasign.destino, fecha: reasign.fecha || realToday });
       toast.show(`${cant} cesta(s) reasignada(s) a ${DESTINO_LABEL[reasign.destino] || reasign.destino}`);
-      setReasign({ cantidad: "", destino: reasign.destino });
+      setReasign({ cantidad: "", destino: reasign.destino, fecha: reasign.fecha || realToday });
       load();
     } catch (err) {
       toast.show(err?.response?.data?.detail || "Error al reasignar", "error");
@@ -606,6 +606,11 @@ function Ventas({ tipo }) {
                     {destinosReasignar.map((d) => <option key={d} value={d}>{DESTINO_LABEL[d]}</option>)}
                   </select>
                 </div>
+                <div className="field" style={{ margin: 0 }}>
+                  <label>Fecha</label>
+                  <input type="date" className="input" max={realToday} value={reasign.fecha || realToday} onChange={(e) => setReasign({ ...reasign, fecha: e.target.value })} data-testid="reasign-fecha" />
+                  <span style={{ fontSize: 11, color: "#94a3b8" }}>Usá la fecha de cosecha para que el vendible baje en el período correcto.</span>
+                </div>
                 <button className="btn btn-primary" style={{ background: "#ea580c", borderColor: "#ea580c" }} onClick={reasignarSobrantes} disabled={reasignBusy} data-testid="reasign-btn">
                   {reasignBusy ? "..." : "Reasignar"}
                 </button>
@@ -730,6 +735,11 @@ function Ventas({ tipo }) {
                     {destinosReasignar.map((d) => <option key={d} value={d}>{DESTINO_LABEL[d]}</option>)}
                   </select>
                 </div>
+                <div className="field" style={{ margin: 0 }}>
+                  <label>Fecha</label>
+                  <input type="date" className="input" max={realToday} value={reasign.fecha || realToday} onChange={(e) => setReasign({ ...reasign, fecha: e.target.value })} data-testid="reasign-fecha" />
+                  <span style={{ fontSize: 11, color: "#94a3b8" }}>Usá la fecha de cosecha para que el vendible baje en el período correcto.</span>
+                </div>
                 <button className="btn btn-primary" style={{ background: "#ea580c", borderColor: "#ea580c" }} onClick={reasignarSobrantes} disabled={reasignBusy} data-testid="reasign-btn">
                   {reasignBusy ? "..." : "Reasignar"}
                 </button>
@@ -807,6 +817,11 @@ function Ventas({ tipo }) {
                   <select className="select" value={reasign.destino} onChange={(e) => setReasign({ ...reasign, destino: e.target.value })} data-testid="reasign-destino">
                     {destinosReasignar.map((d) => <option key={d} value={d}>{DESTINO_LABEL[d]}</option>)}
                   </select>
+                </div>
+                <div className="field" style={{ margin: 0 }}>
+                  <label>Fecha</label>
+                  <input type="date" className="input" max={realToday} value={reasign.fecha || realToday} onChange={(e) => setReasign({ ...reasign, fecha: e.target.value })} data-testid="reasign-fecha" />
+                  <span style={{ fontSize: 11, color: "#94a3b8" }}>Usá la fecha de cosecha para que el vendible baje en el período correcto.</span>
                 </div>
                 <button className="btn btn-primary" style={{ background: "#ea580c", borderColor: "#ea580c" }} onClick={reasignarSobrantes} disabled={reasignBusy} data-testid="reasign-btn">
                   {reasignBusy ? "..." : "Reasignar"}

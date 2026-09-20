@@ -2237,16 +2237,10 @@ async def reasignar_descarte(payload: ReasignarIn, user: dict = Depends(get_curr
     return await _reasignar_ventas("descarte", payload, ("finca", "ciudad", "refrigerar", "congelar", "error"), user)
 
 
-@api.post("/reparar-reasignaciones-huerfanas")
-async def reparar_reasignaciones_huerfanas(dry_run: int = 0, user: dict = Depends(get_current_user)):
-    """Reparación puntual (idempotente): reasignaciones ANTIGUAS que registraron la SALIDA en el
-    canal origen (origen=reasignacion_salida, sin reasignacion_id) pero NUNCA crearon la ENTRADA
-    en el canal destino. Eso deja fruta 'colgada' (p.ej. buena mandada a descarte que no se resta
-    del vendible). Crea la entrada faltante emparejándola con la salida existente. Con dry_run=1
-    solo cuenta, sin escribir."""
-    if user.get("rol") != "administrador":
-        raise HTTPException(403, "Solo un administrador puede ejecutar esta reparación.")
-    dry = dry_run == 1
+async def _reparar_huerfanas(dry: bool, user: dict, only_dest: Optional[str] = None):
+    """Núcleo idempotente de reparación de reasignaciones huérfanas: por cada SALIDA
+    (origen=reasignacion_salida, sin reasignacion_id) cuyo destino no tiene la ENTRADA,
+    crea la entrada faltante y las empareja. only_dest limita a un destino (p.ej. 'descarte')."""
     canales = ("finca", "ciudad", "refrigerar", "congelar", "descarte", "donaciones")
     reparadas = []
     for src in canales:
@@ -2258,6 +2252,8 @@ async def reparar_reasignaciones_huerfanas(dry_run: int = 0, user: dict = Depend
                 continue
             dest_key = _label_to_key(obs.split("sobrantes a ", 1)[1].strip(), _REASIGNAR_LABELS)
             if not dest_key:
+                continue
+            if only_dest is not None and dest_key != only_dest:
                 continue
             cp = await _find_reasig_counterpart(src, d)
             if cp is not None:
@@ -2278,6 +2274,20 @@ async def reparar_reasignaciones_huerfanas(dry_run: int = 0, user: dict = Depend
             }
             await _create(f"ventas_{dest_key}", entrada, user)
             await db[f"ventas_{src}"].update_one({"_id": d.get("_id")}, {"$set": {"reasignacion_id": rid, "reasignacion_destino": dest_key, "reparado_huerfano": True}})
+    return reparadas
+
+
+@api.post("/reparar-reasignaciones-huerfanas")
+async def reparar_reasignaciones_huerfanas(dry_run: int = 0, user: dict = Depends(get_current_user)):
+    """Reparación puntual (idempotente): reasignaciones ANTIGUAS que registraron la SALIDA en el
+    canal origen (origen=reasignacion_salida, sin reasignacion_id) pero NUNCA crearon la ENTRADA
+    en el canal destino. Eso deja fruta 'colgada' (p.ej. buena mandada a descarte que no se resta
+    del vendible). Crea la entrada faltante emparejándola con la salida existente. Con dry_run=1
+    solo cuenta, sin escribir."""
+    if user.get("rol") != "administrador":
+        raise HTTPException(403, "Solo un administrador puede ejecutar esta reparación.")
+    dry = dry_run == 1
+    reparadas = await _reparar_huerfanas(dry, user)
     return {"success": True, "dry_run": dry, "total": len(reparadas), "reparadas": reparadas}
 
 
@@ -3377,6 +3387,51 @@ async def conciliacion_diagnostico(gran: str = "todo", anchor: Optional[str] = N
     explicado = sobrevendido_kg_total + manual_neto_salida
     diferencia_periodo = round(max(abs(min(kg_ajuste_saldo, 0)) - explicado, 0.0), 2)
 
+    # ---- Explicación del ajuste POSITIVO (vendible > vendidos): fruta que entró como vendible
+    # pero salió del canal SIN contarse como venta en el período. Buckets computables: salidas
+    # por error, reasignaciones huérfanas (salió del canal y nunca entró al destino), y el resto
+    # = desfase de fechas (cosechada en el período pero reasignada/vendida en otro).
+    kg_salida_error = 0.0
+    salidas_error = []
+    for tipo in ("finca", "ciudad", "refrigerar", "congelar"):
+        for v in await db[f"ventas_{tipo}"].find({"origen": "salida_error"}).to_list(20000):
+            if not _in_win(v.get("fecha"), desde, hasta):
+                continue
+            cest = float(v.get("cantidad_cestas", 0) or 0)
+            kg = round(float(v.get("cantidad_kg") or cest * KG_POR_CESTA), 2)
+            kg_salida_error += kg
+            salidas_error.append({"canal": tipo, "canal_label": LABELS_CANAL.get(tipo, tipo),
+                                  "fecha": (v.get("fecha") or "")[:10], "cantidad_cestas": round(cest, 2),
+                                  "cantidad_kg": kg, "observaciones": v.get("observaciones", "")})
+    kg_huerfanas = 0.0
+    huerfanas = []
+    for src in ("finca", "ciudad", "refrigerar", "congelar", "donaciones"):
+        for d in await db[f"ventas_{src}"].find({"origen": "reasignacion_salida"}).to_list(20000):
+            if not _in_win(d.get("fecha"), desde, hasta):
+                continue
+            rid = d.get("reasignacion_id")
+            tiene_cp = False
+            if rid:
+                for t in ("finca", "ciudad", "refrigerar", "congelar", "descarte", "donaciones"):
+                    if await db[f"ventas_{t}"].find_one({"reasignacion_id": rid, "_id": {"$ne": d.get("_id")}}):
+                        tiene_cp = True
+                        break
+            else:
+                cp = await _find_reasig_counterpart(src, d)
+                tiene_cp = cp is not None
+            if tiene_cp:
+                continue
+            cest = float(d.get("cantidad_cestas", 0) or 0)
+            kg = round(float(d.get("cantidad_kg") or cest * KG_POR_CESTA), 2)
+            kg_huerfanas += kg
+            huerfanas.append({"id": d.get("_id"), "canal": src, "canal_label": LABELS_CANAL.get(src, src),
+                              "fecha": (d.get("fecha") or "")[:10], "cantidad_cestas": round(cest, 2),
+                              "cantidad_kg": kg, "observaciones": d.get("observaciones", "")})
+    kg_salida_error = round(kg_salida_error, 2)
+    kg_huerfanas = round(kg_huerfanas, 2)
+    positivo = max(kg_ajuste_saldo, 0.0)
+    desfase_positivo = round(max(positivo - kg_salida_error - kg_huerfanas, 0.0), 2)
+
     return {
         "gran": gran, "desde": desde, "hasta": hasta,
         "kg_vendible": kg_vendible, "kg_vendidos": kg_vendidos, "kg_ajuste_saldo": kg_ajuste_saldo,
@@ -3386,6 +3441,9 @@ async def conciliacion_diagnostico(gran: str = "todo", anchor: Optional[str] = N
         "ajuste_entrada_kg": round(aj_entrada_kg, 2),
         "ajuste_salida_kg": round(aj_salida_kg, 2),
         "diferencia_periodo": max(diferencia_periodo, 0.0),
+        "kg_salida_error": kg_salida_error, "salidas_error": salidas_error,
+        "kg_huerfanas": kg_huerfanas, "huerfanas": huerfanas,
+        "desfase_positivo": desfase_positivo,
     }
 
 
@@ -3938,6 +3996,19 @@ async def on_start():
             logging.info("Inicio de operaciones sembrado por defecto: 2026-06-01")
     except Exception as e:
         logging.error(f"Seed inicio de operaciones falló: {e}")
+
+    # Reparación idempotente de reasignaciones huérfanas HACIA DESCARTE: fruta que salió de un
+    # canal "sobrantes a Descarte" pero cuya ENTRADA en descarte nunca se creó (bug viejo). Se crea
+    # la entrada faltante para que el vendible baje en el período correcto. Solo destino descarte
+    # (fruta perdida/picada). Idempotente: al emparejar setea reasignacion_id y no se repite.
+    try:
+        _sys_user = {"email": "sistema@erp", "nombre_completo": "Sistema (reparación huérfanas)"}
+        reparadas = await _reparar_huerfanas(dry=False, user=_sys_user, only_dest="descarte")
+        if reparadas:
+            logging.info(f"Reparadas {len(reparadas)} reasignaciones huérfanas a descarte: "
+                         + ", ".join(f"{r['canal']}→descarte {r['fecha']} {r['kg']}kg" for r in reparadas))
+    except Exception as e:
+        logging.error(f"Reparación de huérfanas a descarte falló: {e}")
 
 
 # Mount

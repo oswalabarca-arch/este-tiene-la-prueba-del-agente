@@ -168,7 +168,12 @@ export default function CostosPorKg() {
               {loadingDiag && <div style={{ fontSize: 12, color: "#94a3b8" }}>Calculando…</div>}
               {!loadingDiag && diag && (() => {
                 const canalesSobre = (diag.canales || []).filter((c) => c.sobrevendido_kg > 0.01);
-                const nada = canalesSobre.length === 0 && (diag.ajustes_manuales || []).length === 0;
+                const salidasError = diag.salidas_error || [];
+                const huerfanas = diag.huerfanas || [];
+                const desfasePos = diag.desfase_positivo || 0;
+                const nada = canalesSobre.length === 0 && (diag.ajustes_manuales || []).length === 0
+                  && (diag.diferencia_periodo || 0) <= 0.01 && salidasError.length === 0
+                  && huerfanas.length === 0 && desfasePos <= 0.01;
                 return (
                   <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 12.5, color: "#334155" }}>
                     <div style={{ fontSize: 12, fontWeight: 800, color: "#7c3aed" }}>Diagnóstico del ajuste de saldo ({fmtKg(kgAjuste)})</div>
@@ -219,17 +224,59 @@ export default function CostosPorKg() {
                       )}
                     </div>
 
-                    {/* 3. Diferencia por período */}
+                    {/* 3. Salidas por error */}
+                    {salidasError.length > 0 && (
+                      <div data-testid="er-diag-salida-error">
+                        <div style={{ fontWeight: 700, marginBottom: 4, color: "#dc2626" }}>3. Salidas por error en este período: {fmtKg(diag.kg_salida_error)}</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          {salidasError.map((s, i) => (
+                            <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 8, background: "#fef2f2", borderRadius: 6, padding: "5px 8px" }}>
+                              <span>{s.fecha} · <b>{s.canal_label}</b>{s.observaciones ? ` · ${s.observaciones}` : ""}</span>
+                              <b style={{ color: "#dc2626", whiteSpace: "nowrap" }}>{fmtKg(s.cantidad_kg)}</b>
+                            </div>
+                          ))}
+                          <div style={{ fontSize: 11.5, color: "#64748b" }}>Fruta que sacaste del sistema como “salida por error”: no es venta ni descarte, por eso queda como ajuste.</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 4. Reasignaciones huérfanas */}
+                    {huerfanas.length > 0 && (
+                      <div data-testid="er-diag-huerfanas">
+                        <div style={{ fontWeight: 700, marginBottom: 4, color: "#b45309" }}>4. Reasignaciones huérfanas: {fmtKg(diag.kg_huerfanas)}</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          {huerfanas.map((h) => (
+                            <div key={h.id} style={{ display: "flex", justifyContent: "space-between", gap: 8, background: "#fffbeb", borderRadius: 6, padding: "5px 8px" }}>
+                              <span>{h.fecha} · <b>{h.canal_label}</b>{h.observaciones ? ` · ${h.observaciones}` : ""}</span>
+                              <b style={{ color: "#b45309", whiteSpace: "nowrap" }}>{fmtKg(h.cantidad_kg)}</b>
+                            </div>
+                          ))}
+                          <div style={{ fontSize: 11.5, color: "#64748b" }}>Fruta que salió de un canal pero cuya entrada al destino nunca se registró (bug viejo). Al desplegar, el sistema completa la entrada faltante automáticamente y este ajuste baja.</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 5. Desfase de fechas (residual positivo) */}
+                    {desfasePos > 0.01 && (
+                      <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 6, padding: "6px 8px", color: "#1d4ed8" }} data-testid="er-diag-desfase">
+                        <b>5. Desfase de fechas: {fmtKg(desfasePos)}</b>
+                        <div style={{ fontSize: 11.5, color: "#3b82f6", marginTop: 2 }}>
+                          Fruta cosechada en este período pero <b>reasignada o vendida en otro</b> (o al revés). El vendible se calcula por la fecha de COSECHA y la venta/reasignación por la fecha en que la hiciste. Pon el filtro en <b>“Todo”</b> para verlo sin recorte de fecha.
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Diferencia por período (lado negativo / sobreventa) */}
                     {diag.diferencia_periodo > 0.01 && (
                       <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 6, padding: "6px 8px", color: "#1d4ed8" }} data-testid="er-diag-periodo">
-                        <b>3. Diferencia por el filtro de fecha: {fmtKg(diag.diferencia_periodo)}</b>
+                        <b>Diferencia por el filtro de fecha: {fmtKg(diag.diferencia_periodo)}</b>
                         <div style={{ fontSize: 11.5, color: "#3b82f6", marginTop: 2 }}>
                           Vendiste fruta que fue cosechada FUERA de este período. No es un fantasma real. Pon el filtro en <b>“Todo”</b> para verlo sin recorte de fecha.
                         </div>
                       </div>
                     )}
 
-                    {nada && diag.diferencia_periodo <= 0.01 && (
+                    {nada && (
                       <div style={{ color: "#64748b", fontSize: 12 }}>No se detectó una causa clara; prueba a cambiar el filtro a “Todo”.</div>
                     )}
                   </div>
