@@ -1,0 +1,21 @@
+{
+  "summary": "Backend + Frontend testing for iter 47: reparar-reasignaciones-huerfanas (dry-run, apply, idempotence), nuevas claves en /analiticas/conciliacion-diagnostico (kg_salida_error, salidas_error, kg_huerfanas, huerfanas, desfase_positivo), reasignar con fecha elegida, regresión estado-resultados (mes<jun26 salarios=0), config/inicio-operaciones, toggle-activo trabajador. Frontend: Descarte sin tarjetas de dinero (Registros/En descarte kpi), Analíticas panel er-ajuste-diag-panel con secciones, formulario reasign con data-testid reasign-fecha visible, RRHH resumen-salario/toggles/bajas presentes.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/test_iteration_47_reparar_diag.py", "/app/test_reports/pytest/iter47.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py sigue en ~4030 líneas — considerar dividir en routers modulares (ventas, analiticas, rrhh, config, reparaciones).",
+    "En _reparar_huerfanas se parsea 'sobrantes a <label>' de las observaciones como fuente de verdad para el destino; si un usuario editara la observación se rompería el emparejamiento. Idealmente guardar reasignacion_destino en la salida original (ya se persiste en salidas modernas). Aceptable como reparación de datos legados.",
+    "Endpoint /reparar-reasignaciones-huerfanas no valida que dry_run sea 0 o 1 estrictamente (>1 se trata como no-dry); menor.",
+    "En _reasignar_ventas la validación de fecha solo verifica formato mínimo (10 chars); podría aceptar fechas inválidas si el prefijo tiene guiones erróneos. Se recomienda validar con date.fromisoformat."
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration_47_reparar_diag.py"],
+  "success_rate": {"backend": "100% (18/18 passed, 1 skipped)", "frontend": "100%"},
+  "test_credentials": "admin: oswaldabarca@gmail.com / Elvalle0612$",
+  "seed_data_creation": "Todos los seeds fueron marcados _test:True e insertados/eliminados dentro de cada test class (huerfana en ventas_ciudad; asignacion_destino en ventas_congelar). También se limpiaron 4 entradas 'TEST_Worker' remanentes de sesiones previas en la colección trabajadores.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Todos los cambios de iter 47 verificados end-to-end. Backend endpoint /api/reparar-reasignaciones-huerfanas es idempotente y admin-only (validación no-admin skippeada por falta de credenciales conocidas de usuario no-admin). Conciliación diagnóstico devuelve todas las nuevas claves y respeta coherencia (kg_huerfanas + desfase_positivo + kg_salida_error ≈ kg_ajuste_saldo>0). Reasignar con fecha crea AMBOS docs con la fecha elegida. Frontend Descarte solo tiene KPIs no-monetarios; el input reasign-fecha aparece cuando disponible>0 en el canal.",
+  "rca of the issue": "N/A — testing agent no encontró bugs en esta iteración."
+}

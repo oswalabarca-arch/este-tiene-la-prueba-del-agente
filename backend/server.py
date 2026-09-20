@@ -2149,6 +2149,10 @@ async def _reasignar_ventas(source_tipo: str, payload: ReasignarIn, allowed: tup
     fecha_prefix = (payload.fecha or "")[:10]
     if not fecha_prefix:
         raise HTTPException(400, "Fecha inválida.")
+    try:
+        date.fromisoformat(fecha_prefix)
+    except Exception:
+        raise HTTPException(400, "Fecha inválida (use YYYY-MM-DD).")
     coll = f"ventas_{source_tipo}"
     docs = await db[coll].find({}).to_list(20000)
     asignado = sum((d.get("cantidad_cestas", 0) or 0) for d in docs if d.get("origen") in RECIBIDO_ORIGINS)
