@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
@@ -63,6 +63,7 @@ function MoneyCard({ title, icon: Icon, color, value, sub, testid }) {
 const MOV_META = {
   asignacion_destino:  { label: "Asignación recibida", color: "#16a34a", entra: true },
   ajuste_entrada:      { label: "Ajuste (entrada)",     color: "#16a34a", entra: true },
+  reasignacion_ciudad: { label: "Reasignación recibida", color: "#16a34a", entra: true },
   reasignacion_salida: { label: "Reasignación (salida)", color: "#ea580c", entra: false },
   ajuste_salida:       { label: "Ajuste (salida)",      color: "#d97706", entra: false },
   salida_error:        { label: "Salida por error",     color: "#dc2626", entra: false },
@@ -203,14 +204,13 @@ function Ventas({ tipo }) {
   const esAjusteEntrada = (v) => v.origen === "ajuste_entrada";     // ajuste manual que SUMA
   const esAjusteSalida = (v) => v.origen === "ajuste_salida";       // ajuste manual que RESTA
   const esSalidaError = (v) => v.origen === "salida_error";         // fruta retirada del sistema (NO es venta)
-  const esRecibido = (v) => isAsig(v) || esAjusteEntrada(v);        // entradas de stock
+  const esReasigDescarteEntra = (v) => v.origen === "reasignacion_ciudad";  // fruta reasignada HACIA descarte = ENTRA (no es venta)
+  const esRecibido = (v) => isAsig(v) || esAjusteEntrada(v) || esReasigDescarteEntra(v);        // entradas de stock
   const esVentaReal = (v) => !esRecibido(v) && !esReasig(v) && !esAjusteSalida(v) && !esSalidaError(v); // venta/donación real
   const esHoy = (v) => (v.fecha || "").slice(0, 10) === realToday;
   const cestasDe = (v) => v.cantidad_cestas || 0;
 
   // Total de cestas sobre todos los registros (memoizado para evitar recálculo en cada render)
-  const totalCestas = useMemo(() => items.reduce((s, v) => s + (v.cantidad_cestas || 0), 0), [items]);
-
   // El "Registro" solo debe mostrar ventas/donaciones REALES. Excluye los
   // registros de sistema (asignación, ajustes de saldo y reasignaciones) que
   // no son ventas y descuadraban la suma del registro vs el Disponible acumulado.
@@ -510,8 +510,9 @@ function Ventas({ tipo }) {
 
       {!conPanel && (
         <div className="kpi-grid" style={{ marginBottom: 18 }}>
-          <div className="card kpi-card"><div className="kpi-label">Total registros</div><div className="kpi-value">{items.length}</div></div>
-          <div className="card kpi-card"><div className="kpi-label">Cestas</div><div className="kpi-value" style={{ color: meta.color }}>{totalCestas.toFixed(2)}</div></div>
+          <div className="card kpi-card"><div className="kpi-label">Registros</div><div className="kpi-value">{items.length}</div></div>
+          <div className="card kpi-card"><div className="kpi-label">En descarte ahora (cestas)</div><div className="kpi-value" style={{ color: meta.color }}>{Math.max(disponible, 0).toFixed(2)}</div></div>
+          <div className="card kpi-card"><div className="kpi-label">En descarte ahora (kg)</div><div className="kpi-value" style={{ color: meta.color }}>{(Math.max(disponible, 0) * 14).toFixed(2)}</div></div>
         </div>
       )}
 
@@ -821,7 +822,15 @@ function Ventas({ tipo }) {
                   <td>{new Date(v.fecha).toLocaleDateString()}</td>
                   <td>{v.cantidad_cestas}</td>
                   <td>{v.cantidad_kg}</td>
-                  <td>{v.origen === "asignacion_destino" ? <span className="badge" style={{ background: "#dcfce7", color: "#15803d" }}>Asignación</span> : <span style={{ color: "#94a3b8", fontSize: 12 }}>Manual</span>}</td>
+                  <td>{v.origen === "asignacion_destino"
+                    ? <span className="badge" style={{ background: "#dcfce7", color: "#15803d" }}>Descarte de cosecha</span>
+                    : v.origen === "reasignacion_ciudad"
+                      ? <span className="badge" style={{ background: "#dcfce7", color: "#15803d" }}>Reasignado (entra)</span>
+                      : v.origen === "reasignacion_salida"
+                        ? <span className="badge" style={{ background: "#ffedd5", color: "#c2410c" }}>Devuelto a canal</span>
+                        : v.origen === "salida_error"
+                          ? <span className="badge" style={{ background: "#fee2e2", color: "#b91c1c" }}>Salida por error</span>
+                          : <span style={{ color: "#94a3b8", fontSize: 12 }}>Ajuste</span>}</td>
                   <td>{v.observaciones || "—"}</td>
                   <td>{canDelete("ventas") && <button className="btn-icon" style={{ color: "#dc2626" }} onClick={() => remove(v)}><Trash2 size={16} /></button>}</td>
                 </tr>
