@@ -191,7 +191,7 @@ function RegistroDiario({ editable, puedeDesbloquear }) {
                   );
                 })}
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 7, marginLeft: "auto" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                 <label style={{ fontSize: 12, color: "#c2410c", fontWeight: 600, whiteSpace: "nowrap" }}>Horas extra</label>
                 <input type="number" step="0.5" min="0" className="input" disabled={!puedeMarcar}
                   style={{ width: 78, textAlign: "center", padding: "6px 6px", borderColor: (parseFloat(f.horas_extra) || 0) > 0 ? "#fb923c" : undefined }}
