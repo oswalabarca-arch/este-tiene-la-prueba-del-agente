@@ -6,6 +6,12 @@ import { User, Phone } from "lucide-react";
 let _cache = null;
 let _cacheAt = 0;
 
+// Invalida la caché (llamar tras crear/editar una venta para ver clientes nuevos al instante).
+export function invalidarClientesCache() {
+  _cache = null;
+  _cacheAt = 0;
+}
+
 /**
  * Input de nombre con autocompletado de compradores/beneficiarios.
  * Al escribir muestra coincidencias; al elegir una, rellena el nombre y
@@ -43,7 +49,7 @@ export function ClienteAutocomplete({ value, onChange, onSelect, placeholder, te
   const q = (value || "").trim().toLowerCase();
   const matches =
     q.length >= 1
-      ? opciones.filter((o) => o.cliente.toLowerCase().includes(q) && o.cliente.toLowerCase() !== q).slice(0, 8)
+      ? opciones.filter((o) => o.cliente.toLowerCase().includes(q)).slice(0, 8)
       : [];
   const showList = open && matches.length > 0;
 

@@ -6,7 +6,7 @@ import { Plus, Pencil, Trash2, Home, Truck, DollarSign, Snowflake, AlertCircle, 
 import { todayLocal } from "../lib/dates";
 import { PeriodPicker, currentMonthStr, currentYearStr, currentDayStr, currentWeekStr } from "../components/PeriodPicker";
 import { DecimalInput } from "../components/DecimalInput";
-import { ClienteAutocomplete } from "../components/ClienteAutocomplete";
+import { ClienteAutocomplete, invalidarClientesCache } from "../components/ClienteAutocomplete";
 
 const TIPO_META = {
   finca: { label: "Venta en finca", icon: Home, color: "#16a34a" },
@@ -367,6 +367,7 @@ function Ventas({ tipo }) {
     }
     toast.show(esDonacion ? "Donación registrada" : "Venta registrada");
     setNv(emptyNv);
+    invalidarClientesCache();
     load();
   };
 

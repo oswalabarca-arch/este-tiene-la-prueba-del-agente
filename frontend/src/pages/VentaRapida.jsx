@@ -3,7 +3,7 @@ import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
 import { DecimalInput } from "../components/DecimalInput";
-import { ClienteAutocomplete } from "../components/ClienteAutocomplete";
+import { ClienteAutocomplete, invalidarClientesCache } from "../components/ClienteAutocomplete";
 import { Zap, ShoppingCart, AlertCircle, CheckCircle2 } from "lucide-react";
 
 const KG = 14;
@@ -94,6 +94,7 @@ export default function VentaRapida() {
       });
       toast.show(`Venta registrada en ${canalCfg.label}`);
       setForm({ ...emptyForm, fecha: form.fecha });
+      invalidarClientesCache();
       load();
     } catch (err) {
       toast.show(err?.response?.data?.detail || "Error al registrar la venta", "error");

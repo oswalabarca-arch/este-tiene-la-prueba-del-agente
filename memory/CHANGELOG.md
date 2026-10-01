@@ -2,6 +2,12 @@
 
 ## 2026-06 (sesión fork actual)
 
+### Ventas · Autocompletado de comprador + autollenado de teléfono [Jun 2026]
+- En TODOS los módulos de venta, al escribir el nombre del comprador aparece un dropdown de sugerencias (clientes previos); al elegir uno se rellena el nombre y se autocompleta el teléfono si lo tiene.
+- **Backend:** nuevo `GET /api/clientes/sugerencias` — clientes distintos (nombre + último teléfono conocido) de ventas_finca/ciudad/refrigerar/congelar/donaciones, excluyendo orígenes de sistema.
+- **Frontend:** componente reutilizable `ClienteAutocomplete.jsx` (caché en memoria 60 s, invalidable). Integrado en: Ventas (nuevo ingreso `nv-cliente`, donaciones `nv-beneficiario`, modal edición `venta-form-cliente`) y Venta Rápida (`vr-cliente`). Se invalida la caché al registrar una venta para ver clientes nuevos al instante. Sigue funcionando como texto libre.
+- **Probado:** testing_agent iteración 49 → frontend 6/6 escenarios (ciudad, finca, donaciones, venta rápida, modal edición, texto libre). `/app/test_reports/iteration_49.json`.
+
 ### Control de Asistencia · HORAS EXTRAS [Jun 2026]
 - **Registro diario:** nuevo campo "Horas extra" por trabajador junto a Presente/Medio día (`asis-he-<id>`), se guarda al salir del campo vía `POST /api/asistencia/horas-extra`. Solo editable si el día NO está enviado/bloqueado (si está enviado → 423). Chip naranja con total de horas del día (`asis-diario-total-he`). Límite 0–24 h.
 - **Planilla semanal:** badge "+Nh" bajo la P/½ de cada día; nueva columna "Horas extra" (total de la semana) ENTRE "Jornales" y "Salario diario"; fila de totales con total de horas (`asis-total-he`).

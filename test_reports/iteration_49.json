@@ -1,0 +1,25 @@
+{
+  "summary": "Iteración 49: Autocompletado de clientes en TODOS los módulos de venta (ERP Agrícola). Verificación frontend end-to-end. Backend ya validado previamente: GET /api/clientes/sugerencias devuelve 3 clientes incluyendo {cliente:'oswald', telefono:'12345'}. Testing UI: (1) login admin OK. (2) /dashboard/ventas/ciudad → form Registrar nueva venta: al tipear 'os' en [data-testid=nv-cliente] aparece dropdown [nv-cliente-opciones] con opción 'oswald'; al hacer mousedown en [nv-cliente-opcion-0] el nombre se completa a 'oswald' y [nv-telefono] se autocompleta con '12345'. (3) /dashboard/ventas/finca → mismo flujo OK. (4) /dashboard/ventas/donaciones → autocompletado en [nv-beneficiario] rellena [nv-telefono]='12345' OK. (5) /dashboard/venta-rapida → [vr-cliente] + [vr-telefono] funciona OK. (6) Modal de edición de venta: [venta-form-cliente] abre dropdown, al elegir rellena [venta-form-telefono]='12345' OK. (7) Texto libre: al escribir 'zzz_xyz_nuevo' (sin match) no se muestra dropdown y el valor libre persiste en el input — comportamiento esperado. Todas las verificaciones pasaron.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ClienteAutocomplete.jsx usa caché module-level (_cache, _cacheAt) de 60s: funciona pero si el usuario crea una venta con un nuevo cliente desde otra pestaña del mismo módulo, el autocompletado no lo verá durante hasta 1 minuto. Considerar invalidar _cache tras un POST exitoso de venta.",
+    "El filtro 'o.cliente.toLowerCase() !== q' oculta la coincidencia exacta: si el usuario escribe 'oswald' completo pierde la sugerencia (y por tanto el autocompletado del teléfono). Para selección manual con teléfono, convendría mantener la opción visible aunque el nombre coincida exactamente, o auto-rellenar el teléfono cuando el valor exacto coincide con un cliente conocido.",
+    "El dropdown no tiene aria-roles (listbox/option) ni aria-activedescendant; mejora de accesibilidad.",
+    "server.py sigue >4000 líneas; el endpoint /clientes/sugerencias podría moverse a un router de clientes."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skip)", "frontend": "100% (6/6 escenarios: ciudad, finca, donaciones, venta-rapida, modal edición, texto libre)"},
+  "test_credentials": "admin: oswaldabarca@gmail.com / Elvalle0612$",
+  "seed_data_creation": "Ninguna. Se usó el cliente 'oswald' con teléfono '12345' ya existente en la BD de preview.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Autocompletado de clientes funcionando en Ventas (ciudad/finca/refrigerado/congelado comparten el mismo form nv-cliente), Donaciones (nv-beneficiario), Venta Rápida (vr-cliente) y modal de edición (venta-form-cliente). Los testids son: <base>, <base>-opciones, <base>-opcion-<i>. El dropdown aparece al enfocar y mientras q.length>=1; filtra por 'includes' insensible a mayúsculas y oculta la coincidencia exacta. Click en opción usa onMouseDown (dispatch_event('mousedown') en Playwright).",
+  "rca of the issue": "N/A — no se detectaron bugs."
+}
