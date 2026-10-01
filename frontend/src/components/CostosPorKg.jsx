@@ -88,6 +88,8 @@ export default function CostosPorKg() {
   const kgDispFisico = data?.cosecha?.kg_disponible_fisico;
   const kgAjuste = data?.cosecha?.kg_ajuste_saldo || 0;
   const kgSinAsignar = data?.cosecha?.kg_sin_asignar || 0;
+  const kgSaldoInicial = data?.cosecha?.kg_saldo_inicial || 0;
+  const tieneSaldoIni = Math.abs(kgSaldoInicial) > 0.01;
 
   return (
     <div className="card" style={{ width: "100%", margin: 0 }} data-testid="er-costos-kg-card">
@@ -119,6 +121,7 @@ export default function CostosPorKg() {
         <KgChip label="Kg descarte" value={kgDesc} testid="er-kg-descarte" />
         <KgChip label="Kg descarte reasig." value={kgDescRe} testid="er-kg-descarte-reasig" />
         <KgChip label="Kg donaciones" value={kgDon} testid="er-kg-donaciones" />
+        {tieneSaldoIni && <KgChip label="Saldo inicial (arrastre)" value={kgSaldoInicial} testid="er-kg-saldo-inicial" />}
         <KgChip label="Kg vendible" value={kgVend} testid="er-kg-vendible" />
       </div>
 
@@ -126,13 +129,21 @@ export default function CostosPorKg() {
         <div style={{ background: "#f5f3ff", border: "1px solid #ddd6fe", borderRadius: 8, padding: "10px 12px", marginBottom: 14 }} data-testid="er-conciliacion-kg">
           <div style={{ fontSize: 12, fontWeight: 700, color: "#7c3aed", marginBottom: 6 }}>Conciliación de kg del período</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 16, fontSize: 13, color: "#475569" }}>
-            <span>Vendible: <b style={{ color: "#0f172a" }}>{fmtKg(kgVend)}</b></span>
+            {tieneSaldoIni && (
+              <span data-testid="er-kg-saldo-inicial-conc">Saldo inicial: <b style={{ color: "#0369a1" }}>{fmtKg(kgSaldoInicial)}</b> +</span>
+            )}
+            <span>Vendible{tieneSaldoIni ? " del período" : ""}: <b style={{ color: "#0f172a" }}>{fmtKg(kgVend)}</b></span>
             <span>= Vendidos: <b style={{ color: "#15803d" }}>{fmtKg(kgVendidos)}</b></span>
             <span>+ Disponible sin colocar: <b style={{ color: kgDispFisico > 0.01 ? "#b45309" : "#0f172a" }} data-testid="er-kg-disponible">{fmtKg(kgDispFisico)}</b></span>
             {Math.abs(kgAjuste) > 0.01 && (
               <span>+ Ajustes de saldo: <b style={{ color: "#dc2626" }} data-testid="er-kg-ajuste">{fmtKg(kgAjuste)}</b></span>
             )}
           </div>
+          {tieneSaldoIni && (
+            <div style={{ marginTop: 8, fontSize: 11.5, color: "#0369a1", background: "#f0f9ff", borderRadius: 6, padding: "6px 8px" }} data-testid="er-saldo-inicial-nota">
+              ℹ️ "Saldo inicial" ({fmtKg(kgSaldoInicial)}) es la fruta vendible que venía de meses anteriores (arrastre). Por eso, aunque este mes no haya cosecha, la fruta reasignada o vendida que venía de antes ya no aparece como fantasma.
+            </div>
+          )}
           {kgDispFisico > 0.01 && (
             <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px dashed #ddd6fe" }} data-testid="er-disponible-desglose">
               <div style={{ fontSize: 11.5, fontWeight: 700, color: "#7c3aed", marginBottom: 6 }}>¿Dónde están esos kg sin colocar?</div>

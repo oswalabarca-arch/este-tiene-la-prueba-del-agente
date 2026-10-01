@@ -3117,6 +3117,53 @@ def _in_win(s, desde: Optional[str], hasta: Optional[str]) -> bool:
     return True
 
 
+async def _saldo_inicial_vendible(desde: Optional[str]) -> float:
+    """Saldo inicial del 'pool vendible' que se arrastra de períodos ANTERIORES a `desde`:
+    cosecha buena − donaciones − descarte reasignado − asignación a error − ventas reales,
+    todo con fecha estrictamente anterior a `desde`. Para 'todo' (desde=None) es 0.
+    Permite que la conciliación mensual reconozca la fruta que venía de meses previos y no la
+    cuente como fantasma al reasignarla/venderla. SOLO LECTURA."""
+    if not desde:
+        return 0.0
+
+    def _before(f):
+        s = str(f or "")[:10]
+        return len(s) == 10 and s < desde
+
+    cosecha_buena = 0.0
+    for c in await db.cosechas.find({}).to_list(20000):
+        if not _before(c.get("fecha_cosecha")):
+            continue
+        buena = (c.get("primera_calidad", 0) or 0) + (c.get("segunda_calidad", 0) or 0) + (c.get("tercera_calidad", 0) or 0)
+        mult = 1 if c.get("unidad") == "kg" else KG_POR_CESTA
+        cosecha_buena += buena * mult
+    don = 0.0
+    for d in await db.ventas_donaciones.find({}).to_list(20000):
+        if d.get("origen") in VENTA_SYSTEM_ORIGENES:
+            continue
+        if _before(d.get("fecha")):
+            don += float(d.get("cantidad_kg") or (d.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
+    descR = 0.0
+    for d in await db.ventas_descarte.find({}).to_list(20000):
+        if d.get("origen") in ("asignacion_destino", "reasignacion_salida"):
+            continue
+        if _before(d.get("fecha")):
+            descR += float(d.get("cantidad_kg") or (d.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
+    err = 0.0
+    for a in await db.asignaciones_destino.find({"destino": "asignacion_error"}).to_list(20000):
+        if _before(a.get("fecha")):
+            err += float(a.get("cantidad_kg") or (a.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
+    vendidos = 0.0
+    for tipo in ("finca", "ciudad", "refrigerar", "congelar"):
+        for v in await db[f"ventas_{tipo}"].find({}).to_list(20000):
+            o = v.get("origen")
+            if o in RECIBIDO_ORIGINS or o in VENTA_SYSTEM_ORIGENES:
+                continue
+            if _before(v.get("fecha")):
+                vendidos += float(v.get("cantidad_kg") or (v.get("cantidad_cestas", 0) or 0) * KG_POR_CESTA)
+    return round(cosecha_buena - don - descR - err - vendidos, 2)
+
+
 @api.get("/analiticas/costos-kg")
 async def costos_kg_filtrado(gran: str = "todo", anchor: Optional[str] = None, _: dict = Depends(get_current_user)):
     """Costos por kg para una ventana de tiempo (todo/semana/mes/anio). SOLO LECTURA.
@@ -3235,8 +3282,11 @@ async def costos_kg_filtrado(gran: str = "todo", anchor: Optional[str] = None, _
     kg_sin_asignar = round(max(cosecha_buena - kg_asignado, 0), 2)
     # DISPONIBLE FÍSICO real = lo que queda en canales + lo cosechado sin asignar
     kg_disponible_fisico = round(kg_en_canales + kg_sin_asignar, 2)
-    # DIFERENCIA POR AJUSTES DE SALDO = residuo (vendible−vendidos) que NO corresponde a fruta física
-    kg_ajuste_saldo = round(kg_disponible - kg_disponible_fisico, 2)
+    # SALDO INICIAL del pool vendible (fruta sellable arrastrada de meses anteriores). Permite
+    # que la conciliación mensual no muestre fantasmas al reasignar/vender fruta de períodos previos.
+    kg_saldo_inicial = await _saldo_inicial_vendible(desde)
+    # AJUSTE DE SALDO = residuo que NO corresponde a fruta física, contando el arrastre inicial.
+    kg_ajuste_saldo = round((kg_saldo_inicial + kg_disponible) - kg_disponible_fisico, 2)
 
     # SALARIOS prorrateados por dias de la ventana (calculados POR TRABAJADOR: cada uno suma
     # solo mientras estuvo activo, desde el inicio de operaciones y hasta su fecha de baja)
@@ -3288,7 +3338,7 @@ async def costos_kg_filtrado(gran: str = "todo", anchor: Optional[str] = None, _
         "desde": desde,
         "hasta": hasta,
         "dias": dias,
-        "cosecha": {"kg_cosechados": kg_cosechados, "kg_descarte": kg_descarte, "kg_donaciones": kg_donaciones, "kg_descarte_reasignado": kg_descarte_reasignado, "kg_vendible": kg_vendible, "kg_vendidos": kg_vendidos, "kg_disponible": kg_disponible, "disponible_canales": disponible_canales, "kg_sin_asignar": kg_sin_asignar, "kg_disponible_fisico": kg_disponible_fisico, "kg_ajuste_saldo": kg_ajuste_saldo},
+        "cosecha": {"kg_cosechados": kg_cosechados, "kg_descarte": kg_descarte, "kg_donaciones": kg_donaciones, "kg_descarte_reasignado": kg_descarte_reasignado, "kg_vendible": kg_vendible, "kg_vendidos": kg_vendidos, "kg_disponible": kg_disponible, "disponible_canales": disponible_canales, "kg_sin_asignar": kg_sin_asignar, "kg_disponible_fisico": kg_disponible_fisico, "kg_saldo_inicial": kg_saldo_inicial, "kg_ajuste_saldo": kg_ajuste_saldo},
         "costo_ventas": round(total_costo, 2),
         "gastos_operativos": {"salarios": salarios, "gastos_vehiculo": round(gastos_vehiculo, 2), "total": total_gastos_op},
         "costo_por_kg": round(total_costo / kg_cosechados, 4) if kg_cosechados > 0 else 0,
@@ -3340,13 +3390,18 @@ async def conciliacion_diagnostico(gran: str = "todo", anchor: Optional[str] = N
     for tipo in ("finca", "ciudad", "refrigerar", "congelar"):
         recibido_c = usado_c = ventas_reales_c = 0.0
         aj_entrada_c = aj_salida_c = 0.0
+        saldo_inicial_c = 0.0  # neto de cestas arrastrado de meses ANTERIORES al período
         movs_dia = {}  # fecha(YYYY-MM-DD) -> neto de cestas (recibido +, usado -)
         for v in await db[f"ventas_{tipo}"].find({}).to_list(20000):
-            if not _in_win(v.get("fecha"), desde, hasta):
-                continue
             cest = float(v.get("cantidad_cestas", 0) or 0)
             origen = v.get("origen")
             dia = (v.get("fecha") or "")[:10]
+            if desde and len(dia) == 10 and dia < desde:
+                # Arrastre de períodos previos: neto (recibido +, usado −)
+                saldo_inicial_c += cest if origen in RECIBIDO_ORIGINS else -cest
+                continue
+            if not _in_win(v.get("fecha"), desde, hasta):
+                continue
             if origen in RECIBIDO_ORIGINS:
                 recibido_c += cest
                 movs_dia[dia] = movs_dia.get(dia, 0.0) + cest
@@ -3360,7 +3415,8 @@ async def conciliacion_diagnostico(gran: str = "todo", anchor: Optional[str] = N
                 if origen not in VENTA_SYSTEM_ORIGENES:  # venta real
                     ventas_reales_c += cest
                     kg_vendidos += float(v.get("cantidad_kg") or cest * KG_POR_CESTA)
-        sobre_c = max(usado_c - recibido_c, 0.0)
+        saldo_inicial_c = max(saldo_inicial_c, 0.0)
+        sobre_c = max(usado_c - recibido_c - saldo_inicial_c, 0.0)
         sobre_kg = round(sobre_c * KG_POR_CESTA, 2)
         sobrevendido_kg_total += sobre_kg
         # Desglose por fecha: recorre los días en orden y marca cuándo el saldo se vuelve negativo
@@ -3369,7 +3425,8 @@ async def conciliacion_diagnostico(gran: str = "todo", anchor: Optional[str] = N
             # Recorre los días en orden; el descuadre REAL es el que persiste al final
             # (asignaciones de días posteriores pueden cubrir usos anteriores). Reportamos
             # la fecha desde la cual el saldo quedó negativo sin recuperarse, con el neto final.
-            running = 0.0
+            # Arranca del saldo inicial arrastrado para no marcar déficit por fruta de meses previos.
+            running = saldo_inicial_c
             inicio_deficit = None
             for dia in sorted(movs_dia.keys()):
                 running = round(running + movs_dia[dia], 4)
@@ -3383,6 +3440,7 @@ async def conciliacion_diagnostico(gran: str = "todo", anchor: Optional[str] = N
         canales.append({
             "canal": tipo, "label": LABELS_CANAL[tipo],
             "recibido_cestas": round(recibido_c, 2), "usado_cestas": round(usado_c, 2),
+            "saldo_inicial_cestas": round(saldo_inicial_c, 2),
             "ventas_reales_cestas": round(ventas_reales_c, 2),
             "ajuste_entrada_cestas": round(aj_entrada_c, 2), "ajuste_salida_cestas": round(aj_salida_c, 2),
             "sobrevendido_cestas": round(sobre_c, 2), "sobrevendido_kg": sobre_kg,
@@ -3423,6 +3481,7 @@ async def conciliacion_diagnostico(gran: str = "todo", anchor: Optional[str] = N
     kg_error_asignado = round(kg_error_asignado, 2)
     kg_vendible = round(kg_cosechados - round(kg_donaciones, 2) - kg_descarte - round(kg_descarte_reasignado, 2) - kg_error_asignado, 2)
     kg_vendidos = round(kg_vendidos, 2)
+    kg_saldo_inicial = await _saldo_inicial_vendible(desde)
     kg_ajuste_saldo = round(kg_vendible - kg_vendidos, 2)  # residuo antes de disponible físico (negativo = fantasma)
     sobrevendido_kg_total = round(sobrevendido_kg_total, 2)
     # Diferencia por período: lo que NO se explica por canales sobrevendidos ni ajustes manuales.
@@ -3478,7 +3537,7 @@ async def conciliacion_diagnostico(gran: str = "todo", anchor: Optional[str] = N
 
     return {
         "gran": gran, "desde": desde, "hasta": hasta,
-        "kg_vendible": kg_vendible, "kg_vendidos": kg_vendidos, "kg_ajuste_saldo": kg_ajuste_saldo,
+        "kg_vendible": kg_vendible, "kg_vendidos": kg_vendidos, "kg_saldo_inicial": kg_saldo_inicial, "kg_ajuste_saldo": kg_ajuste_saldo,
         "canales": canales,
         "sobrevendido_kg_total": sobrevendido_kg_total,
         "ajustes_manuales": ajustes,

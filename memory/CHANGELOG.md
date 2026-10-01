@@ -2,6 +2,16 @@
 
 ## 2026-06 (sesión fork actual)
 
+### Analíticas · Conciliación con SALDO INICIAL (arrastre entre meses) — Opción A [Jun 2026]
+- **Problema:** en la vista "Mes" la conciliación reiniciaba el saldo de cada canal a CERO al empezar el mes. Si reasignabas/vendías fruta que venía de un mes anterior (ej. 2 cestas a Ciudad y 5 a Refrigerado del 28-sep reasignadas a descarte el 1-oct), el mes lo veía como "vendiste más de lo asignado" → Kg vendible negativo (-98.56) y canales falsamente sobrevendidos. El "Disponible" (acumulado) sí arrastraba el stock, pero el "saldo del canal" mensual no → sin relación aparente.
+- **Fix (backend `server.py`):**
+  - Nuevo helper `_saldo_inicial_vendible(desde)`: calcula el pool vendible neto arrastrado de períodos ANTERIORES a `desde` (cosecha buena − donaciones − descarte reasig − error − ventas reales, con fecha < desde). Para "Todo" (desde=None) = 0.
+  - `/analiticas/costos-kg`: añade `kg_saldo_inicial` y recomputa `kg_ajuste_saldo = (kg_saldo_inicial + kg_disponible) − kg_disponible_fisico`. En el mes actual el ajuste ahora coincide con el fantasma real de la vista "Todo" (ya no muestra ruido por corte de mes).
+  - `/analiticas/conciliacion-diagnostico`: el cálculo por canal de "sobrevendido" ahora resta el `saldo_inicial_c` (arrastre de cestas de meses previos, clamp ≥0) → `sobre_c = max(usado − recibido − saldo_inicial_c, 0)`. El desglose día a día arranca del saldo inicial. Se expone `saldo_inicial_cestas` por canal y `kg_saldo_inicial`. (La fórmula interna de `kg_ajuste_saldo` del diagnóstico se dejó como antes para no meter "desfase" espurio en meses vacíos.)
+- **Fix (frontend `CostosPorKg.jsx`):** nuevo chip "Saldo inicial (arrastre)" y término en la Conciliación ("Saldo inicial X + Vendible del período Y = Vendidos + Disponible + Ajuste"), con nota explicativa azul. Solo se muestra cuando hay arrastre y gran ≠ Todo.
+- **Verificado (curl API externa):** mes oct 2026 → diagnóstico limpio (saldo_ini 224, ajuste 0, sin desfase/sobrevendido falso); la vista "Todo" mantiene el fantasma real preexistente (-126 en preview, no regresión). Frontend compila OK.
+
+
 ### Analíticas · Precio promedio de venta [14/06/2026]
 - Nuevo panel **"Precio promedio de venta"** en Analíticas, debajo de "Costos por kilogramo" (solo lectura sobre los canales de Ventas; no toca otros módulos). Promedio ponderado por kg y por cesta de todas las ventas reales (finca + ciudad + refrigerar + congelar), con desglose **por canal**. 1 cesta = 14 kg.
 - **Filtro propio Semana/Mes/Año** [14/06/2026]: el panel se movió a su propio componente `components/PrecioPromedioVenta.jsx` con filtro independiente (Todo/Semana/Mes/Año + fecha ancla, semana lunes→domingo). Calcula todo en el frontend con los GET de los 4 canales de ventas (desacoplado del filtro del Estado de Resultados, que NO cambió). Se removió el cálculo `venta_promedio` del backend `_build_estado_resultados`.
