@@ -6,6 +6,7 @@ import { Plus, Pencil, Trash2, Home, Truck, DollarSign, Snowflake, AlertCircle, 
 import { todayLocal } from "../lib/dates";
 import { PeriodPicker, currentMonthStr, currentYearStr, currentDayStr, currentWeekStr } from "../components/PeriodPicker";
 import { DecimalInput } from "../components/DecimalInput";
+import { ClienteAutocomplete } from "../components/ClienteAutocomplete";
 
 const TIPO_META = {
   finca: { label: "Venta en finca", icon: Home, color: "#16a34a" },
@@ -576,7 +577,7 @@ function Ventas({ tipo }) {
               </div>
             )}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
-              <div className="field"><label>Nombre del cliente *</label><input className="input" placeholder="Ej: Juan Pérez" value={nv.cliente} onChange={(e) => setNv({ ...nv, cliente: e.target.value })} data-testid="nv-cliente" /></div>
+              <div className="field"><label>Nombre del cliente *</label><ClienteAutocomplete placeholder="Ej: Juan Pérez" value={nv.cliente} onChange={(val) => setNv({ ...nv, cliente: val })} onSelect={(o) => setNv((prev) => ({ ...prev, cliente: o.cliente, telefono: o.telefono || prev.telefono }))} testid="nv-cliente" /></div>
               <div className="field"><label>Teléfono</label><input className="input" placeholder="Ej: 0414-1234567" value={nv.telefono} onChange={(e) => setNv({ ...nv, telefono: e.target.value })} data-testid="nv-telefono" /></div>
               {modoKg ? (
                 <>
@@ -722,7 +723,7 @@ function Ventas({ tipo }) {
             <h3 style={{ margin: 0, color: "#be185d", display: "flex", alignItems: "center", gap: 8 }}><Plus size={18} /> Registrar nueva donación</h3>
             <div style={{ color: "#64748b", fontSize: 13, margin: "4px 0 16px" }}>Completá los campos y pulsá "Registrar". La donación se agrega al registro de abajo (sin valor de venta).</div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
-              <div className="field"><label>Beneficiario *</label><input className="input" placeholder="Ej: Comedor San José" value={nv.cliente} onChange={(e) => setNv({ ...nv, cliente: e.target.value })} data-testid="nv-beneficiario" /></div>
+              <div className="field"><label>Beneficiario *</label><ClienteAutocomplete placeholder="Ej: Comedor San José" value={nv.cliente} onChange={(val) => setNv({ ...nv, cliente: val })} onSelect={(o) => setNv((prev) => ({ ...prev, cliente: o.cliente, telefono: o.telefono || prev.telefono }))} testid="nv-beneficiario" /></div>
               <div className="field"><label>Teléfono</label><input className="input" placeholder="Ej: 0414-1234567" value={nv.telefono} onChange={(e) => setNv({ ...nv, telefono: e.target.value })} data-testid="nv-telefono" /></div>
               <div className="field"><label>Cantidad de cestas *</label><DecimalInput type="number" step="0.01" min="0" className="input" placeholder="0" value={numv(nv.cantidad_cestas)} onChange={(e) => setNv({ ...nv, cantidad_cestas: e.target.value })} data-testid="nv-cestas" /></div>
               <div className="field"><label>Fecha</label><input type="date" className="input" value={nv.fecha} onChange={(e) => setNv({ ...nv, fecha: e.target.value })} data-testid="nv-fecha" /></div>
@@ -957,7 +958,7 @@ function VentaForm({ tipo, initial = {}, onClose, onSaved }) {
       <form className="modal" style={{ maxWidth: 640 }} onClick={(e) => e.stopPropagation()} onSubmit={submit} data-testid="venta-modal">
         <h2 className="modal-title">{isEdit ? (esDon ? "Editar donación" : "Editar registro de venta") : (esDon ? "Nueva donación" : "Nuevo registro de venta")}</h2>
         <div className="form-grid">
-          <div className="field"><label>{esDon ? "Beneficiario" : "Nombre del cliente"}</label><input className="input" value={form.cliente} onChange={(e) => setForm({ ...form, cliente: e.target.value })} data-testid="venta-form-cliente" /></div>
+          <div className="field"><label>{esDon ? "Beneficiario" : "Nombre del cliente"}</label><ClienteAutocomplete value={form.cliente} onChange={(val) => setForm({ ...form, cliente: val })} onSelect={(o) => setForm((prev) => ({ ...prev, cliente: o.cliente, telefono: o.telefono || prev.telefono }))} placeholder={esDon ? "Ej: Comedor San José" : "Ej: Juan Pérez"} testid="venta-form-cliente" /></div>
           <div className="field"><label>Teléfono</label><input className="input" value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} placeholder="Ej: 0414-1234567" data-testid="venta-form-telefono" /></div>
           <div className="field"><label>Cantidad de cestas</label><DecimalInput type="number" step="0.01" min="0" className="input" value={num(form.cantidad_cestas)} placeholder="0" onChange={(e) => onCestasChange(e.target.value)} required data-testid="venta-form-cestas" /></div>
           {!esDon && <div className="field"><label>Precio por cesta ($)</label><DecimalInput type="number" step="0.01" min="0" className="input" value={num(form.precio_unitario)} placeholder="0" onChange={(e) => onPrecioChange(e.target.value)} required data-testid="venta-form-precio" /></div>}

@@ -2736,6 +2736,39 @@ VENTA_SYSTEM_ORIGENES = ("asignacion_destino", "ajuste_entrada", "ajuste_salida"
 SALARIO_DIAS_MES = 30  # factor para convertir salario diario -> mensual
 
 
+@api.get("/clientes/sugerencias")
+async def clientes_sugerencias(_: dict = Depends(get_current_user)):
+    """Lista de compradores/beneficiarios distintos (nombre + último teléfono conocido)
+    extraídos de todas las ventas reales (finca, ciudad, refrigerar, congelar, donaciones).
+    Alimenta el autocompletado del nombre en los formularios de venta. SOLO LECTURA."""
+    acc: Dict[str, Dict[str, Any]] = {}
+    for tipo in ("finca", "ciudad", "refrigerar", "congelar", "donaciones"):
+        for v in await db[f"ventas_{tipo}"].find({}).to_list(20000):
+            if v.get("origen") in VENTA_SYSTEM_ORIGENES:
+                continue
+            nombre = (v.get("cliente") or "").strip()
+            if not nombre:
+                continue
+            tel = (v.get("telefono") or "").strip()
+            fecha = str(v.get("fecha") or "")[:10]
+            key = nombre.lower()
+            cur = acc.get(key)
+            if not cur:
+                acc[key] = {"cliente": nombre, "telefono": tel, "_fecha": fecha}
+            else:
+                # conserva el teléfono del registro más reciente que tenga teléfono
+                if tel and fecha >= cur.get("_fecha", ""):
+                    cur["telefono"] = tel
+                    cur["_fecha"] = fecha
+                elif not cur.get("telefono") and tel:
+                    cur["telefono"] = tel
+    out = [{"cliente": a["cliente"], "telefono": a["telefono"]} for a in acc.values()]
+    out.sort(key=lambda x: x["cliente"].lower())
+    return {"clientes": out}
+
+
+
+
 def _en_periodo(s, anio: int, mes: Optional[int]) -> bool:
     """Compara por prefijo de fecha (YYYY-MM-DD) para agrupar por mes/año calendario sin desfases de zona horaria."""
     if not s:

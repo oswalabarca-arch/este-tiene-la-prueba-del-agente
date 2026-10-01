@@ -3,6 +3,7 @@ import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
 import { DecimalInput } from "../components/DecimalInput";
+import { ClienteAutocomplete } from "../components/ClienteAutocomplete";
 import { Zap, ShoppingCart, AlertCircle, CheckCircle2 } from "lucide-react";
 
 const KG = 14;
@@ -155,7 +156,7 @@ export default function VentaRapida() {
                 </div>
                 <div className="field" style={{ margin: 0 }}>
                   <label>Cliente</label>
-                  <input className="input" placeholder="Nombre" value={form.cliente} onChange={(e) => setForm({ ...form, cliente: e.target.value })} data-testid="vr-cliente" />
+                  <ClienteAutocomplete placeholder="Nombre" value={form.cliente} onChange={(val) => setForm({ ...form, cliente: val })} onSelect={(o) => setForm((prev) => ({ ...prev, cliente: o.cliente, telefono: o.telefono || prev.telefono }))} testid="vr-cliente" />
                 </div>
                 <div className="field" style={{ margin: 0 }}>
                   <label>Teléfono</label>
