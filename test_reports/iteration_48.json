@@ -1,0 +1,31 @@
+{
+  "summary": "Iteración 48: HORAS EXTRAS en Control de Asistencia (ERP Agrícola). Backend: 6/6 pytest OK para POST /asistencia/horas-extra (persistencia, cero elimina, conservación al desmarcar, bloqueo 423 cuando enviado, cálculo BCV semanal 12+2*(12/8)=15, resumen mensual con horas_extra). Frontend end-to-end: login admin, Registro diario con input asis-he-<id> guardando por blur, chip asis-diario-total-he mostrando '2 h extra', persistencia tras reload confirmada, Planilla semanal con nueva columna 'Horas extra' entre 'Jornales' y 'Salario diario $', badges +Nh por día, celda asis-he-sem-<id>=2, asis-bcv-<id>=15,00, asis-total-he poblado, y Resumen mensual con columna Horas extra + totales.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_48_horas_extra.py",
+    "/app/test_reports/pytest/iter48.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py sigue >4000 líneas — endpoints de asistencia (obreros, dia, semana, resumen, horas-extra, config) ya forman un bloque natural para extraer a routers/asistencia.py.",
+    "GET /asistencia/semana no acepta parámetro para alinear la semana con una fecha que el frontend quiera inspeccionar en pruebas (usa 'fecha' sí, pero el frontend al cargar Planilla semanal fija 'semana actual'); sin impacto funcional, pero complica QA cuando se setean datos en fechas futuras.",
+    "HorasExtraIn.horas_extra no está acotado superiormente; podría aceptar valores absurdos (p.ej. 999). Considerar validación 0 <= h <= 24.",
+    "El frontend hace optimistic update y luego POST; si el POST falla no revierte el estado local (guardarHorasExtra sin rollback). Agregar manejo de error con revert y toast.",
+    "Reutilización de código: el patrón 'si estado+horas_extra ambos vacíos → delete doc' aparece en marcar y en set_horas_extra; extraer helper."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration_48_horas_extra.py"
+  ],
+  "success_rate": {"backend": "100% (6/6)", "frontend": "100% (todas las pantallas y testids verificados)"},
+  "test_credentials": "admin: oswaldabarca@gmail.com / Elvalle0612$",
+  "seed_data_creation": "Se usó el primer obrero activo existente (993642a1-...). Se escribió config semanal (salario_default=12, tasa=100) sobre el lunes de la semana de prueba y se limpió horas_extra y estado al terminar. Backend tests dejan la BD limpia (fixtures con cleanup).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Todas las piezas de horas extras (API + UI) están funcionando. Backend endpoint POST /asistencia/horas-extra es idempotente, bloquea con 423 cuando el día está enviado, y los agregados en /asistencia/semana y /asistencia/resumen-mensual incluyen horas_extra y bcv recalculado. En UI, planilla semanal auto-carga la semana actual (no la fecha de registro diario), lo que puede confundir si uno escribe HE en una fecha futura; el badge por día usa testid asis-he-dia-<obrero>-<YYYY-MM-DD>.",
+  "rca of the issue": "N/A — no se detectaron bugs."
+}

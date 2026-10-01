@@ -2,6 +2,13 @@
 
 ## 2026-06 (sesión fork actual)
 
+### Control de Asistencia · HORAS EXTRAS [Jun 2026]
+- **Registro diario:** nuevo campo "Horas extra" por trabajador junto a Presente/Medio día (`asis-he-<id>`), se guarda al salir del campo vía `POST /api/asistencia/horas-extra`. Solo editable si el día NO está enviado/bloqueado (si está enviado → 423). Chip naranja con total de horas del día (`asis-diario-total-he`). Límite 0–24 h.
+- **Planilla semanal:** badge "+Nh" bajo la P/½ de cada día; nueva columna "Horas extra" (total de la semana) ENTRE "Jornales" y "Salario diario"; fila de totales con total de horas (`asis-total-he`).
+- **Cálculo de dinero:** día = 8 h, 1 hora extra = salario_diario / 8. `BCV $ = jornales × salario + horas_extra × (salario/8)`. Ej.: salario 12$ + 2 h extra en un día Presente → 12 + 2×1.5 = **15$**. Incluido también en Resumen mensual (columna + totales).
+- **Backend:** `horas_extra` se guarda en `asistencia_registros`. Endpoints afectados: `/asistencia/dia` (devuelve horas_extra por fila), `/asistencia/semana` (`horas_dias`, `horas_extra`, `total_horas_extra`, bcv recalculado), `/asistencia/resumen-mensual` (horas_extra + bcv con extras), nuevo `POST /asistencia/horas-extra`. Desmarcar presencia conserva las horas extra; poner horas en 0 las elimina.
+- **Verificado:** testing_agent iteración 48 → backend 6/6 y frontend 100% (todas las pantallas y testids). `/app/test_reports/iteration_48.json`.
+
 ### Analíticas · Conciliación con SALDO INICIAL (arrastre entre meses) — Opción A [Jun 2026]
 - **Problema:** en la vista "Mes" la conciliación reiniciaba el saldo de cada canal a CERO al empezar el mes. Si reasignabas/vendías fruta que venía de un mes anterior (ej. 2 cestas a Ciudad y 5 a Refrigerado del 28-sep reasignadas a descarte el 1-oct), el mes lo veía como "vendiste más de lo asignado" → Kg vendible negativo (-98.56) y canales falsamente sobrevendidos. El "Disponible" (acumulado) sí arrastraba el stock, pero el "saldo del canal" mensual no → sin relación aparente.
 - **Fix (backend `server.py`):**

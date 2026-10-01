@@ -3859,6 +3859,8 @@ async def set_horas_extra(payload: HorasExtraIn, _: dict = Depends(get_current_u
     if not await db.asistencia_obreros.find_one({"_id": payload.obrero_id}):
         raise HTTPException(404, "Obrero no encontrado")
     horas = max(float(payload.horas_extra or 0), 0.0)
+    if horas > 24:
+        horas = 24.0
     if horas <= 0:
         # Quitar horas extras: si el registro no tiene estado, se elimina; si lo tiene, solo limpia horas.
         reg = await db.asistencia_registros.find_one({"obrero_id": payload.obrero_id, "fecha": fecha})
