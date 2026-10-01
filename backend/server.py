@@ -231,7 +231,7 @@ async def create_admin_public(payload: CreateAdminIn):
 MODULOS_DISPONIBLES = [
     "usuarios", "control_asistencia", "plantaciones", "equipos", "actividades", "aplicaciones",
     "cosecha", "asignacion_destino", "ventas", "venta_rapida", "deuda", "frio", "inventario",
-    "ficha_tecnica", "compras", "analiticas", "recursos_humanos",
+    "ficha_tecnica", "compras", "analiticas", "recursos_humanos", "estadistica_compradores",
 ]
 
 ROLES = ["administrador", "ingeniero", "encargado_campo", "operario"]
@@ -2765,6 +2765,113 @@ async def clientes_sugerencias(_: dict = Depends(get_current_user)):
     out = [{"cliente": a["cliente"], "telefono": a["telefono"]} for a in acc.values()]
     out.sort(key=lambda x: x["cliente"].lower())
     return {"clientes": out}
+
+
+DIAS_SEMANA_ES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+CANALES_COMPRA = ("finca", "ciudad", "refrigerar", "congelar")
+
+
+@api.get("/estadisticas/compradores")
+async def estadisticas_compradores(desde: Optional[str] = None, hasta: Optional[str] = None, _: dict = Depends(get_current_user)):
+    """Estadísticas de compradores a partir de TODAS las ventas reales (finca, ciudad, refrigerar, congelar).
+    Devuelve ranking de compradores (cestas/kg/monto/transacciones), totales y análisis por día de la
+    semana (incluido el mejor comprador de cada día). SOLO LECTURA: no toca la estructura de ventas."""
+    def _in(f):
+        d = str(f or "")[:10]
+        if len(d) < 10:
+            return False
+        if desde and d < desde:
+            return False
+        if hasta and d > hasta:
+            return False
+        return True
+
+    comp: Dict[str, Dict[str, Any]] = {}
+    dow = [{"dia": i, "label": DIAS_SEMANA_ES[i], "cestas": 0.0, "kg": 0.0, "monto": 0.0, "transacciones": 0, "_comp": {}} for i in range(7)]
+    for tipo in CANALES_COMPRA:
+        for v in await db[f"ventas_{tipo}"].find({}).to_list(50000):
+            if v.get("origen") in VENTA_SYSTEM_ORIGENES:
+                continue
+            nombre = (v.get("cliente") or "").strip()
+            if not nombre:
+                continue
+            fecha = str(v.get("fecha") or "")[:10]
+            if not _in(fecha):
+                continue
+            cest = float(v.get("cantidad_cestas") or 0)
+            if cest <= 0:
+                kgv = float(v.get("cantidad_kg") or 0)
+                cest = round(kgv / KG_POR_CESTA, 2) if kgv else 0.0
+            kg = float(v.get("cantidad_kg") or (cest * KG_POR_CESTA))
+            monto = float(v.get("total") or 0)
+            tel = (v.get("telefono") or "").strip()
+            key = nombre.lower()
+            c = comp.get(key)
+            if not c:
+                c = comp[key] = {"cliente": nombre, "telefono": tel, "cestas": 0.0, "kg": 0.0, "monto": 0.0,
+                                 "transacciones": 0, "primera_compra": fecha, "ultima_compra": fecha,
+                                 "canales": {t: 0.0 for t in CANALES_COMPRA}}
+            c["cestas"] += cest
+            c["kg"] += kg
+            c["monto"] += monto
+            c["transacciones"] += 1
+            c["canales"][tipo] += cest
+            if tel and fecha >= c["ultima_compra"]:
+                c["telefono"] = tel
+            if fecha < c["primera_compra"]:
+                c["primera_compra"] = fecha
+            if fecha > c["ultima_compra"]:
+                c["ultima_compra"] = fecha
+            try:
+                wd = date.fromisoformat(fecha).weekday()
+            except Exception:
+                wd = None
+            if wd is not None:
+                dd = dow[wd]
+                dd["cestas"] += cest
+                dd["kg"] += kg
+                dd["monto"] += monto
+                dd["transacciones"] += 1
+                cc = dd["_comp"].setdefault(key, {"cliente": nombre, "cestas": 0.0, "monto": 0.0})
+                cc["cestas"] += cest
+                cc["monto"] += monto
+
+    compradores = []
+    for c in comp.values():
+        compradores.append({"cliente": c["cliente"], "telefono": c["telefono"],
+                            "cestas": round(c["cestas"], 2), "kg": round(c["kg"], 2), "monto": round(c["monto"], 2),
+                            "transacciones": c["transacciones"], "primera_compra": c["primera_compra"],
+                            "ultima_compra": c["ultima_compra"],
+                            "canales": {k: round(val, 2) for k, val in c["canales"].items()}})
+    compradores.sort(key=lambda x: (-x["cestas"], -x["monto"]))
+
+    por_dia = []
+    for dd in dow:
+        top = None
+        if dd["_comp"]:
+            tk = max(dd["_comp"].values(), key=lambda z: z["cestas"])
+            if tk["cestas"] > 0:
+                top = {"cliente": tk["cliente"], "cestas": round(tk["cestas"], 2), "monto": round(tk["monto"], 2)}
+        por_dia.append({"dia": dd["dia"], "label": dd["label"], "cestas": round(dd["cestas"], 2),
+                        "kg": round(dd["kg"], 2), "monto": round(dd["monto"], 2),
+                        "transacciones": dd["transacciones"], "top_comprador": top})
+
+    mejor_dia = None
+    if any(d["cestas"] > 0 for d in por_dia):
+        md = max(por_dia, key=lambda z: z["cestas"])
+        mejor_dia = {"dia": md["dia"], "label": md["label"], "cestas": md["cestas"], "monto": md["monto"], "top_comprador": md["top_comprador"]}
+
+    totales = {
+        "cestas": round(sum(c["cestas"] for c in compradores), 2),
+        "kg": round(sum(c["kg"] for c in compradores), 2),
+        "monto": round(sum(c["monto"] for c in compradores), 2),
+        "transacciones": sum(c["transacciones"] for c in compradores),
+        "compradores_unicos": len(compradores),
+    }
+    return {"compradores": compradores, "totales": totales, "por_dia_semana": por_dia,
+            "mejor_dia": mejor_dia, "desde": desde, "hasta": hasta}
+
+
 
 
 
