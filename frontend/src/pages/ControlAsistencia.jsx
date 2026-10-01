@@ -88,6 +88,18 @@ function RegistroDiario({ editable, puedeDesbloquear }) {
     load();
   };
 
+  const guardarHorasExtra = async (obrero_id, valor) => {
+    if (!puedeMarcar) return;
+    const horas = valor === "" ? 0 : Math.max(parseFloat(valor) || 0, 0);
+    setData((d) => ({ ...d, filas: d.filas.map((f) => f.obrero_id === obrero_id ? { ...f, horas_extra: horas } : f) }));
+    try {
+      await api.post("/asistencia/horas-extra", { obrero_id, fecha, horas_extra: horas });
+    } catch {
+      toast.show("Error al guardar las horas extra", "error");
+      load();
+    }
+  };
+
   const enviarAsistencia = async () => {
     if (!window.confirm("¿Enviar la asistencia de este día? Quedará bloqueada y no se podrá modificar (salvo con permiso de edición).")) return;
     try { await api.post("/asistencia/enviar", { fecha }); toast.show("Asistencia enviada y bloqueada"); load(); }
@@ -102,6 +114,7 @@ function RegistroDiario({ editable, puedeDesbloquear }) {
   const filas = data?.filas || [];
   const resumen = ORDEN.reduce((acc, e) => ({ ...acc, [e]: filas.filter((f) => f.estado === e).length }), {});
   const sinMarcar = filas.filter((f) => !f.estado).length;
+  const totalHE = filas.reduce((a, f) => a + (parseFloat(f.horas_extra) || 0), 0);
 
   return (
     <div className="card" data-testid="asis-diario">
@@ -146,6 +159,11 @@ function RegistroDiario({ editable, puedeDesbloquear }) {
             </span>
           ))}
           <span style={{ background: "#f1f5f9", color: "#64748b", borderRadius: 8, padding: "5px 10px", fontWeight: 700, fontSize: 13 }}>{sinMarcar} Sin marcar</span>
+          {totalHE > 0 && (
+            <span data-testid="asis-diario-total-he" style={{ background: "#fff7ed", color: "#c2410c", border: "1px solid #fed7aa", borderRadius: 8, padding: "5px 10px", fontWeight: 700, fontSize: 13 }}>
+              {String(totalHE).replace(".", ",")} h extra
+            </span>
+          )}
         </div>
       )}
 
@@ -172,6 +190,15 @@ function RegistroDiario({ editable, puedeDesbloquear }) {
                     </button>
                   );
                 })}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, marginLeft: "auto" }}>
+                <label style={{ fontSize: 12, color: "#c2410c", fontWeight: 600, whiteSpace: "nowrap" }}>Horas extra</label>
+                <input type="number" step="0.5" min="0" className="input" disabled={!puedeMarcar}
+                  style={{ width: 78, textAlign: "center", padding: "6px 6px", borderColor: (parseFloat(f.horas_extra) || 0) > 0 ? "#fb923c" : undefined }}
+                  value={f.horas_extra === 0 || f.horas_extra === undefined || f.horas_extra === null ? "" : f.horas_extra}
+                  onChange={(e) => setData((d) => ({ ...d, filas: d.filas.map((x) => x.obrero_id === f.obrero_id ? { ...x, horas_extra: e.target.value } : x) }))}
+                  onBlur={(e) => guardarHorasExtra(f.obrero_id, e.target.value)}
+                  placeholder="0" data-testid={`asis-he-${f.obrero_id}`} />
               </div>
             </div>
           ))}
@@ -245,10 +272,14 @@ function PlanillaSemanal() {
 
   // salario efectivo por fila (usa edición local si existe, si no el del backend)
   const salarioDe = (f) => (salEdits[f.obrero_id] !== undefined ? parseFloat(salEdits[f.obrero_id]) || 0 : f.salario_diario);
-  const bcvDe = (f) => Math.round(f.jornales * salarioDe(f) * 100) / 100;
+  const heDe = (f) => parseFloat(f.horas_extra) || 0;
+  // BCV $ = jornales × salario diario + horas extra × (salario diario / 8)
+  const bcvDe = (f) => Math.round((f.jornales * salarioDe(f) + heDe(f) * (salarioDe(f) / 8)) * 100) / 100;
   const bsDe = (f) => Math.round(bcvDe(f) * tasaNum * 100) / 100;
   const totalBcv = filas.reduce((a, f) => a + bcvDe(f), 0);
   const totalBs = filas.reduce((a, f) => a + bsDe(f), 0);
+  const totalHE = filas.reduce((a, f) => a + heDe(f), 0);
+  const fmtH = (n) => String(Math.round((parseFloat(n) || 0) * 100) / 100).replace(".", ",");
   const fmt = (n) => {
     const [ent, dec] = Number(n || 0).toFixed(2).split(".");
     return ent.replace(/\B(?=(\d{3})+(?!\d))/g, ".") + "," + dec;
@@ -276,8 +307,8 @@ function PlanillaSemanal() {
         </div>
       </div>
       <p style={{ color: "#64748b", fontSize: 12, margin: "0 0 14px" }}>
-        Ordenado de mayor a menor jornales. Incluye sábado y domingo. <b>BCV $</b> = jornales × salario diario · <b>Bolívares</b> = BCV $ × tasa.
-        El salario por defecto aplica a todos; podés cambiarlo por trabajador en la columna "Salario diario".
+        Ordenado de mayor a menor jornales. Incluye sábado y domingo. <b>BCV $</b> = jornales × salario diario + horas extra × (salario diario ÷ 8) · <b>Bolívares</b> = BCV $ × tasa.
+        El salario por defecto aplica a todos; podés cambiarlo por trabajador en la columna "Salario diario". Una hora extra vale el salario diario ÷ 8 (el día = 8 horas).
       </p>
 
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 14 }}>
@@ -288,13 +319,17 @@ function PlanillaSemanal() {
           </span>
         ))}
         <span style={{ fontSize: 12, color: "#475569" }}>Jornales: Presente = 1 · Medio día = 0,5</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "#c2410c" }}>
+          <span style={{ width: 18, height: 18, borderRadius: 4, background: "#fff7ed", border: "1px solid #fed7aa", color: "#c2410c", fontSize: 10, fontWeight: 800, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>+h</span>
+          Horas extra
+        </span>
       </div>
 
       {filas.length === 0 ? (
         <div className="empty-state" data-testid="asis-mensual-empty">No hay trabajadores activos para mostrar.</div>
       ) : (
         <div style={{ overflowX: "auto" }}>
-          <table className="table" style={{ minWidth: 900 }} data-testid="asis-mensual-tabla">
+          <table className="table" style={{ minWidth: 1000 }} data-testid="asis-mensual-tabla">
             <thead>
               <tr>
                 <th style={{ minWidth: 140 }}>Trabajador</th>
@@ -304,6 +339,7 @@ function PlanillaSemanal() {
                   return <th key={f} style={{ textAlign: "center", padding: "6px 4px", fontSize: 11, color: finde ? "#0ea5e9" : "#475569" }}>{DIAS_SEM[i]}<br />{dd.getDate()}</th>;
                 })}
                 <th style={{ textAlign: "center", fontSize: 12, background: "#f0fdf4" }}>Jornales</th>
+                <th style={{ textAlign: "center", fontSize: 12, background: "#fff7ed", color: "#c2410c" }}>Horas extra</th>
                 <th style={{ textAlign: "center", fontSize: 12, minWidth: 110 }}>Salario diario $</th>
                 <th style={{ textAlign: "center", fontSize: 12, background: "#eff6ff", color: "#1d4ed8" }}>BCV $</th>
                 <th style={{ textAlign: "center", fontSize: 12, background: "#fef9c3", color: "#a16207" }}>Bolívares</th>
@@ -320,17 +356,25 @@ function PlanillaSemanal() {
                   {dias.map((day) => {
                     const est = f.dias[day];
                     const c = est ? ESTADOS[est] : null;
+                    const he = (f.horas_dias || {})[day] || 0;
                     return (
                       <td key={day} style={{ textAlign: "center", padding: 3 }}>
                         <span title={c ? c.label : ""} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 6, fontSize: 12, fontWeight: 800,
                           background: c ? c.bg : "transparent", color: c ? c.color : "#cbd5e1", border: c ? `1px solid ${c.border}` : "1px solid #f1f5f9" }}>
                           {c ? c.corto : "·"}
                         </span>
+                        {he > 0 && (
+                          <div title={`${fmtH(he)} horas extra`} data-testid={`asis-he-dia-${f.obrero_id}-${day}`}
+                            style={{ fontSize: 10, fontWeight: 800, color: "#c2410c", marginTop: 1 }}>+{fmtH(he)}h</div>
+                        )}
                       </td>
                     );
                   })}
                   <td style={{ textAlign: "center", fontWeight: 800, color: "#15803d", background: "#f0fdf4", fontSize: 15 }} data-testid={`asis-jornales-${f.obrero_id}`}>
                     {String(f.jornales).replace(".", ",")}
+                  </td>
+                  <td style={{ textAlign: "center", fontWeight: 800, color: heDe(f) > 0 ? "#c2410c" : "#cbd5e1", background: "#fff7ed", fontSize: 14 }} data-testid={`asis-he-sem-${f.obrero_id}`}>
+                    {heDe(f) > 0 ? fmtH(heDe(f)) : "—"}
                   </td>
                   <td style={{ textAlign: "center", padding: 4 }}>
                     <input type="number" step="0.01" min="0" className="input" style={{ width: 90, textAlign: "center", padding: "5px 6px",
@@ -347,7 +391,9 @@ function PlanillaSemanal() {
                 </tr>
               ))}
               <tr style={{ borderTop: "2px solid #e2e8f0" }}>
-                <td colSpan={dias.length + 3} style={{ textAlign: "right", fontWeight: 700, color: "#475569" }}>Totales de la semana →</td>
+                <td colSpan={dias.length + 2} style={{ textAlign: "right", fontWeight: 700, color: "#475569" }}>Totales de la semana →</td>
+                <td style={{ textAlign: "center", fontWeight: 800, color: totalHE > 0 ? "#c2410c" : "#cbd5e1", background: "#fff7ed" }} data-testid="asis-total-he">{totalHE > 0 ? fmtH(totalHE) : "—"}</td>
+                <td></td>
                 <td style={{ textAlign: "center", fontWeight: 800, color: "#1d4ed8", background: "#eff6ff" }} data-testid="asis-total-bcv">{fmt(totalBcv)}</td>
                 <td style={{ textAlign: "center", fontWeight: 800, color: "#a16207", background: "#fef9c3" }} data-testid="asis-total-bolivares">{fmt(totalBs)}</td>
               </tr>
@@ -449,6 +495,7 @@ function ResumenMensual() {
               <tr>
                 <th style={{ minWidth: 150 }}>Trabajador</th>
                 <th style={{ textAlign: "center", background: "#f0fdf4" }}>Jornales</th>
+                <th style={{ textAlign: "center", background: "#fff7ed", color: "#c2410c" }}>Horas extra</th>
                 <th style={{ textAlign: "center", background: "#eff6ff", color: "#1d4ed8" }}>BCV $</th>
                 <th style={{ textAlign: "center", background: "#fef9c3", color: "#a16207" }}>Bolívares</th>
               </tr>
@@ -462,6 +509,7 @@ function ResumenMensual() {
                     {f.cargo && <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 400 }}>{f.cargo}</div>}
                   </td>
                   <td style={{ textAlign: "center", fontWeight: 800, color: "#15803d", background: "#f0fdf4", fontSize: 15 }} data-testid={`asis-resumen-jornales-${f.obrero_id}`}>{String(f.jornales).replace(".", ",")}</td>
+                  <td style={{ textAlign: "center", fontWeight: 700, color: (f.horas_extra || 0) > 0 ? "#c2410c" : "#cbd5e1", background: "#fff7ed" }} data-testid={`asis-resumen-he-${f.obrero_id}`}>{(f.horas_extra || 0) > 0 ? String(f.horas_extra).replace(".", ",") : "—"}</td>
                   <td style={{ textAlign: "center", fontWeight: 700, color: "#1d4ed8", background: "#eff6ff" }} data-testid={`asis-resumen-bcv-${f.obrero_id}`}>{fmt(f.bcv)}</td>
                   <td style={{ textAlign: "center", fontWeight: 700, color: "#a16207", background: "#fef9c3" }} data-testid={`asis-resumen-bolivares-${f.obrero_id}`}>{fmt(f.bolivares)}</td>
                 </tr>
@@ -469,6 +517,7 @@ function ResumenMensual() {
               <tr style={{ borderTop: "2px solid #e2e8f0" }}>
                 <td style={{ textAlign: "right", fontWeight: 700, color: "#475569" }}>Totales del mes →</td>
                 <td style={{ textAlign: "center", fontWeight: 800, color: "#15803d", background: "#f0fdf4" }} data-testid="asis-resumen-total-jornales">{String(data.total_jornales).replace(".", ",")}</td>
+                <td style={{ textAlign: "center", fontWeight: 800, color: (data.total_horas_extra || 0) > 0 ? "#c2410c" : "#cbd5e1", background: "#fff7ed" }} data-testid="asis-resumen-total-he">{(data.total_horas_extra || 0) > 0 ? String(data.total_horas_extra).replace(".", ",") : "—"}</td>
                 <td style={{ textAlign: "center", fontWeight: 800, color: "#1d4ed8", background: "#eff6ff" }} data-testid="asis-resumen-total-bcv">{fmt(data.total_bcv)}</td>
                 <td style={{ textAlign: "center", fontWeight: 800, color: "#a16207", background: "#fef9c3" }} data-testid="asis-resumen-total-bolivares">{fmt(data.total_bolivares)}</td>
               </tr>

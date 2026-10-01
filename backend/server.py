@@ -3723,6 +3723,12 @@ class MarcarAsistenciaIn(BaseModel):
     estado: str
 
 
+class HorasExtraIn(BaseModel):
+    obrero_id: str
+    fecha: str  # YYYY-MM-DD
+    horas_extra: float
+
+
 def _obrero_out(d: dict) -> dict:
     return {"_id": d["_id"], "nombre": d.get("nombre", ""), "cargo": d.get("cargo", ""), "activo": d.get("activo", True)}
 
@@ -3769,9 +3775,10 @@ async def asistencia_dia(fecha: str, _: dict = Depends(get_current_user)):
     f = fecha[:10]
     obreros = await db.asistencia_obreros.find({"activo": True}).sort("nombre", 1).to_list(2000)
     regs = await db.asistencia_registros.find({"fecha": f}).to_list(5000)
-    estado_map = {r["obrero_id"]: r.get("estado") for r in regs}
+    reg_map = {r["obrero_id"]: r for r in regs}
     filas = [{"obrero_id": o["_id"], "nombre": o.get("nombre", ""), "cargo": o.get("cargo", ""),
-              "estado": estado_map.get(o["_id"])} for o in obreros]
+              "estado": (reg_map.get(o["_id"]) or {}).get("estado"),
+              "horas_extra": float((reg_map.get(o["_id"]) or {}).get("horas_extra") or 0)} for o in obreros]
     dia_doc = await db.asistencia_dias.find_one({"_id": f}) or {}
     return {"fecha": f, "filas": filas, "estados": ASISTENCIA_ESTADOS,
             "enviado": bool(dia_doc.get("enviado")), "enviado_por": dia_doc.get("enviado_por")}
@@ -3823,8 +3830,14 @@ async def marcar_asistencia(payload: MarcarAsistenciaIn, _: dict = Depends(get_c
     if not await db.asistencia_obreros.find_one({"_id": payload.obrero_id}):
         raise HTTPException(404, "Obrero no encontrado")
     if payload.estado == "":
-        # Desmarcar
-        await db.asistencia_registros.delete_one({"obrero_id": payload.obrero_id, "fecha": fecha})
+        # Desmarcar estado: conserva el doc si tiene horas extras; si no, lo elimina.
+        reg = await db.asistencia_registros.find_one({"obrero_id": payload.obrero_id, "fecha": fecha})
+        if reg and float(reg.get("horas_extra") or 0) > 0:
+            await db.asistencia_registros.update_one(
+                {"obrero_id": payload.obrero_id, "fecha": fecha},
+                {"$set": {"estado": None, "updatedAt": now_iso()}})
+        else:
+            await db.asistencia_registros.delete_one({"obrero_id": payload.obrero_id, "fecha": fecha})
         return {"success": True, "estado": None}
     await db.asistencia_registros.update_one(
         {"obrero_id": payload.obrero_id, "fecha": fecha},
@@ -3833,6 +3846,36 @@ async def marcar_asistencia(payload: MarcarAsistenciaIn, _: dict = Depends(get_c
         upsert=True,
     )
     return {"success": True, "estado": payload.estado}
+
+
+@api.post("/asistencia/horas-extra")
+async def set_horas_extra(payload: HorasExtraIn, _: dict = Depends(get_current_user)):
+    """Guarda las horas extras de un trabajador en una fecha. Solo durante el registro diario
+    (si el día está enviado/bloqueado, no se permite). 1 hora = salario_diario / 8 (8h = día)."""
+    fecha = payload.fecha[:10]
+    dia_doc = await db.asistencia_dias.find_one({"_id": fecha}) or {}
+    if dia_doc.get("enviado"):
+        raise HTTPException(423, "La asistencia de este día fue enviada y está bloqueada. Usá 'Editar' para desbloquearla.")
+    if not await db.asistencia_obreros.find_one({"_id": payload.obrero_id}):
+        raise HTTPException(404, "Obrero no encontrado")
+    horas = max(float(payload.horas_extra or 0), 0.0)
+    if horas <= 0:
+        # Quitar horas extras: si el registro no tiene estado, se elimina; si lo tiene, solo limpia horas.
+        reg = await db.asistencia_registros.find_one({"obrero_id": payload.obrero_id, "fecha": fecha})
+        if reg:
+            if reg.get("estado"):
+                await db.asistencia_registros.update_one(
+                    {"obrero_id": payload.obrero_id, "fecha": fecha}, {"$unset": {"horas_extra": ""}})
+            else:
+                await db.asistencia_registros.delete_one({"obrero_id": payload.obrero_id, "fecha": fecha})
+        return {"success": True, "horas_extra": 0}
+    await db.asistencia_registros.update_one(
+        {"obrero_id": payload.obrero_id, "fecha": fecha},
+        {"$set": {"horas_extra": horas, "updatedAt": now_iso()},
+         "$setOnInsert": {"_id": new_id(), "obrero_id": payload.obrero_id, "fecha": fecha, "createdAt": now_iso()}},
+        upsert=True,
+    )
+    return {"success": True, "horas_extra": horas}
 
 
 @api.get("/asistencia/semana")
@@ -3851,10 +3894,14 @@ async def asistencia_semana(fecha: str, _: dict = Depends(get_current_user)):
     obreros = await db.asistencia_obreros.find({"activo": True}).to_list(2000)
     regs = await db.asistencia_registros.find({"fecha": {"$in": dias_semana}}).to_list(20000)
     reg_map: Dict[str, Dict[str, str]] = {}
+    horas_map: Dict[str, Dict[str, float]] = {}
     for r in regs:
         f = str(r.get("fecha"))[:10]
         if f in set_dias:
             reg_map.setdefault(r["obrero_id"], {})[f] = r.get("estado")
+            he = float(r.get("horas_extra") or 0)
+            if he > 0:
+                horas_map.setdefault(r["obrero_id"], {})[f] = he
 
     # Configuración de pago de la semana (salario diario por defecto, tasa y salarios individuales)
     cfg = await db.asistencia_config.find_one({"_id": dias_semana[0]}) or {}
@@ -3874,18 +3921,24 @@ async def asistencia_semana(fecha: str, _: dict = Depends(get_current_user)):
         dias_trabajados = totales.get("presente", 0) + totales.get("medio_dia", 0)
         es_individual = o["_id"] in salarios_ind
         salario = float(salarios_ind[o["_id"]]) if es_individual else salario_default
-        bcv = round(jornales * salario, 2)
+        horas_dias = horas_map.get(o["_id"], {})
+        total_horas_extra = round(sum(horas_dias.values()), 2)
+        salario_hora = (salario / 8.0) if salario else 0.0
+        horas_extra_bcv = round(total_horas_extra * salario_hora, 2)
+        bcv = round(jornales * salario + horas_extra_bcv, 2)
         bolivares = round(bcv * tasa, 2)
         filas.append({"obrero_id": o["_id"], "nombre": o.get("nombre", ""), "cargo": o.get("cargo", ""),
                       "dias": dias, "totales": totales, "jornales": jornales, "dias_trabajados": dias_trabajados,
+                      "horas_dias": horas_dias, "horas_extra": total_horas_extra,
                       "salario_diario": salario, "salario_individual": es_individual, "bcv": bcv, "bolivares": bolivares,
                       "pagado": bool(pagados.get(o["_id"]))})
     filas.sort(key=lambda f: (-f["jornales"], -f["dias_trabajados"], f["nombre"].lower()))
     total_bcv = round(sum(f["bcv"] for f in filas), 2)
     total_bolivares = round(sum(f["bolivares"] for f in filas), 2)
+    total_horas_extra = round(sum(f["horas_extra"] for f in filas), 2)
     return {"desde": dias_semana[0], "hasta": dias_semana[6], "dias_semana": dias_semana,
             "filas": filas, "estados": ASISTENCIA_ESTADOS,
-            "salario_default": salario_default, "tasa": tasa,
+            "salario_default": salario_default, "tasa": tasa, "total_horas_extra": total_horas_extra,
             "total_bcv": total_bcv, "total_bolivares": total_bolivares}
 
 
@@ -3982,7 +4035,8 @@ async def asistencia_resumen_mensual(anio: int, mes: int, _: dict = Depends(get_
             continue
         est = r.get("estado")
         jornal = 1.0 if est == "presente" else (0.5 if est == "medio_dia" else 0.0)
-        if jornal == 0.0:
+        he = float(r.get("horas_extra") or 0)
+        if jornal == 0.0 and he <= 0:
             continue
         oid = r["obrero_id"]
         d = _date.fromisoformat(f)
@@ -3990,19 +4044,24 @@ async def asistencia_resumen_mensual(anio: int, mes: int, _: dict = Depends(get_
         cfg = cfgs.get(lun, {})
         salario = float((cfg.get("salarios") or {}).get(oid, cfg.get("salario_default") or 0))
         tasa = float(cfg.get("tasa") or 0)
-        a = acc.setdefault(oid, {"jornales": 0.0, "bcv": 0.0, "bolivares": 0.0})
+        salario_hora = (salario / 8.0) if salario else 0.0
+        extra_bcv = he * salario_hora
+        a = acc.setdefault(oid, {"jornales": 0.0, "horas_extra": 0.0, "bcv": 0.0, "bolivares": 0.0})
         a["jornales"] += jornal
-        a["bcv"] += jornal * salario
-        a["bolivares"] += jornal * salario * tasa
+        a["horas_extra"] += he
+        a["bcv"] += jornal * salario + extra_bcv
+        a["bolivares"] += (jornal * salario + extra_bcv) * tasa
 
     filas = []
     for oid, a in acc.items():
         o = obreros.get(oid, {})
         filas.append({"obrero_id": oid, "nombre": o.get("nombre", "(eliminado)"), "cargo": o.get("cargo", ""),
-                      "jornales": round(a["jornales"], 1), "bcv": round(a["bcv"], 2), "bolivares": round(a["bolivares"], 2)})
+                      "jornales": round(a["jornales"], 1), "horas_extra": round(a["horas_extra"], 2),
+                      "bcv": round(a["bcv"], 2), "bolivares": round(a["bolivares"], 2)})
     filas.sort(key=lambda x: (-x["jornales"], -x["bolivares"], x["nombre"].lower()))
     return {"anio": anio, "mes": mes, "filas": filas,
             "total_jornales": round(sum(f["jornales"] for f in filas), 1),
+            "total_horas_extra": round(sum(f["horas_extra"] for f in filas), 2),
             "total_bcv": round(sum(f["bcv"] for f in filas), 2),
             "total_bolivares": round(sum(f["bolivares"] for f in filas), 2)}
 
