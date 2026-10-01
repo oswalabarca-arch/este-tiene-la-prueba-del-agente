@@ -7,19 +7,23 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 const fmtMoney = (n) => "US$ " + Number(n || 0).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtNum = (n) => Number(n || 0).toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 const CANAL_LABEL = { finca: "Finca", ciudad: "Ciudad", refrigerar: "Refrigerado", congelar: "Congelado" };
+const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
 const hoy = () => new Date();
 const ymd = (d) => d.toLocaleDateString("en-CA");
 
-function rangoDe(modo) {
+function rangoDe(modo, mesSel, anioSel) {
   const n = hoy();
   if (modo === "mes") {
-    const desde = ymd(new Date(n.getFullYear(), n.getMonth(), 1));
-    const hasta = ymd(new Date(n.getFullYear(), n.getMonth() + 1, 0));
+    const a = anioSel || n.getFullYear();
+    const m = (mesSel || n.getMonth() + 1) - 1;
+    const desde = ymd(new Date(a, m, 1));
+    const hasta = ymd(new Date(a, m + 1, 0));
     return { desde, hasta };
   }
   if (modo === "anio") {
-    return { desde: `${n.getFullYear()}-01-01`, hasta: `${n.getFullYear()}-12-31` };
+    const a = anioSel || n.getFullYear();
+    return { desde: `${a}-01-01`, hasta: `${a}-12-31` };
   }
   return { desde: null, hasta: null };
 }
@@ -40,14 +44,17 @@ function Card({ icon: Icon, label, value, sub, color, testid }) {
 
 export default function EstadisticaCompradores() {
   const toast = useToast();
+  const now = new Date();
   const [modo, setModo] = useState("todo");
+  const [mesSel, setMesSel] = useState(now.getMonth() + 1);
+  const [anioSel, setAnioSel] = useState(now.getFullYear());
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [orden, setOrden] = useState("cestas");
 
   const load = useCallback(() => {
     setLoading(true);
-    const { desde, hasta } = rangoDe(modo);
+    const { desde, hasta } = rangoDe(modo, mesSel, anioSel);
     const params = {};
     if (desde) params.desde = desde;
     if (hasta) params.hasta = hasta;
@@ -55,7 +62,7 @@ export default function EstadisticaCompradores() {
       .then((r) => setData(r.data))
       .catch(() => toast.show("Error al cargar las estadísticas", "error"))
       .finally(() => setLoading(false));
-  }, [modo, toast]);
+  }, [modo, mesSel, anioSel, toast]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -80,14 +87,28 @@ export default function EstadisticaCompradores() {
             Resumen de quién te compra más, cuántas cestas y qué día de la semana se vende más. Lee todas las ventas (finca, ciudad, refrigerado y congelado).
           </p>
         </div>
-        <div style={{ display: "flex", gap: 6, background: "#f1f5f9", borderRadius: 10, padding: 4 }}>
-          {[{ k: "todo", l: "Todo" }, { k: "anio", l: "Este año" }, { k: "mes", l: "Este mes" }].map((o) => (
-            <button key={o.k} onClick={() => setModo(o.k)} data-testid={`ec-periodo-${o.k}`}
-              style={{ padding: "7px 14px", borderRadius: 8, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 13,
-                background: modo === o.k ? "#0f172a" : "transparent", color: modo === o.k ? "#fff" : "#64748b" }}>
-              {o.l}
-            </button>
-          ))}
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+          <div style={{ display: "flex", gap: 6, background: "#f1f5f9", borderRadius: 10, padding: 4 }}>
+            {[{ k: "todo", l: "Todo" }, { k: "anio", l: "Por año" }, { k: "mes", l: "Por mes" }].map((o) => (
+              <button key={o.k} onClick={() => setModo(o.k)} data-testid={`ec-periodo-${o.k}`}
+                style={{ padding: "7px 14px", borderRadius: 8, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 13,
+                  background: modo === o.k ? "#0f172a" : "transparent", color: modo === o.k ? "#fff" : "#64748b" }}>
+                {o.l}
+              </button>
+            ))}
+          </div>
+          {modo === "mes" && (
+            <select className="input" value={mesSel} onChange={(e) => setMesSel(Number(e.target.value))} data-testid="ec-select-mes"
+              style={{ width: "auto", minWidth: 130, padding: "7px 10px", fontWeight: 600 }}>
+              {MESES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+            </select>
+          )}
+          {(modo === "mes" || modo === "anio") && (
+            <select className="input" value={anioSel} onChange={(e) => setAnioSel(Number(e.target.value))} data-testid="ec-select-anio"
+              style={{ width: "auto", minWidth: 90, padding: "7px 10px", fontWeight: 600 }}>
+              {Array.from({ length: 7 }, (_, i) => now.getFullYear() - i).map((a) => <option key={a} value={a}>{a}</option>)}
+            </select>
+          )}
         </div>
       </div>
 
