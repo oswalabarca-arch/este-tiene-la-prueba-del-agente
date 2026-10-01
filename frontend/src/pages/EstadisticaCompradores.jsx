@@ -130,7 +130,7 @@ export default function EstadisticaCompradores() {
               </h2>
               <p style={{ color: "#64748b", fontSize: 12.5, margin: "0 0 14px" }}>Cestas vendidas por día y el mejor comprador de cada uno.</p>
               <div style={{ width: "100%", height: 220 }}>
-                <ResponsiveContainer>
+                <ResponsiveContainer minWidth={0} minHeight={0}>
                   <BarChart data={chartData} margin={{ top: 6, right: 8, left: -18, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                     <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#64748b" }} />

@@ -2,6 +2,16 @@
 
 ## 2026-06 (sesión fork actual)
 
+### Nuevo módulo · Estadística de compradores [Jun 2026]
+- Nuevo módulo en la navegación, justo **debajo de Analíticas**. Solo lectura sobre las ventas (no altera su estructura).
+- Lee todas las ventas reales (finca, ciudad, refrigerado, congelado) y muestra:
+  - **Ranking de mejores compradores**: cestas, kg, total $, N° de compras, teléfono, última compra y desglose por canal; #1 destacado con corona. Ordenable por cestas / $ / N° compras.
+  - **Tarjetas resumen**: compradores únicos, cestas, total vendido, mejor día.
+  - **Compras por día de la semana**: gráfico de barras + 7 tarjetas con cestas por día y el **mejor comprador de cada día** (quién y cuánto); se resalta el día de mayor venta.
+  - Filtro de período: Todo / Este año / Este mes.
+- **Backend:** `GET /api/estadisticas/compradores(desde?, hasta?)`. Módulo `estadistica_compradores` agregado al registro de permisos (backend + Usuarios).
+- **Probado:** testing_agent iteración 50 → backend 100% y frontend 100% (nav, página, orden, períodos, tarjetas por día). `/app/test_reports/iteration_50.json`.
+
 ### Ventas · Autocompletado de comprador + autollenado de teléfono [Jun 2026]
 - En TODOS los módulos de venta, al escribir el nombre del comprador aparece un dropdown de sugerencias (clientes previos); al elegir uno se rellena el nombre y se autocompleta el teléfono si lo tiene.
 - **Backend:** nuevo `GET /api/clientes/sugerencias` — clientes distintos (nombre + último teléfono conocido) de ventas_finca/ciudad/refrigerar/congelar/donaciones, excluyendo orígenes de sistema.

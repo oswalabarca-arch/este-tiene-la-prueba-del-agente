@@ -1,0 +1,25 @@
+{
+  "summary": "Tested new 'Estadística de compradores' module. Backend GET /api/estadisticas/compradores returns correct aggregated data (compradores[2], totales {cestas:12, monto:200, transacciones:2}, mejor_dia=Miércoles, top='er'). Frontend login OK; sidebar link appears directly below 'Analíticas' and navigates to /dashboard/estadistica-compradores. Page renders all required sections: summary cards (ec-card-compradores/cestas/monto/mejor-dia), top comprador card (ec-top-comprador with crown), 7 day-of-week cards (ec-dia-0..6) with Miércoles highlighted and showing top buyer 'er (10)', bar chart, and ranking table (ec-tabla-compradores) with rows ec-fila-0 (er, highlighted crown row) and ec-fila-1 (oswald). Order buttons (cestas/monto/transacciones) and period toggles (todo/anio/mes) all respond and reload data. Ventas not affected (module is read-only).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "EstadisticaCompradores chart", "issues": ["Recharts emits benign 'width(-1) height(-1)' warning on initial mount; chart still renders correctly. Could be silenced by giving ResponsiveContainer an explicit minWidth/minHeight."]}
+    ]
+  },
+  "test_report_links": ["/app/test_reports/ec_page.png"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "EstadisticaCompradores.jsx is self-contained and uses only READ API — no risk to ventas data.",
+    "Sidebar testid uses tildes (sidebar-link-estadística-de-compradores). Works at runtime, but non-ASCII in attribute selectors can be awkward for automation — consider slugifying (removing diacritics) in future for consistency.",
+    "ResponsiveContainer initial size warning: add minWidth=0 or fixed dimensions."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "oswaldabarca@gmail.com / Elvalle0612$ (admin)",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "New module 'Estadística de compradores' at /dashboard/estadistica-compradores, backend endpoint GET /api/estadisticas/compradores?desde=&hasta=. All testids verified. Module is read-only aggregation over sales."
+}
