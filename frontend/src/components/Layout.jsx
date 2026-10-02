@@ -59,6 +59,7 @@ const NAV = [
   { to: "/dashboard/compras", label: "Compras", icon: ShoppingCart, module: "compras" },
   { to: "/dashboard/analiticas", label: "Analíticas", icon: BarChart3, module: "analiticas" },
   { to: "/dashboard/estadistica-compradores", label: "Estadística de compradores", icon: Trophy, module: "estadistica_compradores" },
+  { to: "/dashboard/estadistica-vendedores", label: "Estadísticas de vendedor", icon: HandCoins, module: "estadistica_vendedores" },
 ];
 
 export default function Layout() {

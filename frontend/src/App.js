@@ -23,6 +23,7 @@ import Vehiculos from "./pages/Vehiculos";
 import { Trabajadores, Nomina } from "./pages/RRHH";
 import Analiticas from "./pages/Analiticas";
 import EstadisticaCompradores from "./pages/EstadisticaCompradores";
+import EstadisticaVendedores from "./pages/EstadisticaVendedores";
 import "./App.css";
 
 function Protected({ children }) {
@@ -77,6 +78,7 @@ function App() {
               <Route path="rrhh/nomina" element={<Nomina />} />
               <Route path="analiticas" element={<Analiticas />} />
               <Route path="estadistica-compradores" element={<EstadisticaCompradores />} />
+              <Route path="estadistica-vendedores" element={<EstadisticaVendedores />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

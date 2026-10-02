@@ -231,7 +231,7 @@ async def create_admin_public(payload: CreateAdminIn):
 MODULOS_DISPONIBLES = [
     "usuarios", "control_asistencia", "plantaciones", "equipos", "actividades", "aplicaciones",
     "cosecha", "asignacion_destino", "ventas", "venta_rapida", "deuda", "frio", "inventario",
-    "ficha_tecnica", "compras", "analiticas", "recursos_humanos", "estadistica_compradores",
+    "ficha_tecnica", "compras", "analiticas", "recursos_humanos", "estadistica_compradores", "estadistica_vendedores",
 ]
 
 ROLES = ["administrador", "ingeniero", "encargado_campo", "operario"]
@@ -2887,6 +2887,98 @@ async def estadisticas_compradores(desde: Optional[str] = None, hasta: Optional[
     }
     return {"compradores": compradores, "totales": totales, "por_dia_semana": por_dia,
             "mejor_dia": mejor_dia, "desde": desde, "hasta": hasta}
+
+
+class ComisionVendedorIn(BaseModel):
+    vendedor: str
+    fecha: str  # YYYY-MM-DD
+    porcentaje: Optional[float] = None
+    pagada: Optional[bool] = None
+
+
+@api.get("/estadisticas/vendedores")
+async def estadisticas_vendedores(desde: Optional[str] = None, hasta: Optional[str] = None, _: dict = Depends(get_current_user)):
+    """Comisiones por vendedor y por DÍA: suma de ventas reales de cada vendedor por día,
+    con el % de comisión configurado, el monto de comisión y si está pagada. SOLO LECTURA sobre
+    las ventas (el % y el estado 'pagada' se guardan en la colección comisiones_vendedor)."""
+    def _in(f):
+        d = str(f or "")[:10]
+        if len(d) < 10:
+            return False
+        if desde and d < desde:
+            return False
+        if hasta and d > hasta:
+            return False
+        return True
+
+    agg: Dict[str, Dict[str, Any]] = {}
+    for tipo in CANALES_COMPRA:
+        for v in await db[f"ventas_{tipo}"].find({}).to_list(50000):
+            if v.get("origen") in VENTA_SYSTEM_ORIGENES:
+                continue
+            vend = (v.get("vendedor") or "").strip()
+            if not vend:
+                continue
+            fecha = str(v.get("fecha") or "")[:10]
+            if not _in(fecha):
+                continue
+            cest = float(v.get("cantidad_cestas") or 0)
+            if cest <= 0:
+                kgv = float(v.get("cantidad_kg") or 0)
+                cest = round(kgv / KG_POR_CESTA, 2) if kgv else 0.0
+            monto = float(v.get("total") or 0)
+            key = vend.lower() + "|" + fecha
+            a = agg.get(key)
+            if not a:
+                a = agg[key] = {"vendedor": vend, "fecha": fecha, "total_ventas": 0.0, "cestas": 0.0, "transacciones": 0}
+            a["total_ventas"] += monto
+            a["cestas"] += cest
+            a["transacciones"] += 1
+
+    configs = {c["_id"]: c for c in await db.comisiones_vendedor.find({}).to_list(50000)}
+    filas = []
+    for key, a in agg.items():
+        cfg = configs.get(key, {})
+        porc = float(cfg.get("porcentaje") or 0)
+        comision = round(a["total_ventas"] * porc / 100.0, 2)
+        filas.append({"vendedor": a["vendedor"], "fecha": a["fecha"],
+                      "total_ventas": round(a["total_ventas"], 2), "cestas": round(a["cestas"], 2),
+                      "transacciones": a["transacciones"], "porcentaje": porc, "comision": comision,
+                      "pagada": bool(cfg.get("pagada")), "pagada_fecha": cfg.get("pagada_fecha")})
+    filas.sort(key=lambda x: (x["fecha"], x["vendedor"].lower()), reverse=True)
+
+    total_comision = round(sum(f["comision"] for f in filas), 2)
+    pagado = round(sum(f["comision"] for f in filas if f["pagada"]), 2)
+    totales = {
+        "total_ventas": round(sum(f["total_ventas"] for f in filas), 2),
+        "total_comision": total_comision,
+        "pagado": pagado,
+        "pendiente": round(total_comision - pagado, 2),
+        "dias_vendedor": len(filas),
+    }
+    return {"filas": filas, "totales": totales, "desde": desde, "hasta": hasta}
+
+
+@api.post("/estadisticas/vendedores/comision")
+async def set_comision_vendedor(payload: ComisionVendedorIn, _: dict = Depends(get_current_user)):
+    """Guarda el % de comisión y/o el estado 'pagada' de un vendedor para un día concreto."""
+    vend = (payload.vendedor or "").strip()
+    fecha = str(payload.fecha or "")[:10]
+    if not vend or len(fecha) != 10:
+        raise HTTPException(400, "Vendedor y fecha (YYYY-MM-DD) son obligatorios.")
+    key = vend.lower() + "|" + fecha
+    set_doc: Dict[str, Any] = {"vendedor": vend, "vendedor_key": vend.lower(), "fecha": fecha, "updatedAt": now_iso()}
+    if payload.porcentaje is not None:
+        p = max(float(payload.porcentaje), 0.0)
+        set_doc["porcentaje"] = min(p, 100.0)
+    if payload.pagada is not None:
+        set_doc["pagada"] = bool(payload.pagada)
+        set_doc["pagada_fecha"] = now_iso() if payload.pagada else None
+    await db.comisiones_vendedor.update_one(
+        {"_id": key}, {"$set": set_doc, "$setOnInsert": {"createdAt": now_iso()}}, upsert=True)
+    return {"success": True}
+
+
 
 
 
