@@ -38,9 +38,10 @@ function Card({ icon: Icon, label, value, color, testid }) {
 export default function EstadisticaVendedores() {
   const toast = useToast();
   const now = new Date();
-  const [modo, setModo] = useState("mes");
   const [mesSel, setMesSel] = useState(now.getMonth() + 1);
   const [anioSel, setAnioSel] = useState(now.getFullYear());
+  const [vendedorFiltro, setVendedorFiltro] = useState("todos");
+  const [vendedores, setVendedores] = useState([]);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [edits, setEdits] = useState({}); // key -> porcentaje string en edición
@@ -55,17 +56,18 @@ export default function EstadisticaVendedores() {
 
   const load = useCallback(() => {
     setLoading(true);
-    const { desde, hasta } = rangoDe(modo, mesSel, anioSel);
-    const params = {};
-    if (desde) params.desde = desde;
-    if (hasta) params.hasta = hasta;
-    api.get("/estadisticas/vendedores", { params })
+    const { desde, hasta } = rangoDe("mes", mesSel, anioSel);
+    api.get("/estadisticas/vendedores", { params: { desde, hasta } })
       .then((r) => { setData(r.data); setEdits({}); })
       .catch(() => toast.show("Error al cargar las comisiones", "error"))
       .finally(() => setLoading(false));
-  }, [modo, mesSel, anioSel, toast]);
+  }, [mesSel, anioSel, toast]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    api.get("/vendedores/sugerencias").then((r) => setVendedores(r.data?.vendedores || [])).catch(() => {});
+  }, []);
 
   const guardarPorcentaje = async (f, valor) => {
     const porc = valor === "" ? 0 : Math.min(Math.max(parseFloat(valor) || 0, 0), 100);
@@ -96,40 +98,39 @@ export default function EstadisticaVendedores() {
     }
   };
 
-  const filas = data?.filas || [];
-  const totales = data?.totales || { total_ventas: 0, total_comision: 0, pagado: 0, pendiente: 0 };
+  const filasAll = data?.filas || [];
+  const filas = vendedorFiltro === "todos" ? filasAll : filasAll.filter((f) => f.vendedor.toLowerCase() === vendedorFiltro);
+  const totales = calcTotales(filas);
 
   return (
     <div data-testid="estadistica-vendedores-page" style={{ padding: "4px 2px" }}>
-      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 6 }}>
+      <div style={{ marginBottom: 14 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 800, color: "#0f172a", margin: 0, display: "flex", alignItems: "center", gap: 10 }}>
+          <HandCoins size={24} style={{ color: "#16a34a" }} /> Estadísticas de vendedor
+        </h1>
+        <p style={{ color: "#64748b", fontSize: 13, margin: "4px 0 0" }}>
+          Ventas diarias por vendedor. Coloca el % de comisión del día, mira cuánto pagar y marca cuando ya pagaste.
+        </p>
+      </div>
+
+      <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: "14px 16px", marginBottom: 16, display: "flex", flexDirection: "column", gap: 12, maxWidth: 420 }}>
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 800, color: "#0f172a", margin: 0, display: "flex", alignItems: "center", gap: 10 }}>
-            <HandCoins size={24} style={{ color: "#16a34a" }} /> Estadísticas de vendedor
-          </h1>
-          <p style={{ color: "#64748b", fontSize: 13, margin: "4px 0 0" }}>
-            Ventas diarias por vendedor. Coloca el % de comisión del día, mira cuánto pagar y marca cuando ya pagaste.
-          </p>
+          <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 5 }}>Vendedor</label>
+          <select className="input" value={vendedorFiltro} onChange={(e) => setVendedorFiltro(e.target.value)} data-testid="ev-filtro-vendedor" style={{ width: "100%", padding: "8px 10px", fontWeight: 600 }}>
+            <option value="todos">Todos los vendedores</option>
+            {vendedores.map((v) => <option key={v} value={v.toLowerCase()}>{v}</option>)}
+          </select>
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
-          <div style={{ display: "flex", gap: 6, background: "#f1f5f9", borderRadius: 10, padding: 4 }}>
-            {[{ k: "todo", l: "Todo" }, { k: "anio", l: "Por año" }, { k: "mes", l: "Por mes" }].map((o) => (
-              <button key={o.k} onClick={() => setModo(o.k)} data-testid={`ev-periodo-${o.k}`}
-                style={{ padding: "7px 14px", borderRadius: 8, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 13,
-                  background: modo === o.k ? "#0f172a" : "transparent", color: modo === o.k ? "#fff" : "#64748b" }}>
-                {o.l}
-              </button>
-            ))}
-          </div>
-          {modo === "mes" && (
-            <select className="input" value={mesSel} onChange={(e) => setMesSel(Number(e.target.value))} data-testid="ev-select-mes" style={{ width: "auto", minWidth: 130, padding: "7px 10px", fontWeight: 600 }}>
+        <div>
+          <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 5 }}>Mes</label>
+          <div style={{ display: "flex", gap: 8 }}>
+            <select className="input" value={mesSel} onChange={(e) => setMesSel(Number(e.target.value))} data-testid="ev-select-mes" style={{ flex: 1, padding: "8px 10px", fontWeight: 600 }}>
               {MESES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
             </select>
-          )}
-          {(modo === "mes" || modo === "anio") && (
-            <select className="input" value={anioSel} onChange={(e) => setAnioSel(Number(e.target.value))} data-testid="ev-select-anio" style={{ width: "auto", minWidth: 90, padding: "7px 10px", fontWeight: 600 }}>
+            <select className="input" value={anioSel} onChange={(e) => setAnioSel(Number(e.target.value))} data-testid="ev-select-anio" style={{ width: 100, padding: "8px 10px", fontWeight: 600 }}>
               {Array.from({ length: 7 }, (_, i) => now.getFullYear() - i).map((a) => <option key={a} value={a}>{a}</option>)}
             </select>
-          )}
+          </div>
         </div>
       </div>
 
@@ -137,7 +138,7 @@ export default function EstadisticaVendedores() {
         <div style={{ padding: 40, color: "#94a3b8" }}>Cargando...</div>
       ) : filas.length === 0 ? (
         <div data-testid="ev-vacio" style={{ padding: 40, textAlign: "center", color: "#94a3b8", background: "#fff", border: "1px dashed #e2e8f0", borderRadius: 14, marginTop: 14 }}>
-          No hay ventas con vendedor en este período.
+          {vendedorFiltro === "todos" ? "No hay ventas con vendedor en este mes." : "Este vendedor no tiene ventas en este mes."}
         </div>
       ) : (
         <>
