@@ -174,6 +174,11 @@ export default function Deuda() {
                             <span key={m} style={{ fontSize: 11, fontWeight: 600, color: CANAL_COLOR[m] || "#475569", background: `${CANAL_COLOR[m] || "#475569"}18`, padding: "1px 7px", borderRadius: 6 }}>{m}</span>
                           ))}
                           <span style={{ fontSize: 11, color: "#94a3b8" }}>{c.n_ventas} venta(s)</span>
+                          {(c.vendedores || []).length > 0 && (
+                            <span data-testid={`deuda-vendedores-${key}`} style={{ fontSize: 11, fontWeight: 700, color: "#c2410c", background: "#fff7ed", border: "1px solid #fed7aa", padding: "1px 7px", borderRadius: 6 }}>
+                              Cobra: {c.vendedores.join(", ")}
+                            </span>
+                          )}
                         </span>
                       </span>
                     </span>
@@ -196,6 +201,7 @@ export default function Deuda() {
                         <div key={`${v._tipo}-${v._id}`} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px dashed #e2e8f0" }} data-testid={`deuda-venta-${v._id}`}>
                           <span style={{ fontSize: 12, fontWeight: 600, color: CANAL_COLOR[v._modulo] || "#475569", background: `${CANAL_COLOR[v._modulo] || "#475569"}18`, padding: "2px 8px", borderRadius: 6 }}>{v._modulo}</span>
                           <span style={{ fontSize: 13, color: "#475569" }}>{(v.fecha || "").slice(0, 10)}</span>
+                          {v.vendedor && <span data-testid={`deuda-venta-vendedor-${v._id}`} style={{ fontSize: 12, fontWeight: 700, color: "#c2410c", background: "#fff7ed", border: "1px solid #fed7aa", padding: "1px 8px", borderRadius: 6, display: "inline-flex", alignItems: "center", gap: 4 }}><User size={11} /> {v.vendedor}</span>}
                           <span style={{ fontSize: 13, color: "#64748b" }}>{fmt(v.cantidad_cestas)} cestas</span>
                           <span style={{ fontSize: 13 }}>Total <b>US$ {fmt(v.total)}</b></span>
                           <span style={{ fontSize: 13, color: "#16a34a" }}>Abonado US$ {fmt(v.abono_inicial)}</span>

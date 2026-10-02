@@ -2540,13 +2540,16 @@ async def analiticas_cuentas_por_cobrar(_: dict = Depends(get_current_user)):
         g = grupos.get(key)
         if not g:
             g = {"cliente": cliente, "telefono": telefono, "total_vendido": 0.0, "total_abonado": 0.0,
-                  "saldo": 0.0, "n_ventas": 0, "dias_max": 0, "modulos": set()}
+                  "saldo": 0.0, "n_ventas": 0, "dias_max": 0, "modulos": set(), "vendedores": set()}
             grupos[key] = g
         g["total_vendido"] += total
         g["total_abonado"] += abono
         g["saldo"] += saldo
         g["n_ventas"] += 1
         g["modulos"].add(v["_origen_modulo"])
+        _vend = (v.get("vendedor") or "").strip()
+        if _vend:
+            g["vendedores"].add(_vend)
         try:
             fecha = datetime.fromisoformat((v.get("fecha") or "").replace("Z", "+00:00"))
             dias = max(0, (hoy - fecha).days)
@@ -2563,6 +2566,7 @@ async def analiticas_cuentas_por_cobrar(_: dict = Depends(get_current_user)):
             "saldo": round(g["saldo"], 2),
             "n_ventas": g["n_ventas"], "dias_max": g["dias_max"],
             "modulos": sorted(g["modulos"]),
+            "vendedores": sorted(g["vendedores"]),
         })
     cuentas.sort(key=lambda c: c["saldo"], reverse=True)
 
@@ -2603,6 +2607,7 @@ async def analiticas_cxc_detalle(cliente: str, telefono: str = "", _: dict = Dep
             ventas.append({
                 "_id": v.get("_id"), "_tipo": tipo, "_modulo": label,
                 "fecha": v.get("fecha", ""),
+                "vendedor": (v.get("vendedor") or "").strip(),
                 "cantidad_cestas": v.get("cantidad_cestas", 0) or 0,
                 "cantidad_kg": v.get("cantidad_kg", 0) or 0,
                 "precio_unitario": v.get("precio_unitario", 0) or 0,
