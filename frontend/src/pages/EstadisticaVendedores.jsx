@@ -151,12 +151,13 @@ export default function EstadisticaVendedores() {
 
           <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: 18 }}>
             <div style={{ overflowX: "auto" }}>
-              <table className="table" style={{ minWidth: 820 }} data-testid="ev-tabla">
+              <table className="table" style={{ minWidth: 900 }} data-testid="ev-tabla">
                 <thead>
                   <tr>
                     <th>Fecha</th>
                     <th>Vendedor</th>
                     <th style={{ textAlign: "center" }}>Ventas del día</th>
+                    <th style={{ textAlign: "center" }}>Promedio por cesta</th>
                     <th style={{ textAlign: "center" }}>Cestas</th>
                     <th style={{ textAlign: "center", width: 120 }}>% comisión</th>
                     <th style={{ textAlign: "center" }}>Comisión a pagar</th>
@@ -177,6 +178,7 @@ export default function EstadisticaVendedores() {
                           <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>{f.transacciones} venta(s)</div>
                         </td>
                         <td style={{ textAlign: "center", fontWeight: 700, color: "#0369a1" }}>{fmtMoney(f.total_ventas)}</td>
+                        <td style={{ textAlign: "center", fontWeight: 700, color: "#7c3aed" }} data-testid={`ev-promedio-${i}`}>{fmtMoney(f.cestas > 0 ? f.total_ventas / f.cestas : 0)}</td>
                         <td style={{ textAlign: "center", color: "#475569" }}>{fmtNum(f.cestas)}</td>
                         <td style={{ textAlign: "center" }}>
                           <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
