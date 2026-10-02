@@ -101,6 +101,13 @@ export default function EstadisticaVendedores() {
   const filasAll = data?.filas || [];
   const filas = vendedorFiltro === "todos" ? filasAll : filasAll.filter((f) => f.vendedor.toLowerCase() === vendedorFiltro);
   const totales = calcTotales(filas);
+  const acumulado = Object.values(filas.reduce((acc, f) => {
+    const k = f.vendedor.toLowerCase();
+    if (!acc[k]) acc[k] = { vendedor: f.vendedor, monto: 0, comision: 0 };
+    acc[k].monto += f.total_ventas;
+    acc[k].comision += f.comision;
+    return acc;
+  }, {})).map((a) => ({ ...a, monto: r2(a.monto), comision: r2(a.comision) })).sort((a, b) => b.monto - a.monto);
 
   return (
     <div data-testid="estadistica-vendedores-page" style={{ padding: "4px 2px" }}>
@@ -113,24 +120,63 @@ export default function EstadisticaVendedores() {
         </p>
       </div>
 
-      <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: "14px 16px", marginBottom: 16, display: "flex", flexDirection: "column", gap: 12, maxWidth: 420 }}>
-        <div>
-          <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 5 }}>Vendedor</label>
-          <select className="input" value={vendedorFiltro} onChange={(e) => setVendedorFiltro(e.target.value)} data-testid="ev-filtro-vendedor" style={{ width: "100%", padding: "8px 10px", fontWeight: 600 }}>
-            <option value="todos">Todos los vendedores</option>
-            {vendedores.map((v) => <option key={v} value={v.toLowerCase()}>{v}</option>)}
-          </select>
-        </div>
-        <div>
-          <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 5 }}>Mes</label>
-          <div style={{ display: "flex", gap: 8 }}>
-            <select className="input" value={mesSel} onChange={(e) => setMesSel(Number(e.target.value))} data-testid="ev-select-mes" style={{ flex: 1, padding: "8px 10px", fontWeight: 600 }}>
-              {MESES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
-            </select>
-            <select className="input" value={anioSel} onChange={(e) => setAnioSel(Number(e.target.value))} data-testid="ev-select-anio" style={{ width: 100, padding: "8px 10px", fontWeight: 600 }}>
-              {Array.from({ length: 7 }, (_, i) => now.getFullYear() - i).map((a) => <option key={a} value={a}>{a}</option>)}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start", marginBottom: 16 }}>
+        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 12, width: 340, flexShrink: 0 }}>
+          <div>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 5 }}>Vendedor</label>
+            <select className="input" value={vendedorFiltro} onChange={(e) => setVendedorFiltro(e.target.value)} data-testid="ev-filtro-vendedor" style={{ width: "100%", padding: "8px 10px", fontWeight: 600 }}>
+              <option value="todos">Todos los vendedores</option>
+              {vendedores.map((v) => <option key={v} value={v.toLowerCase()}>{v}</option>)}
             </select>
           </div>
+          <div>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 5 }}>Mes</label>
+            <div style={{ display: "flex", gap: 8 }}>
+              <select className="input" value={mesSel} onChange={(e) => setMesSel(Number(e.target.value))} data-testid="ev-select-mes" style={{ flex: 1, padding: "8px 10px", fontWeight: 600 }}>
+                {MESES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+              </select>
+              <select className="input" value={anioSel} onChange={(e) => setAnioSel(Number(e.target.value))} data-testid="ev-select-anio" style={{ width: 100, padding: "8px 10px", fontWeight: 600 }}>
+                {Array.from({ length: 7 }, (_, i) => now.getFullYear() - i).map((a) => <option key={a} value={a}>{a}</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: "14px 16px", flex: "1 1 360px", minWidth: 300 }} data-testid="ev-acumulado">
+          <div style={{ fontSize: 14, fontWeight: 800, color: "#0f172a", marginBottom: 8 }}>Acumulado por vendedor</div>
+          {acumulado.length === 0 ? (
+            <div style={{ fontSize: 13, color: "#94a3b8", padding: "8px 0" }}>Sin datos en este período.</div>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table className="table" style={{ minWidth: 300 }} data-testid="ev-acumulado-tabla">
+                <thead>
+                  <tr>
+                    <th>Vendedor</th>
+                    <th style={{ textAlign: "center" }}>Monto vendido</th>
+                    <th style={{ textAlign: "center" }}>Comisión generada</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {acumulado.map((a, i) => (
+                    <tr key={a.vendedor + i} data-testid={`ev-acum-fila-${i}`}>
+                      <td style={{ fontWeight: 700, color: "#0f172a" }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><UserCircle size={14} style={{ color: "#c2410c" }} /> {a.vendedor}</span>
+                      </td>
+                      <td style={{ textAlign: "center", fontWeight: 700, color: "#0369a1" }}>{fmtMoney(a.monto)}</td>
+                      <td style={{ textAlign: "center", fontWeight: 800, color: a.comision > 0 ? "#16a34a" : "#cbd5e1" }}>{fmtMoney(a.comision)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr style={{ borderTop: "2px solid #e2e8f0" }}>
+                    <td style={{ fontWeight: 800, color: "#475569" }}>Total</td>
+                    <td style={{ textAlign: "center", fontWeight: 800, color: "#0369a1" }} data-testid="ev-acum-total-monto">{fmtMoney(totales.total_ventas)}</td>
+                    <td style={{ textAlign: "center", fontWeight: 800, color: "#16a34a" }} data-testid="ev-acum-total-comision">{fmtMoney(totales.total_comision)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
         </div>
       </div>
 
