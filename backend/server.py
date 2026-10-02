@@ -1839,6 +1839,7 @@ class VentaIn(BaseModel):
     unidad_venta: str = "cestas"  # cestas | kg (forma en que se registró la venta)
     cliente: str = ""
     telefono: str = ""
+    vendedor: str = ""
     abono_inicial: float = 0
     observaciones: str = ""
     origen: str = ""
@@ -2765,6 +2766,22 @@ async def clientes_sugerencias(_: dict = Depends(get_current_user)):
     out = [{"cliente": a["cliente"], "telefono": a["telefono"]} for a in acc.values()]
     out.sort(key=lambda x: x["cliente"].lower())
     return {"clientes": out}
+
+
+@api.get("/vendedores/sugerencias")
+async def vendedores_sugerencias(_: dict = Depends(get_current_user)):
+    """Lista de vendedores distintos extraídos de las ventas reales (finca, ciudad, refrigerar,
+    congelar). Alimenta el autocompletado del campo 'vendedor'. SOLO LECTURA."""
+    nombres: Dict[str, str] = {}
+    for tipo in ("finca", "ciudad", "refrigerar", "congelar"):
+        for v in await db[f"ventas_{tipo}"].find({}).to_list(50000):
+            if v.get("origen") in VENTA_SYSTEM_ORIGENES:
+                continue
+            nom = (v.get("vendedor") or "").strip()
+            if nom:
+                nombres.setdefault(nom.lower(), nom)
+    out = sorted(nombres.values(), key=lambda s: s.lower())
+    return {"vendedores": out}
 
 
 DIAS_SEMANA_ES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]

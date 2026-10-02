@@ -7,6 +7,7 @@ import { todayLocal } from "../lib/dates";
 import { PeriodPicker, currentMonthStr, currentYearStr, currentDayStr, currentWeekStr } from "../components/PeriodPicker";
 import { DecimalInput } from "../components/DecimalInput";
 import { ClienteAutocomplete, invalidarClientesCache } from "../components/ClienteAutocomplete";
+import { VendedorAutocomplete, invalidarVendedoresCache } from "../components/VendedorAutocomplete";
 
 const TIPO_META = {
   finca: { label: "Venta en finca", icon: Home, color: "#16a34a" },
@@ -166,7 +167,7 @@ function Ventas({ tipo }) {
   const [diasMin, setDiasMin] = useState("");
   const [soloDeudores, setSoloDeudores] = useState(false);
   // Formulario inline + abono
-  const emptyNv = { cliente: "", telefono: "", cantidad_cestas: "", precio_unitario: "", abono_inicial: "", fecha: todayLocal(), observaciones: "", modo: "cestas", cantidad_kg: "", precio_kg: "" };
+  const emptyNv = { cliente: "", telefono: "", vendedor: "", cantidad_cestas: "", precio_unitario: "", abono_inicial: "", fecha: todayLocal(), observaciones: "", modo: "cestas", cantidad_kg: "", precio_kg: "" };
   const [nv, setNv] = useState(emptyNv);
   const [abonando, setAbonando] = useState(null);
   // Reasignar cestas sobrantes a otros canales (ciudad / refrigerar / congelar)
@@ -313,6 +314,7 @@ function Ventas({ tipo }) {
 
   const registrarVenta = async () => {
     if (!nv.cliente.trim()) { toast.show(esDonacion ? "Ingresa el beneficiario" : "Ingresa el nombre del cliente", "error"); return; }
+    if (esIngreso && !nv.vendedor.trim()) { toast.show("Ingresa el vendedor de esta venta", "error"); return; }
     const cestasVenta = nvCestasEff;
     if (modoKg) {
       if (!Number(nv.cantidad_kg)) { toast.show("La cantidad de kg es obligatoria", "error"); return; }
@@ -358,6 +360,7 @@ function Ventas({ tipo }) {
         unidad_venta: modoKg ? "kg" : "cestas",
         cliente: nv.cliente,
         telefono: nv.telefono,
+        vendedor: esIngreso ? nv.vendedor : "",
         abono_inicial: esDonacion ? 0 : Number(nv.abono_inicial || 0),
         observaciones: nv.observaciones,
       });
@@ -368,6 +371,7 @@ function Ventas({ tipo }) {
     toast.show(esDonacion ? "Donación registrada" : "Venta registrada");
     setNv(emptyNv);
     invalidarClientesCache();
+    invalidarVendedoresCache();
     load();
   };
 
@@ -580,6 +584,7 @@ function Ventas({ tipo }) {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
               <div className="field"><label>Nombre del cliente *</label><ClienteAutocomplete placeholder="Ej: Juan Pérez" value={nv.cliente} onChange={(val) => setNv({ ...nv, cliente: val })} onSelect={(o) => setNv((prev) => ({ ...prev, cliente: o.cliente, telefono: o.telefono || prev.telefono }))} testid="nv-cliente" /></div>
               <div className="field"><label>Teléfono</label><input className="input" placeholder="Ej: 0414-1234567" value={nv.telefono} onChange={(e) => setNv({ ...nv, telefono: e.target.value })} data-testid="nv-telefono" /></div>
+              <div className="field"><label>Vendedor *</label><VendedorAutocomplete placeholder="Ej: María López" value={nv.vendedor} onChange={(val) => setNv({ ...nv, vendedor: val })} testid="nv-vendedor" /></div>
               {modoKg ? (
                 <>
                   <div className="field"><label>Cantidad (kg) *</label><DecimalInput type="number" step="0.01" min="0" className="input" placeholder="0" value={numv(nv.cantidad_kg)} onChange={(e) => setNv({ ...nv, cantidad_kg: e.target.value })} data-testid="nv-kg" /></div>
@@ -686,7 +691,7 @@ function Ventas({ tipo }) {
             <h3 style={{ marginTop: 0, marginBottom: 2 }}>Registro de Ventas</h3>
             <div style={{ color: "#64748b", fontSize: 13, marginBottom: 14 }}>{ventasFiltradas.length} venta(s) · {deudores} con saldo pendiente</div>
             <table className="table">
-              <thead><tr><th>Cliente</th><th>Teléfono</th><th>Cantidad</th><th>Precio</th><th>Total</th><th>Abono</th><th>Saldo</th><th>Fecha</th><th>Días</th><th>Estado</th><th style={{ textAlign: "right" }}>Acciones</th></tr></thead>
+              <thead><tr><th>Cliente</th><th>Teléfono</th><th>Vendedor</th><th>Cantidad</th><th>Precio</th><th>Total</th><th>Abono</th><th>Saldo</th><th>Fecha</th><th>Días</th><th>Estado</th><th style={{ textAlign: "right" }}>Acciones</th></tr></thead>
               <tbody>
                 {rows.map((v) => {
                   const saldo = saldoDe(v);
@@ -696,6 +701,7 @@ function Ventas({ tipo }) {
                     <tr key={v._id} data-testid="venta-row">
                       <td><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><User size={14} style={{ color: "#94a3b8" }} /> {v.cliente || "—"}</span></td>
                       <td>{v.telefono ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Phone size={13} style={{ color: "#94a3b8" }} /> {v.telefono}</span> : "—"}</td>
+                      <td>{v.vendedor ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#475569" }}><User size={13} style={{ color: "#c2410c" }} /> {v.vendedor}</span> : "—"}</td>
                       <td>{v.unidad_venta === "kg" ? `${Number(v.cantidad_kg || 0)} kg` : `${Number(v.cantidad_cestas || 0)} cestas`}</td>
                       <td>{fmtMoney(v.precio_unitario)}<span style={{ color: "#94a3b8", fontSize: 11 }}>{v.unidad_venta === "kg" ? "/kg" : "/cesta"}</span></td>
                       <td style={{ fontWeight: 700 }}>{fmtMoney(v.total)}</td>
@@ -909,6 +915,7 @@ function VentaForm({ tipo, initial = {}, onClose, onSaved }) {
   const toast = useToast();
   const isEdit = !!initial._id;
   const esDon = tipo === "donaciones";
+  const esReal = !esDon && tipo !== "descarte";
   const [form, setForm] = useState({
     fecha: (initial.fecha || todayLocal()).slice(0, 10),
     cantidad_cestas: initial.cantidad_cestas ?? 0,
@@ -918,6 +925,7 @@ function VentaForm({ tipo, initial = {}, onClose, onSaved }) {
     unidad_venta: initial.unidad_venta || "cestas",
     cliente: initial.cliente || "",
     telefono: initial.telefono || "",
+    vendedor: initial.vendedor || "",
     abono_inicial: initial.abono_inicial ?? 0,
     observaciones: initial.observaciones || "",
   });
@@ -935,6 +943,7 @@ function VentaForm({ tipo, initial = {}, onClose, onSaved }) {
 
   const submit = async (e) => {
     e.preventDefault();
+    if (esReal && !String(form.vendedor || "").trim()) { toast.show("Ingresa el vendedor de esta venta", "error"); return; }
     setBusy(true);
     try {
       const payload = {
@@ -949,6 +958,8 @@ function VentaForm({ tipo, initial = {}, onClose, onSaved }) {
       if (isEdit) await api.put(`/ventas-${tipo}/${initial._id}`, payload);
       else await api.post(`/ventas-${tipo}`, payload);
       toast.show(isEdit ? "Registro actualizado" : "Registro creado");
+      invalidarVendedoresCache();
+      invalidarClientesCache();
       onSaved();
     } catch { toast.show("Error", "error"); }
     finally { setBusy(false); }
@@ -961,6 +972,7 @@ function VentaForm({ tipo, initial = {}, onClose, onSaved }) {
         <div className="form-grid">
           <div className="field"><label>{esDon ? "Beneficiario" : "Nombre del cliente"}</label><ClienteAutocomplete value={form.cliente} onChange={(val) => setForm({ ...form, cliente: val })} onSelect={(o) => setForm((prev) => ({ ...prev, cliente: o.cliente, telefono: o.telefono || prev.telefono }))} placeholder={esDon ? "Ej: Comedor San José" : "Ej: Juan Pérez"} testid="venta-form-cliente" /></div>
           <div className="field"><label>Teléfono</label><input className="input" value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} placeholder="Ej: 0414-1234567" data-testid="venta-form-telefono" /></div>
+          {esReal && <div className="field"><label>Vendedor *</label><VendedorAutocomplete value={form.vendedor} onChange={(val) => setForm({ ...form, vendedor: val })} placeholder="Ej: María López" testid="venta-form-vendedor" /></div>}
           <div className="field"><label>Cantidad de cestas</label><DecimalInput type="number" step="0.01" min="0" className="input" value={num(form.cantidad_cestas)} placeholder="0" onChange={(e) => onCestasChange(e.target.value)} required data-testid="venta-form-cestas" /></div>
           {!esDon && <div className="field"><label>Precio por cesta ($)</label><DecimalInput type="number" step="0.01" min="0" className="input" value={num(form.precio_unitario)} placeholder="0" onChange={(e) => onPrecioChange(e.target.value)} required data-testid="venta-form-precio" /></div>}
           <div className="field"><label>kg (auto)</label><input className="input" value={form.cantidad_kg} readOnly /></div>

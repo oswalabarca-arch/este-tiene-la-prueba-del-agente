@@ -4,6 +4,7 @@ import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
 import { DecimalInput } from "../components/DecimalInput";
 import { ClienteAutocomplete, invalidarClientesCache } from "../components/ClienteAutocomplete";
+import { VendedorAutocomplete, invalidarVendedoresCache } from "../components/VendedorAutocomplete";
 import { Zap, ShoppingCart, AlertCircle, CheckCircle2 } from "lucide-react";
 
 const KG = 14;
@@ -28,7 +29,7 @@ const inicioSemana = () => {
   return d.toLocaleDateString("en-CA");
 };
 
-const emptyForm = { fecha: hoyLocal(), cantidad_cestas: "", precio_unitario: "", cliente: "", telefono: "", abono_inicial: "", observaciones: "" };
+const emptyForm = { fecha: hoyLocal(), cantidad_cestas: "", precio_unitario: "", cliente: "", telefono: "", vendedor: "", abono_inicial: "", observaciones: "" };
 
 export default function VentaRapida() {
   const toast = useToast();
@@ -73,6 +74,7 @@ export default function VentaRapida() {
 
   const registrar = async () => {
     if (!(cestas > 0)) { toast.show("Escribe la cantidad de cestas", "error"); return; }
+    if (!String(form.vendedor || "").trim()) { toast.show("Ingresa el vendedor de esta venta", "error"); return; }
     if (cestas > disponible + 0.001) {
       toast.show(disponible <= 0 ? `No hay cestas disponibles en ${canalCfg.label}. Asígnalas desde "Asignación de destino".` : `Solo hay ${fmt(disponible)} cesta(s) disponibles en ${canalCfg.label}.`, "error");
       return;
@@ -89,12 +91,14 @@ export default function VentaRapida() {
         unidad_venta: "cestas",
         cliente: form.cliente,
         telefono: form.telefono,
+        vendedor: form.vendedor,
         abono_inicial: abono,
         observaciones: form.observaciones,
       });
       toast.show(`Venta registrada en ${canalCfg.label}`);
       setForm({ ...emptyForm, fecha: form.fecha });
       invalidarClientesCache();
+      invalidarVendedoresCache();
       load();
     } catch (err) {
       toast.show(err?.response?.data?.detail || "Error al registrar la venta", "error");
@@ -162,6 +166,10 @@ export default function VentaRapida() {
                 <div className="field" style={{ margin: 0 }}>
                   <label>Teléfono</label>
                   <input className="input" placeholder="Opcional" value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} data-testid="vr-telefono" />
+                </div>
+                <div className="field" style={{ margin: 0 }}>
+                  <label>Vendedor *</label>
+                  <VendedorAutocomplete placeholder="Ej: María López" value={form.vendedor} onChange={(val) => setForm({ ...form, vendedor: val })} testid="vr-vendedor" />
                 </div>
                 <div className="field" style={{ margin: 0 }}>
                   <label>Abono inicial (US$)</label>
