@@ -2,6 +2,13 @@
 
 ## 2026-06 (sesión fork actual)
 
+### Nuevo módulo · Estadísticas de vendedor (comisiones) [Jun 2026]
+- Módulo en la navegación **debajo de "Estadística de compradores"** (`/dashboard/estadistica-vendedores`). Controla comisiones por vendedor y por día.
+- Tabla por (vendedor, día): **suma de ventas del día**, cestas, N° de ventas, **% de comisión editable**, **monto de comisión a pagar** (total×%/100) y botón **Marcar pagada** (fondo verde cuando está pagada).
+- Tarjetas resumen reactivas: ventas totales, comisiones, pagado, pendiente. Filtros Todo / Por año / Por mes con selector de mes y año.
+- **Backend:** `GET /api/estadisticas/vendedores(desde?,hasta?)` (agrupa ventas reales por vendedor y día, cruza con config); `POST /api/estadisticas/vendedores/comision` (upsert % y/o pagada en colección `comisiones_vendedor`). Módulo `estadistica_vendedores` agregado a permisos.
+- **Probado:** testing_agent iteración 52 → frontend OK (link, totales diarios, % persistente, comisión calculada, pagada persistente, filtros). Corregido: tarjetas resumen ahora se recalculan en vivo. `/app/test_reports/iteration_52.json`.
+
 ### Ventas · Campo "Vendedor" en canales reales [Jun 2026]
 - Nuevo campo **Vendedor** (texto libre con autocompletado, aprende de ventas previas) en los ficheros de venta de los canales reales: finca, ciudad, refrigerado, congelado. **Obligatorio** al registrar. NO aplica a Donaciones ni Descarte.
 - **Backend:** `VentaIn.vendedor` persistido en POST/PUT de `/api/ventas-<tipo>`; nuevo `GET /api/vendedores/sugerencias`.

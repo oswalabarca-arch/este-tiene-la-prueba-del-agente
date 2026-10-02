@@ -46,6 +46,12 @@ export default function EstadisticaVendedores() {
   const [edits, setEdits] = useState({}); // key -> porcentaje string en edición
 
   const keyOf = (f) => `${f.vendedor.toLowerCase()}|${f.fecha}`;
+  const r2 = (x) => Math.round((x || 0) * 100) / 100;
+  const calcTotales = (filas) => {
+    const total_comision = filas.reduce((a, f) => a + f.comision, 0);
+    const pagado = filas.reduce((a, f) => a + (f.pagada ? f.comision : 0), 0);
+    return { total_ventas: r2(filas.reduce((a, f) => a + f.total_ventas, 0)), total_comision: r2(total_comision), pagado: r2(pagado), pendiente: r2(total_comision - pagado), dias_vendedor: filas.length };
+  };
 
   const load = useCallback(() => {
     setLoading(true);
@@ -63,10 +69,10 @@ export default function EstadisticaVendedores() {
 
   const guardarPorcentaje = async (f, valor) => {
     const porc = valor === "" ? 0 : Math.min(Math.max(parseFloat(valor) || 0, 0), 100);
-    setData((d) => ({
-      ...d,
-      filas: d.filas.map((x) => keyOf(x) === keyOf(f) ? { ...x, porcentaje: porc, comision: Math.round(x.total_ventas * porc) / 100 } : x),
-    }));
+    setData((d) => {
+      const filas = d.filas.map((x) => keyOf(x) === keyOf(f) ? { ...x, porcentaje: porc, comision: Math.round(x.total_ventas * porc) / 100 } : x);
+      return { ...d, filas, totales: calcTotales(filas) };
+    });
     try {
       await api.post("/estadisticas/vendedores/comision", { vendedor: f.vendedor, fecha: f.fecha, porcentaje: porc });
     } catch {
@@ -77,7 +83,10 @@ export default function EstadisticaVendedores() {
 
   const togglePagada = async (f) => {
     const nueva = !f.pagada;
-    setData((d) => ({ ...d, filas: d.filas.map((x) => keyOf(x) === keyOf(f) ? { ...x, pagada: nueva } : x) }));
+    setData((d) => {
+      const filas = d.filas.map((x) => keyOf(x) === keyOf(f) ? { ...x, pagada: nueva } : x);
+      return { ...d, filas, totales: calcTotales(filas) };
+    });
     try {
       await api.post("/estadisticas/vendedores/comision", { vendedor: f.vendedor, fecha: f.fecha, pagada: nueva });
       toast.show(nueva ? "Comisión marcada como pagada" : "Comisión marcada como pendiente");

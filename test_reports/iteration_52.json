@@ -1,0 +1,25 @@
+{
+  "summary": "Frontend testing of 'Estadísticas de vendedor' module. All flows PASS: sidebar link appears directly below 'Estadística de compradores'; page loads at /dashboard/estadistica-vendedores; QA_Vendedor row shows total 120 for 2 ventas same day; % input (10) + blur triggers backend save and comision calculated as 12; 'Marcar pagada' toggles to 'Pagada' with green background; persistence verified after reload (porcentaje=10, comision=US$12, boton=Pagada, Pagado card=US$12,00); period filters (todo/anio/mes) and selectores mes/anio work. Test data seeded directly in Mongo (ventas_finca) and cleaned up after test.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Toggle pagada / cambiar %", "issue": "Las tarjetas resumen (ev-card-comision, ev-card-pagado, ev-card-pendiente) NO se recalculan en vivo tras blur del % o click en 'Marcar pagada'; solo se actualizan tras recargar la página. Backend persiste correctamente y al recargar los totales son correctos, pero el requisito pide que las tarjetas se actualicen inmediatamente.", "affected_selectors": ["ev-card-comision","ev-card-pagado","ev-card-pendiente"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/seed_vendedor_test.py"],
+  "action_items": [
+    "(Mejora UX, no bloqueante) En EstadisticaVendedores.jsx, recalcular `totales` en el estado local tras guardarPorcentaje() y togglePagada() (sumar comisiones de filas pagadas/pendientes) para que las tarjetas se actualicen en vivo sin recargar."
+  ],
+  "critical_code_review_comments": [
+    "EstadisticaVendedores.jsx: actualiza data.filas optimísticamente pero no recalcula data.totales -> inconsistencia visual temporal entre tabla y tarjetas resumen hasta recargar."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "95%"},
+  "test_credentials": "oswaldabarca@gmail.com / Elvalle0612$",
+  "seed_data_creation": "Insertadas 2 ventas en ventas_finca para QA_Vendedor hoy (totales 50 y 70 = 120). LIMPIADAS al finalizar (ventas y registro en comisiones_vendedor eliminados).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Módulo nuevo funciona end-to-end. Único detalle: las tarjetas resumen no son reactivas tras editar % o marcar pagada (solo se refrescan al recargar). El script /app/backend/tests/seed_vendedor_test.py permite seed/cleanup rápido: `python tests/seed_vendedor_test.py seed|cleanup`."
+}
