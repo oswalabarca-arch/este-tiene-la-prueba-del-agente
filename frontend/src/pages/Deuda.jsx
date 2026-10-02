@@ -26,6 +26,7 @@ export default function Deuda() {
   const editable = canEdit("deuda");
   const [data, setData] = useState(null);
   const [orden, setOrden] = useState("deuda"); // deuda | dias
+  const [vendedorFiltro, setVendedorFiltro] = useState("todos");
   const [abierto, setAbierto] = useState(null); // key cliente|telefono
   const [detalle, setDetalle] = useState({}); // key -> {ventas, loading}
   const [abonoInput, setAbonoInput] = useState({}); // ventaId -> monto
@@ -40,9 +41,11 @@ export default function Deuda() {
 
   const keyDe = (c) => `${(c.cliente || "").toLowerCase()}|${c.telefono || ""}`;
 
-  const cuentas = [...(data?.cuentas || [])].sort((a, b) =>
-    orden === "dias" ? b.dias_max - a.dias_max : b.saldo - a.saldo
-  );
+  const vendedoresLista = [...new Set((data?.cuentas || []).flatMap((c) => c.vendedores || []))].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+
+  const cuentas = [...(data?.cuentas || [])]
+    .filter((c) => vendedorFiltro === "todos" || (c.vendedores || []).some((v) => v.toLowerCase() === vendedorFiltro))
+    .sort((a, b) => (orden === "dias" ? b.dias_max - a.dias_max : b.saldo - a.saldo));
 
   const toggle = async (c) => {
     const key = keyDe(c);
@@ -136,6 +139,14 @@ export default function Deuda() {
             </button>
           ))}
         </div>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+          <label style={{ fontSize: 13, color: "#64748b" }}>Vendedor:</label>
+          <select className="input" value={vendedorFiltro} onChange={(e) => setVendedorFiltro(e.target.value)} data-testid="deuda-filtro-vendedor"
+            style={{ width: "auto", minWidth: 150, padding: "7px 10px", fontWeight: 600 }}>
+            <option value="todos">Todos los vendedores</option>
+            {vendedoresLista.map((v) => <option key={v} value={v.toLowerCase()}>{v}</option>)}
+          </select>
+        </div>
         <div style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 8, background: "#fef9c3", border: "1px solid #fde68a", borderRadius: 10, padding: "6px 12px" }} data-testid="deuda-tasa-box">
           <label style={{ fontSize: 12, color: "#a16207", fontWeight: 600 }}>Tasa de cambio del día (Bs/US$)</label>
           <input type="number" step="0.01" min="0" value={tasa} onChange={(e) => setTasa(e.target.value)}
@@ -176,7 +187,7 @@ export default function Deuda() {
                           <span style={{ fontSize: 11, color: "#94a3b8" }}>{c.n_ventas} venta(s)</span>
                           {(c.vendedores || []).length > 0 && (
                             <span data-testid={`deuda-vendedores-${key}`} style={{ fontSize: 11, fontWeight: 700, color: "#c2410c", background: "#fff7ed", border: "1px solid #fed7aa", padding: "1px 7px", borderRadius: 6 }}>
-                              Cobra: {c.vendedores.join(", ")}
+                              Vendedor: {c.vendedores.join(", ")}
                             </span>
                           )}
                         </span>
