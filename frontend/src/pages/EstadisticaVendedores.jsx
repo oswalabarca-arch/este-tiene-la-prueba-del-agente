@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
-import { HandCoins, DollarSign, CheckCircle2, Clock, UserCircle, Percent } from "lucide-react";
+import { HandCoins, DollarSign, CheckCircle2, Clock, UserCircle, Percent, Layers, CalendarDays } from "lucide-react";
 
 const fmtMoney = (n) => "US$ " + Number(n || 0).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtNum = (n) => Number(n || 0).toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
@@ -142,8 +142,12 @@ export default function EstadisticaVendedores() {
           </div>
         </div>
 
-        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: "14px 16px", flex: "1 1 360px", minWidth: 300 }} data-testid="ev-acumulado">
-          <div style={{ fontSize: 14, fontWeight: 800, color: "#0f172a", marginBottom: 8 }}>Acumulado por vendedor</div>
+        <div style={{ background: "#fff", border: "1px solid #bbf7d0", borderLeft: "4px solid #16a34a", borderRadius: 14, padding: "14px 16px", flex: "1 1 360px", minWidth: 300 }} data-testid="ev-acumulado">
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+            <Layers size={17} style={{ color: "#16a34a" }} />
+            <span style={{ fontSize: 15, fontWeight: 800, color: "#15803d" }}>Acumulado por vendedor</span>
+          </div>
+          <div style={{ fontSize: 12, color: "#64748b", marginBottom: 10 }}>Totales del período: suma de todos los días de cada vendedor.</div>
           {acumulado.length === 0 ? (
             <div style={{ fontSize: 13, color: "#94a3b8", padding: "8px 0" }}>Sin datos en este período.</div>
           ) : (
@@ -195,7 +199,12 @@ export default function EstadisticaVendedores() {
             <Card icon={Clock} label="Pendiente" value={fmtMoney(totales.pendiente)} color="#dc2626" testid="ev-card-pendiente" />
           </div>
 
-          <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: 18 }}>
+          <div style={{ background: "#fff", border: "1px solid #bfdbfe", borderLeft: "4px solid #0ea5e9", borderRadius: 14, padding: 18 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+              <CalendarDays size={17} style={{ color: "#0ea5e9" }} />
+              <span style={{ fontSize: 15, fontWeight: 800, color: "#0369a1" }}>Registro diario de ventas</span>
+            </div>
+            <div style={{ fontSize: 12, color: "#64748b", marginBottom: 12 }}>Un registro por vendedor y por día (no se acumula). Aquí colocas el % y marcas la comisión como pagada.</div>
             <div style={{ overflowX: "auto" }}>
               <table className="table" style={{ minWidth: 900 }} data-testid="ev-tabla">
                 <thead>
