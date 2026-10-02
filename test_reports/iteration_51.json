@@ -1,0 +1,38 @@
+{
+  "summary": "Testeo frontend del campo Vendedor en ventas (iteración 51). Verificado que el campo nv-vendedor aparece en los canales reales (finca, ciudad, refrigerar, congelar), con autocompletado funcional, validación obligatoria, nueva columna 'Vendedor' en tabla, modal de edición con venta-form-vendedor, y campo vr-vendedor en Venta Rápida. Confirmado que NO aparece en donaciones ni descarte. Seed de prueba limpiado.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "VendedorAutocomplete usa caché module-scope de 60s (compartido entre instancias) y se invalida tras guardar. Patrón consistente con ClienteAutocomplete.",
+    "La validación de vendedor se evalúa correctamente ANTES de la validación de stock en registrarVenta (línea 317 Ventas.jsx).",
+    "En el modal de edición, esReal = !donacion && !descarte, por lo que el campo venta-form-vendedor también aplica correctamente a refrigerar/congelar."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "N/A (skipped)", "frontend": "100%" },
+  "test_credentials": "oswaldabarca@gmail.com / Elvalle0612$",
+  "seed_data_creation": "Se creó temporalmente una venta de prueba (cliente TEST_VendedorValidacion, vendedor TEST_Maria_Lopez) en /dashboard/ventas/finca que fue ELIMINADA al final del test (confirmado via toast 'Eliminada' y tabla vacía). No queda data basura.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Checks realizados: (1) nv-vendedor presente en finca/ciudad/refrigerar/congelar y ausente en donaciones/descarte; (2) toast 'Ingresa el vendedor de esta venta' al intentar registrar sin vendedor; (3) venta registrada y nombre visible en columna 'Vendedor' de la tabla; (4) autocompletado - al escribir 'TEST_M' aparece sugerencia TEST_Maria_Lopez en nv-vendedor-opciones y vr-vendedor-opciones; (5) modal de edición abre con venta-form-vendedor conteniendo el nombre persistido; (6) vr-vendedor con autocompletado en /dashboard/venta-rapida. Rutas correctas: /ventas/refrigerar y /ventas/congelar (NO 'refrigerado/congelado').",
+  "test_results": {
+    "nv_vendedor_finca": "present",
+    "nv_vendedor_ciudad": "present",
+    "nv_vendedor_refrigerar": "present",
+    "nv_vendedor_congelar": "present",
+    "nv_vendedor_donaciones": "absent (correct)",
+    "nv_vendedor_descarte": "absent (correct)",
+    "validation_toast": "shown correctly",
+    "venta_registered_with_vendedor": "ok",
+    "tabla_columna_vendedor": "present with name",
+    "autocomplete_nv_vendedor": "works (TEST_Maria_Lopez suggested from 'TEST_M')",
+    "autocomplete_vr_vendedor": "works",
+    "modal_edit_venta_form_vendedor": "present and preloaded with persisted value",
+    "cleanup": "venta de prueba eliminada"
+  }
+}

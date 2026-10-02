@@ -2,6 +2,13 @@
 
 ## 2026-06 (sesión fork actual)
 
+### Ventas · Campo "Vendedor" en canales reales [Jun 2026]
+- Nuevo campo **Vendedor** (texto libre con autocompletado, aprende de ventas previas) en los ficheros de venta de los canales reales: finca, ciudad, refrigerado, congelado. **Obligatorio** al registrar. NO aplica a Donaciones ni Descarte.
+- **Backend:** `VentaIn.vendedor` persistido en POST/PUT de `/api/ventas-<tipo>`; nuevo `GET /api/vendedores/sugerencias`.
+- **Frontend:** componente `VendedorAutocomplete.jsx`; integrado en el form de ingresos y el modal de edición (`nv-vendedor`, `venta-form-vendedor`, solo canales reales) y en Venta Rápida (`vr-vendedor`). Columna "Vendedor" en la tabla de ventas. Validación obligatoria.
+- **Pendiente:** módulo "Estadísticas de vendedor" (debajo de Estadística de compradores) — contenido a definir por el usuario.
+- **Probado:** testing_agent iteración 51 → frontend 100% (presente en reales, ausente en donaciones/descarte, obligatorio, autocompletado, columna, edición). `/app/test_reports/iteration_51.json`.
+
 ### Nuevo módulo · Estadística de compradores [Jun 2026]
 - Nuevo módulo en la navegación, justo **debajo de Analíticas**. Solo lectura sobre las ventas (no altera su estructura).
 - Lee todas las ventas reales (finca, ciudad, refrigerado, congelado) y muestra:
