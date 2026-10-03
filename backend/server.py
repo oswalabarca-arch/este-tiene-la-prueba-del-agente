@@ -3194,21 +3194,32 @@ async def _build_estado_resultados(anio: int, mes: Optional[int]) -> dict:
     # Valores guardados del periodo (manuales + snapshot de salarios congelado)
     doc = await db.estado_resultados.find_one({"anio": anio, "mes": mes})
     if mes is None:
-        # Vista anual: las entradas manuales se registran por mes, así que se suman
-        # los valores de todos los documentos mensuales del año (no el doc anual).
-        otros_ingresos = 0.0
-        software_erp = 0.0
+        # Vista anual = SUMA de cada mes. Las entradas manuales (otros ingresos, software) y el
+        # salario se toman del snapshot congelado de cada mes registrado; nunca se recalcula el
+        # año entero de golpe, para que una variación de salario no altere meses ya registrados.
+        meses_docs = {}
         async for d in db.estado_resultados.find({"anio": anio, "mes": {"$ne": None}}):
-            otros_ingresos += float(d.get("otros_ingresos", 0) or 0)
-            software_erp += float(d.get("software_erp", 0) or 0)
+            meses_docs[d.get("mes")] = d
+        otros_ingresos = sum(float(d.get("otros_ingresos", 0) or 0) for d in meses_docs.values())
+        software_erp = sum(float(d.get("software_erp", 0) or 0) for d in meses_docs.values())
+        salarios = 0.0
+        salarios_dias = None
+        for m in range(1, 13):
+            md = meses_docs.get(m)
+            if md and md.get("salarios_snapshot") is not None:
+                salarios += float(md["salarios_snapshot"])   # mes registrado -> congelado
+            else:
+                s, _ = await _salarios_periodo(anio, m)        # mes sin registrar -> en vivo (solo ese mes)
+                salarios += s
+        salarios = round(salarios, 2)
     else:
         otros_ingresos = float(doc.get("otros_ingresos", 0)) if doc else 0.0
         software_erp = float(doc.get("software_erp", 0)) if doc else 0.0
-    if doc and doc.get("salarios_snapshot") is not None:
-        salarios = float(doc["salarios_snapshot"])
-        salarios_dias = None
-    else:
-        salarios, salarios_dias = await _salarios_periodo(anio, mes)
+        if doc and doc.get("salarios_snapshot") is not None:
+            salarios = float(doc["salarios_snapshot"])
+            salarios_dias = None
+        else:
+            salarios, salarios_dias = await _salarios_periodo(anio, mes)
 
     total_ingresos = round(ventas_fresa + otros_ingresos, 2)
     total_costo_ventas = round(fert_agro + mano_obra, 2)
