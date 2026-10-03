@@ -3193,8 +3193,17 @@ async def _build_estado_resultados(anio: int, mes: Optional[int]) -> dict:
 
     # Valores guardados del periodo (manuales + snapshot de salarios congelado)
     doc = await db.estado_resultados.find_one({"anio": anio, "mes": mes})
-    otros_ingresos = float(doc.get("otros_ingresos", 0)) if doc else 0.0
-    software_erp = float(doc.get("software_erp", 0)) if doc else 0.0
+    if mes is None:
+        # Vista anual: las entradas manuales se registran por mes, así que se suman
+        # los valores de todos los documentos mensuales del año (no el doc anual).
+        otros_ingresos = 0.0
+        software_erp = 0.0
+        async for d in db.estado_resultados.find({"anio": anio, "mes": {"$ne": None}}):
+            otros_ingresos += float(d.get("otros_ingresos", 0) or 0)
+            software_erp += float(d.get("software_erp", 0) or 0)
+    else:
+        otros_ingresos = float(doc.get("otros_ingresos", 0)) if doc else 0.0
+        software_erp = float(doc.get("software_erp", 0)) if doc else 0.0
     if doc and doc.get("salarios_snapshot") is not None:
         salarios = float(doc["salarios_snapshot"])
         salarios_dias = None
