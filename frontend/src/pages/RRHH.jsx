@@ -63,7 +63,7 @@ export function Trabajadores() {
           );
         })()}
         <table className="table">
-          <thead><tr><th>Nombre</th><th>Documento</th><th>Cargo</th><th>Salario diario</th><th>Estado</th><th>Fecha de baja</th><th>Acciones</th></tr></thead>
+          <thead><tr><th>Nombre</th><th>Documento</th><th>Cargo</th><th>Salario diario</th><th>Estado</th><th>Fecha de ingreso</th><th>Fecha de baja</th><th>Acciones</th></tr></thead>
           <tbody>
             {items.map((t) => (
               <tr key={t._id}>
@@ -85,6 +85,9 @@ export function Trabajadores() {
                       </button>
                     )}
                   </div>
+                </td>
+                <td data-testid={`trab-ingreso-${t._id}`} style={{ color: t.fecha_ingreso ? "#334155" : "#94a3b8" }}>
+                  {t.fecha_ingreso || "—"}
                 </td>
                 <td data-testid={`trab-baja-${t._id}`} style={{ color: t.activo ? "#94a3b8" : "#b91c1c", fontWeight: t.activo ? 400 : 600 }}>
                   {t.activo ? "—" : (t.fecha_inactivo || "sin fecha")}
@@ -134,6 +137,7 @@ function TrabajadorModal({ initial, onClose, onSaved }) {
           <div className="field"><label>Teléfono</label><input className="input" value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} /></div>
           <div className="field"><label>Cargo</label><input className="input" value={form.cargo} onChange={(e) => setForm({ ...form, cargo: e.target.value })} /></div>
           <div className="field"><label>Salario diario</label><DecimalInput type="number" className="input" value={form.salario_diario} onChange={(e) => setForm({ ...form, salario_diario: e.target.value })} /></div>
+          <div className="field"><label>Fecha de ingreso</label><input type="date" className="input" data-testid="trab-fecha-ingreso-input" value={form.fecha_ingreso || ""} onChange={(e) => setForm({ ...form, fecha_ingreso: e.target.value })} /></div>
           <div className="field"><label>Activo</label><select className="select" value={form.activo ? "1" : "0"} onChange={(e) => setForm({ ...form, activo: e.target.value === "1" })}><option value="1">Sí</option><option value="0">No</option></select></div>
         </div>
         <div className="modal-footer">
