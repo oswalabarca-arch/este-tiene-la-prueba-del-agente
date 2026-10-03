@@ -3084,10 +3084,30 @@ def _fecha_baja(t: dict) -> Optional[date]:
         return date.min
 
 
+def _fecha_ingreso_trab(t: dict) -> Optional[date]:
+    """Fecha de ingreso del trabajador: no se le cobra salario ANTES de esta fecha.
+    Usa `fecha_ingreso` si está; si no, cae al `createdAt` del registro. None si no hay ninguna."""
+    for key in ("fecha_ingreso", "createdAt", "created_at"):
+        v = t.get(key)
+        if v:
+            try:
+                return date.fromisoformat(str(v)[:10])
+            except Exception:
+                continue
+    return None
+
+
+def _max_fecha(a: Optional[date], b: Optional[date]) -> Optional[date]:
+    """La más tardía de dos fechas (ignora None)."""
+    if a and b:
+        return max(a, b)
+    return a or b
+
+
 async def _salarios_periodo(anio: int, mes: Optional[int]) -> tuple:
     """Salario total del período (base 30/mes), calculado POR TRABAJADOR: cada uno suma solo
-    mientras estuvo activo (desde el inicio de operaciones y hasta su fecha de baja). Devuelve
-    (salarios, dias_representativos) donde dias_representativos es para la etiqueta del período."""
+    mientras estuvo activo (desde el MÁXIMO entre el inicio de operaciones y su fecha de ingreso,
+    y hasta su fecha de baja). Devuelve (salarios, dias_representativos) para la etiqueta."""
     now = datetime.now(timezone.utc)
     inicio = await _inicio_operaciones()
     total = 0.0
@@ -3097,7 +3117,8 @@ async def _salarios_periodo(anio: int, mes: Optional[int]) -> tuple:
         if sd <= 0:
             continue
         fin = _fecha_baja(t)
-        d = _worker_dias(anio, mes, now, inicio, fin)
+        inicio_ef = _max_fecha(inicio, _fecha_ingreso_trab(t))  # no cobra antes de su ingreso
+        d = _worker_dias(anio, mes, now, inicio_ef, fin)
         total += sd * d
         if t.get("activo", True):
             dias_repr = max(dias_repr, d)
@@ -3570,14 +3591,15 @@ async def costos_kg_filtrado(gran: str = "todo", anchor: Optional[str] = None, _
             sd = float(t.get("salario_diario") or 0)
             if sd <= 0:
                 continue
+            w0 = _max_fecha(win0, _fecha_ingreso_trab(t)) or win0  # no cobra antes de su ingreso
             w1 = win1
             fin = _fecha_baja(t)
             if fin is not None:
-                if fin < win0:
+                if fin < w0:
                     continue           # de baja antes de la ventana -> no suma
                 if fin < w1:
                     w1 = fin            # cuenta hasta su fecha de baja
-            d = (w1 - win0).days + 1 if w1 >= win0 else 0
+            d = (w1 - w0).days + 1 if w1 >= w0 else 0
             salarios += sd * d
             if t.get("activo", True):
                 dias = max(dias, d)

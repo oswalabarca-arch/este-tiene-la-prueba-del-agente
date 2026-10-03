@@ -2,6 +2,12 @@
 
 ## 2026-06 (sesión fork actual)
 
+### Estado de Resultados · Salario respeta fecha de ingreso del trabajador [Jun 2026]
+- **Problema (RCA en producción):** el anual recalculaba salarios en vivo y le cobraba a un trabajador agregado después (ej. "Julio", ingresó 2/oct) desde el inicio de operaciones (31/may) durante todo el año, porque el cálculo solo miraba `inicio_operaciones` + `fecha_inactivo` e **ignoraba la fecha de ingreso**. Esto explicaba +1704.70 de la diferencia anual vs. suma de meses.
+- **Fix:** cada trabajador ahora acumula salario desde el **máximo entre el inicio de operaciones y su `fecha_ingreso`** (si no tiene `fecha_ingreso`, usa el `createdAt` del registro). Se respeta igual la baja: lo pagado hasta la desactivación (`fecha_inactivo`) permanece. Aplicado en `_salarios_periodo` (Estado de Resultados mensual/anual y tendencia) y en el cálculo de salarios de la ventana de `costos-kg` (todo/semana).
+- **Verificado:** test aislado reproduciendo el escenario → antes 136 días/2230.40, después 14 días/229.60; baja a mitad de período conserva los meses previos.
+- **Nota:** los estados **ya registrados/congelados** no cambian (usan snapshot). Conviene cargar la `fecha_ingreso` correcta de cada trabajador en RRHH para máxima exactitud. Las otras dos causas de la diferencia (software/ERP 800 no contado en el anual, y 137 de gastos de vehículo del 31/may) quedan pendientes de decisión del usuario.
+
 ### Nuevo módulo · Estadísticas de vendedor (comisiones) [Jun 2026]
 - Módulo en la navegación **debajo de "Estadística de compradores"** (`/dashboard/estadistica-vendedores`). Controla comisiones por vendedor y por día.
 - Tabla por (vendedor, día): **suma de ventas del día**, cestas, N° de ventas, **% de comisión editable**, **monto de comisión a pagar** (total×%/100) y botón **Marcar pagada** (fondo verde cuando está pagada).
