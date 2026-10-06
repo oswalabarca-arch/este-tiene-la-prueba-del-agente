@@ -26,6 +26,7 @@ export default function AgenteWhatsApp() {
   const [tab, setTab] = useState("pedidos");
   const [estado, setEstado] = useState(null);
   const [pedidos, setPedidos] = useState([]);
+  const [aprobados, setAprobados] = useState([]);
   const [convs, setConvs] = useState([]);
   const [convSel, setConvSel] = useState(null);
   const [mensajes, setMensajes] = useState([]);
@@ -43,10 +44,11 @@ export default function AgenteWhatsApp() {
 
   const loadEstado = useCallback(() => api.get("/whatsapp/estado").then((r) => setEstado(r.data)).catch(() => {}), []);
   const loadPedidos = useCallback(() => api.get("/whatsapp/pedidos", { params: { estado: "pendiente" } }).then((r) => setPedidos(r.data.pedidos || [])).catch(() => {}), []);
+  const loadAprobados = useCallback(() => api.get("/whatsapp/pedidos", { params: { estado: "aprobado" } }).then((r) => setAprobados(r.data.pedidos || [])).catch(() => {}), []);
   const loadConvs = useCallback(() => api.get("/whatsapp/conversaciones").then((r) => setConvs(r.data.conversaciones || [])).catch(() => {}), []);
   const loadReps = useCallback(() => api.get("/whatsapp/repartidores").then((r) => setReps(r.data.repartidores || [])).catch(() => {}), []);
 
-  useEffect(() => { loadEstado(); loadPedidos(); loadConvs(); loadReps(); }, [loadEstado, loadPedidos, loadConvs, loadReps]);
+  useEffect(() => { loadEstado(); loadPedidos(); loadAprobados(); loadConvs(); loadReps(); }, [loadEstado, loadPedidos, loadAprobados, loadConvs, loadReps]);
 
   const abrirConv = (tel) => {
     setConvSel(tel);
@@ -70,12 +72,12 @@ export default function AgenteWhatsApp() {
   };
 
   const autorizar = async (p) => {
-    if (!window.confirm(`¿Autorizar y CREAR la venta real?\n${p.cantidad_cestas} cestas · ${fmtMoney(p.total)}\n${p.direccion || ""}`)) return;
+    if (!window.confirm(`¿Aprobar este pedido?\n${p.nombre || p.telefono}\n${p.cantidad_cestas} cestas · ${fmtMoney(p.total)}\n\nEl pedido pasará a "Pedidos aprobados". No se descuenta inventario ni se crea ninguna venta.`)) return;
     try {
       await api.post(`/whatsapp/pedidos/${p._id}/autorizar`);
-      toast.show("Pedido autorizado y venta creada ✅");
-      loadPedidos();
-    } catch (e) { toast.show(e?.response?.data?.detail || "No se pudo autorizar", "error"); }
+      toast.show("Pedido aprobado ✅");
+      loadPedidos(); loadAprobados();
+    } catch (e) { toast.show(e?.response?.data?.detail || "No se pudo aprobar", "error"); }
   };
   const rechazar = async (p) => {
     if (!window.confirm("¿Rechazar este pedido?")) return;
@@ -137,36 +139,59 @@ export default function AgenteWhatsApp() {
 
       {/* PEDIDOS */}
       {tab === "pedidos" && (
-        <div data-testid="wa-pedidos-panel">
-          {pedidos.length === 0 ? (
-            <div style={{ color: "#64748b", padding: 30, textAlign: "center", border: "1px dashed #cbd5e1", borderRadius: 12 }}>
-              No hay pedidos pendientes de aprobación.
+        <div data-testid="wa-pedidos-panel" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, alignItems: "start" }}>
+          {/* Columna 1: por aprobar */}
+          <div data-testid="wa-col-por-aprobar">
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 800, color: "#0f172a", fontSize: 15, marginBottom: 12 }}>
+              <ShoppingBag size={17} color="#d97706" /> Pedidos por aprobar
+              {pedidos.length > 0 && <span style={{ background: "#d97706", color: "#fff", borderRadius: 999, fontSize: 11, padding: "0 7px", fontWeight: 700 }}>{pedidos.length}</span>}
             </div>
-          ) : pedidos.map((p) => (
-            <div key={p._id} data-testid={`wa-pedido-${p._id}`} style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: 16, marginBottom: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-                <div>
-                  <div style={{ fontWeight: 800, color: "#0f172a", fontSize: 16 }}>{p.nombre || p.telefono} · {fmtMoney(p.total)}</div>
-                  <div style={{ color: "#475569", fontSize: 13.5, marginTop: 4 }}>
-                    🧺 {p.cantidad_cestas} cestas × {fmtMoney(p.precio_unitario)}
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#64748b", fontSize: 13, marginTop: 4 }}><Phone size={13} /> {p.telefono}</div>
-                  {p.direccion && <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#64748b", fontSize: 13, marginTop: 2 }}><MapPin size={13} /> {p.direccion}</div>}
-                  {p.notas && <div style={{ color: "#94a3b8", fontSize: 12.5, marginTop: 2 }}>{p.notas}</div>}
-                </div>
-                <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+            {pedidos.length === 0 ? (
+              <div style={{ color: "#94a3b8", padding: 24, textAlign: "center", border: "1px dashed #cbd5e1", borderRadius: 12, fontSize: 13 }}>
+                No hay pedidos pendientes.
+              </div>
+            ) : pedidos.map((p) => (
+              <div key={p._id} data-testid={`wa-pedido-${p._id}`} style={{ background: "#fff", border: "1px solid #fde68a", borderRadius: 14, padding: 14, marginBottom: 12 }}>
+                <div style={{ fontWeight: 800, color: "#0f172a", fontSize: 15 }}>{p.nombre || p.telefono} · {fmtMoney(p.total)}</div>
+                <div style={{ color: "#475569", fontSize: 13, marginTop: 4 }}>🧺 {p.cantidad_cestas} cestas × {fmtMoney(p.precio_unitario)}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#64748b", fontSize: 12.5, marginTop: 4 }}><Phone size={13} /> {p.telefono}</div>
+                {p.direccion && <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#64748b", fontSize: 12.5, marginTop: 2 }}><MapPin size={13} /> {p.direccion}</div>}
+                {p.notas && <div style={{ color: "#94a3b8", fontSize: 12, marginTop: 2 }}>{p.notas}</div>}
+                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
                   <button data-testid={`wa-autorizar-${p._id}`} onClick={() => autorizar(p)}
-                    style={{ display: "flex", alignItems: "center", gap: 6, background: "#16a34a", color: "#fff", border: "none", borderRadius: 10, padding: "9px 14px", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>
-                    <CheckCircle2 size={16} /> Autorizar
+                    style={{ display: "flex", alignItems: "center", gap: 6, background: "#16a34a", color: "#fff", border: "none", borderRadius: 10, padding: "8px 13px", fontWeight: 700, cursor: "pointer", fontSize: 12.5 }}>
+                    <CheckCircle2 size={15} /> Aprobar
                   </button>
                   <button data-testid={`wa-rechazar-${p._id}`} onClick={() => rechazar(p)}
-                    style={{ display: "flex", alignItems: "center", gap: 6, background: "#fff", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 10, padding: "9px 14px", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>
-                    <XCircle size={16} /> Rechazar
+                    style={{ display: "flex", alignItems: "center", gap: 6, background: "#fff", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 10, padding: "8px 13px", fontWeight: 700, cursor: "pointer", fontSize: 12.5 }}>
+                    <XCircle size={15} /> Rechazar
                   </button>
                 </div>
               </div>
+            ))}
+          </div>
+
+          {/* Columna 2: aprobados */}
+          <div data-testid="wa-col-aprobados">
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 800, color: "#0f172a", fontSize: 15, marginBottom: 12 }}>
+              <CheckCircle2 size={17} color="#16a34a" /> Pedidos aprobados
+              {aprobados.length > 0 && <span style={{ background: "#16a34a", color: "#fff", borderRadius: 999, fontSize: 11, padding: "0 7px", fontWeight: 700 }}>{aprobados.length}</span>}
             </div>
-          ))}
+            {aprobados.length === 0 ? (
+              <div style={{ color: "#94a3b8", padding: 24, textAlign: "center", border: "1px dashed #cbd5e1", borderRadius: 12, fontSize: 13 }}>
+                Aún no hay pedidos aprobados.
+              </div>
+            ) : aprobados.map((p) => (
+              <div key={p._id} data-testid={`wa-aprobado-${p._id}`} style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 14, padding: 14, marginBottom: 12 }}>
+                <div style={{ fontWeight: 800, color: "#0f172a", fontSize: 15 }}>{p.nombre || "Sin nombre"}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#15803d", fontSize: 13, marginTop: 3, fontWeight: 600 }}><Phone size={13} /> {p.telefono}</div>
+                <div style={{ color: "#475569", fontSize: 13, marginTop: 5 }}>🧺 {p.cantidad_cestas} cestas × {fmtMoney(p.precio_unitario)} · {fmtMoney(p.total)}</div>
+                {p.direccion && <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#64748b", fontSize: 12.5, marginTop: 2 }}><MapPin size={13} /> {p.direccion}</div>}
+                {p.notas && <div style={{ color: "#94a3b8", fontSize: 12, marginTop: 2 }}>{p.notas}</div>}
+                <div style={{ color: "#94a3b8", fontSize: 11.5, marginTop: 6 }}>Aprobado {p.aprobado_at ? new Date(p.aprobado_at).toLocaleString("es-ES") : ""}</div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

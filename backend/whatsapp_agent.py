@@ -50,7 +50,11 @@ BASE_PROMPT = (
     "DEUDAS/SALDO: si el cliente pregunta por su deuda o cuánto debe, respóndele usando EXACTAMENTE el dato 'DEUDA PENDIENTE' del contexto "
     "(monto total, cuántas ventas y desde qué fechas). Si el contexto dice que no tiene deuda, avísale que está al día. "
     "Si no reconoces al cliente por su número, pídele amablemente el nombre con el que registró su compra para poder revisar. "
-    "NUNCA inventes montos ni fechas de deuda; usa solo lo que aparece en el contexto."
+    "NUNCA inventes montos ni fechas de deuda; usa solo lo que aparece en el contexto.\n\n"
+    "LÍMITES ESTRICTOS: tu única acción es TOMAR PEDIDOS. NO puedes registrar pagos ni abonos, NO descuentas inventario, "
+    "NO modificas, editas ni eliminas nada en el sistema; solo consultas información para informar. Si el cliente quiere "
+    "pagar una deuda o abonar, dile con amabilidad que el encargado coordinará el pago (tú no procesas pagos). "
+    "Si piden algo fuera de tomar pedidos o dar información, ofréceles que el encargado los atenderá."
 )
 
 PEDIDO_RE = re.compile(r"\[\[PEDIDO\]\](.*?)\[\[/PEDIDO\]\]", re.DOTALL)
@@ -230,8 +234,12 @@ def build_wa_router(db, get_current_user):
         pedido_id = None
         if pedido:
             pedido_id = _nid()
+            nombre_final = nombre
+            if not nombre_final:
+                conv = await db["wa_conversaciones"].find_one({"_id": telefono})
+                nombre_final = (conv or {}).get("nombre", "")
             await db["wa_pedidos_borrador"].insert_one({
-                "_id": pedido_id, "telefono": telefono, "nombre": nombre or "",
+                "_id": pedido_id, "telefono": telefono, "nombre": nombre_final or "",
                 "producto": pedido.get("producto", "Fresa"),
                 "cantidad_cestas": float(pedido.get("cantidad_cestas", 0) or 0),
                 "cantidad_kg": float(pedido.get("cantidad_kg", 0) or 0),
@@ -361,53 +369,20 @@ def build_wa_router(db, get_current_user):
 
     @wa.post("/pedidos/{pid}/autorizar")
     async def autorizar(pid: str, user: dict = Depends(get_current_user)):
+        """Aprueba el pedido SIN escribir en ningún otro módulo.
+        El agente solo toma pedidos: NO descuenta inventario ni crea ventas.
+        El pedido aprobado queda registrado únicamente en el módulo de WhatsApp."""
         p = await db["wa_pedidos_borrador"].find_one({"_id": pid})
         if not p:
             raise HTTPException(404, "Pedido no encontrado")
-        if p.get("estado") == "autorizado":
-            raise HTTPException(400, "Este pedido ya fue autorizado")
-
-        cestas = float(p.get("cantidad_cestas", 0) or 0)
-        # Validar disponibilidad en el canal ciudad (misma regla que una venta normal)
-        docs = await db["ventas_ciudad"].find({}).to_list(50000)
-        recibido = sum((d.get("cantidad_cestas", 0) or 0) for d in docs if d.get("origen") in RECIBIDO_ORIGINS)
-        usado = sum((d.get("cantidad_cestas", 0) or 0) for d in docs if d.get("origen") not in RECIBIDO_ORIGINS)
-        disponible = recibido - usado
-        if cestas > disponible + 0.001:
-            raise HTTPException(400, f"No hay suficiente disponible: pedís {round(cestas, 2)} cesta(s) y solo hay {round(max(disponible, 0), 2)}. Asigná más cosecha al canal 'Envío a ciudad' primero.")
-
-        cfg = await db["wa_config"].find_one({"_id": "config"}) or {}
-        vendedor = cfg.get("vendedor_nombre", "Agente WhatsApp")
-        obs = "Pedido vía Agente WhatsApp."
-        if p.get("direccion"):
-            obs += f" Dirección: {p['direccion']}."
-        if p.get("notas"):
-            obs += f" {p['notas']}"
-
-        venta = {
-            "_id": _nid(),
-            "fecha": datetime.now(timezone.utc).date().isoformat(),
-            "cantidad_cestas": cestas,
-            "cantidad_kg": float(p.get("cantidad_kg", 0) or 0),
-            "precio_unitario": float(p.get("precio_unitario", 0) or 0),
-            "total": float(p.get("total", 0) or 0),
-            "unidad_venta": "cestas",
-            "cliente": p.get("nombre") or p.get("telefono"),
-            "telefono": p.get("telefono", ""),
-            "vendedor": vendedor,
-            "abono_inicial": 0,
-            "observaciones": obs,
-            "origen": "whatsapp",
-            "createdAt": _now(),
-            "updatedAt": _now(),
-            "usuario_email": user.get("email"),
-            "usuario_name": user.get("nombre_completo"),
-        }
-        await db["ventas_ciudad"].insert_one(venta)
+        if p.get("estado") == "aprobado":
+            raise HTTPException(400, "Este pedido ya fue aprobado")
         await db["wa_pedidos_borrador"].update_one(
-            {"_id": pid}, {"$set": {"estado": "autorizado", "venta_id": venta["_id"], "updated_at": _now()}}
+            {"_id": pid},
+            {"$set": {"estado": "aprobado", "aprobado_por": user.get("email"),
+                      "aprobado_at": _now(), "updated_at": _now()}},
         )
-        return {"ok": True, "venta_id": venta["_id"]}
+        return {"ok": True}
 
     @wa.post("/pedidos/{pid}/rechazar")
     async def rechazar(pid: str, _: dict = Depends(get_current_user)):
