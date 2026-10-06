@@ -4473,6 +4473,11 @@ async def on_start():
 
 # Mount
 app.include_router(api)
+
+# Módulo piloto: Agente de ventas IA por WhatsApp (aislado, colecciones wa_*)
+from whatsapp_agent import build_wa_router
+app.include_router(build_wa_router(db, get_current_user))
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,

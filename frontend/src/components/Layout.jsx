@@ -5,7 +5,7 @@ import {
   DollarSign, Snowflake, Boxes, ShoppingCart, BarChart3, ChevronDown,
   ChevronUp, Briefcase, LogOut, Car, Cog, Wrench,
   Home, Building2, AlertCircle, Heart, Clock, PlusCircle,
-  UserCheck, Wallet, Menu, X, FileText, CalendarCheck, HandCoins, Zap, Trophy,
+  UserCheck, Wallet, Menu, X, FileText, CalendarCheck, HandCoins, Zap, Trophy, Bot,
 } from "lucide-react";
 import { Strawberry } from "./icons/Strawberry";
 import { useState } from "react";
@@ -60,6 +60,7 @@ const NAV = [
   { to: "/dashboard/analiticas", label: "Analíticas", icon: BarChart3, module: "analiticas" },
   { to: "/dashboard/estadistica-compradores", label: "Estadística de compradores", icon: Trophy, module: "estadistica_compradores" },
   { to: "/dashboard/estadistica-vendedores", label: "Estadísticas de vendedor", icon: HandCoins, module: "estadistica_vendedores" },
+  { to: "/dashboard/agente-whatsapp", label: "Agente WhatsApp", icon: Bot, module: null },
 ];
 
 export default function Layout() {
