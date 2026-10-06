@@ -110,9 +110,10 @@ def build_wa_router(db, get_current_user):
     wa = APIRouter(prefix="/api/whatsapp")
 
     # ---------- Contexto de negocio (SOLO LECTURA) ----------
-    async def _contexto_negocio(telefono: str) -> str:
+    async def _contexto_negocio(telefono: str, nombre: str = None) -> str:
         partes = []
         tel_norm = _solo_digitos(telefono)[-10:]
+        nom_norm = (nombre or "").strip().lower()
         # Precio de referencia por cesta (promedio de ventas reales a ciudad)
         try:
             docs = await db["ventas_ciudad"].find({}).to_list(5000)
@@ -139,22 +140,24 @@ def build_wa_router(db, get_current_user):
             hoy = datetime.now(timezone.utc)
             nombre_cli = None
             pendientes = []
-            if tel_norm:
-                for coll in ("ventas_finca", "ventas_ciudad", "ventas_refrigerar", "ventas_congelar"):
-                    async for d in db[coll].find({}):
-                        if _solo_digitos(d.get("telefono", ""))[-10:] != tel_norm:
-                            continue
-                        nombre_cli = d.get("cliente") or nombre_cli
-                        total = d.get("total", 0) or 0
-                        abono = d.get("abono_inicial", 0) or 0
-                        saldo = total - abono
-                        if saldo > 0.001:
-                            try:
-                                f = _dt.fromisoformat((d.get("fecha") or "").replace("Z", "+00:00"))
-                                dias = max(0, (hoy - f).days)
-                            except Exception:
-                                dias = 0
-                            pendientes.append({"fecha": d.get("fecha", ""), "saldo": round(saldo, 2), "dias": dias})
+            for coll in ("ventas_finca", "ventas_ciudad", "ventas_refrigerar", "ventas_congelar"):
+                async for d in db[coll].find({}):
+                    tel_ok = tel_norm and _solo_digitos(d.get("telefono", ""))[-10:] == tel_norm
+                    cli = (d.get("cliente") or "").strip()
+                    nom_ok = nom_norm and cli.lower() == nom_norm
+                    if not (tel_ok or nom_ok):
+                        continue
+                    nombre_cli = cli or nombre_cli
+                    total = d.get("total", 0) or 0
+                    abono = d.get("abono_inicial", 0) or 0
+                    saldo = total - abono
+                    if saldo > 0.001:
+                        try:
+                            f = _dt.fromisoformat((d.get("fecha") or "").replace("Z", "+00:00"))
+                            dias = max(0, (hoy - f).days)
+                        except Exception:
+                            dias = 0
+                        pendientes.append({"fecha": d.get("fecha", ""), "saldo": round(saldo, 2), "dias": dias})
             if nombre_cli:
                 partes.append(f"Cliente conocido: {nombre_cli} (ya ha comprado antes).")
             if pendientes:
@@ -162,7 +165,7 @@ def build_wa_router(db, get_current_user):
                 total_deuda = round(sum(p["saldo"] for p in pendientes), 2)
                 detalle = "; ".join(f"${p['saldo']} del {p['fecha']} ({p['dias']} días)" for p in pendientes)
                 partes.append(f"DEUDA PENDIENTE del cliente: ${total_deuda} en {len(pendientes)} venta(s) [{detalle}].")
-            elif tel_norm and nombre_cli:
+            elif nombre_cli:
                 partes.append("El cliente NO tiene deuda pendiente (saldo en $0).")
         except Exception:
             pass
@@ -197,7 +200,7 @@ def build_wa_router(db, get_current_user):
         """Núcleo del agente: recibe un mensaje del cliente, responde y (si procede) crea pedido borrador."""
         await _guardar_msg(telefono, "inbound", text, wamid=wamid, nombre=nombre)
 
-        contexto = await _contexto_negocio(telefono)
+        contexto = await _contexto_negocio(telefono, nombre)
         historial = await _historial(telefono)
         system = (
             BASE_PROMPT
