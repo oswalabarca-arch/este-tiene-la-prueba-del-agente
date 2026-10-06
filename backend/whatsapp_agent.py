@@ -46,7 +46,11 @@ BASE_PROMPT = (
     "IMPORTANTE: cuando el cliente confirme explícitamente el pedido completo, agrega AL FINAL de tu mensaje un bloque "
     "exactamente con este formato (el cliente NO debe verlo, es para el sistema):\n"
     "[[PEDIDO]]{\"producto\":\"Fresa\",\"cantidad_cestas\":<numero>,\"cantidad_kg\":0,\"precio_unitario\":<numero>,\"total\":<numero>,\"direccion\":\"<texto>\",\"notas\":\"<texto opcional>\"}[[/PEDIDO]]\n"
-    "Solo agrega el bloque cuando el pedido esté realmente confirmado y completo. Si aún falta info, NO lo agregues."
+    "Solo agrega el bloque cuando el pedido esté realmente confirmado y completo. Si aún falta info, NO lo agregues.\n\n"
+    "DEUDAS/SALDO: si el cliente pregunta por su deuda o cuánto debe, respóndele usando EXACTAMENTE el dato 'DEUDA PENDIENTE' del contexto "
+    "(monto total, cuántas ventas y desde qué fechas). Si el contexto dice que no tiene deuda, avísale que está al día. "
+    "Si no reconoces al cliente por su número, pídele amablemente el nombre con el que registró su compra para poder revisar. "
+    "NUNCA inventes montos ni fechas de deuda; usa solo lo que aparece en el contexto."
 )
 
 PEDIDO_RE = re.compile(r"\[\[PEDIDO\]\](.*?)\[\[/PEDIDO\]\]", re.DOTALL)
@@ -129,16 +133,37 @@ def build_wa_router(db, get_current_user):
             partes.append(f"Cestas disponibles ahora para envío a ciudad: {max(disp, 0)}")
         except Exception:
             pass
-        # Cliente conocido por teléfono
+        # Cliente conocido + DEUDA pendiente (por teléfono) — SOLO LECTURA
         try:
-            for coll in ("ventas_ciudad", "ventas_finca"):
-                encontrado = None
-                async for d in db[coll].find({}):
-                    if _solo_digitos(d.get("telefono", ""))[-10:] == tel_norm and tel_norm:
-                        encontrado = d.get("cliente") or encontrado
-                if encontrado:
-                    partes.append(f"Cliente conocido: {encontrado} (ya ha comprado antes).")
-                    break
+            from datetime import datetime as _dt
+            hoy = datetime.now(timezone.utc)
+            nombre_cli = None
+            pendientes = []
+            if tel_norm:
+                for coll in ("ventas_finca", "ventas_ciudad", "ventas_refrigerar", "ventas_congelar"):
+                    async for d in db[coll].find({}):
+                        if _solo_digitos(d.get("telefono", ""))[-10:] != tel_norm:
+                            continue
+                        nombre_cli = d.get("cliente") or nombre_cli
+                        total = d.get("total", 0) or 0
+                        abono = d.get("abono_inicial", 0) or 0
+                        saldo = total - abono
+                        if saldo > 0.001:
+                            try:
+                                f = _dt.fromisoformat((d.get("fecha") or "").replace("Z", "+00:00"))
+                                dias = max(0, (hoy - f).days)
+                            except Exception:
+                                dias = 0
+                            pendientes.append({"fecha": d.get("fecha", ""), "saldo": round(saldo, 2), "dias": dias})
+            if nombre_cli:
+                partes.append(f"Cliente conocido: {nombre_cli} (ya ha comprado antes).")
+            if pendientes:
+                pendientes.sort(key=lambda x: x["fecha"])
+                total_deuda = round(sum(p["saldo"] for p in pendientes), 2)
+                detalle = "; ".join(f"${p['saldo']} del {p['fecha']} ({p['dias']} días)" for p in pendientes)
+                partes.append(f"DEUDA PENDIENTE del cliente: ${total_deuda} en {len(pendientes)} venta(s) [{detalle}].")
+            elif tel_norm and nombre_cli:
+                partes.append("El cliente NO tiene deuda pendiente (saldo en $0).")
         except Exception:
             pass
         return "\n".join(partes) if partes else "Sin datos de referencia adicionales."
