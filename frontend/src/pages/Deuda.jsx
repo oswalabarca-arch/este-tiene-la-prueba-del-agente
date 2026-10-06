@@ -75,6 +75,7 @@ export default function Deuda() {
     await api.put(`/ventas-${v._tipo}/${v._id}`, {
       fecha: v.fecha, cantidad_cestas: v.cantidad_cestas, cantidad_kg: v.cantidad_kg,
       precio_unitario: v.precio_unitario, total: v.total, unidad_venta: "cestas",
+      vendedor: v.vendedor || "",
       cliente: c.cliente, telefono: c.telefono, abono_inicial: nuevoAbono, observaciones: v.observaciones,
     });
   };
