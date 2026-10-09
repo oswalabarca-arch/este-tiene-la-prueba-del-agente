@@ -3,7 +3,7 @@ import os
 import pytest
 import requests
 
-BASE = os.environ.get("REACT_APP_BACKEND_URL", "https://agro-dashboard-14.preview.emergentagent.com").rstrip("/")
+BASE = os.environ.get("REACT_APP_BACKEND_URL", "https://erp-agricola.preview.emergentagent.com").rstrip("/")
 ADMIN_EMAIL = "oswaldabarca@gmail.com"
 ADMIN_PASS = "123456"
 TEST_USER_EMAIL = "zztest_campo@test.com"
